@@ -1,5 +1,6 @@
 // A person's Stop of a native Claude turn: Claude's own interrupt, as Esc in Claude Code, which keeps the process
-// and its background work; and the turn view a stopped turn keeps.
+// and its background work (the process declared perTaskStopAffordance at initialize, see createClaudeCodeProcess);
+// and the turn view a stopped turn keeps.
 import { recordClaudeEntryInterrupted } from "./claudeEntryStop.js";
 
 /** How long a person's Stop waits for Claude to answer its interrupt and end the turn. */
@@ -56,8 +57,9 @@ export function createClaudeStopState() {
 }
 
 /**
- * A person's Stop, as Esc in Claude Code: interrupts Claude's running turn and
- * spares its background agents and commands, so the process lives on with
+ * A person's Stop, as Esc in Claude Code: interrupts Claude's running turn,
+ * which spares its background agents and commands because the process
+ * declared perTaskStopAffordance at initialize, so the process lives on with
  * them; they report back, and the next message goes to the same process.
  * `turn` is the native turn's entry stop (see stopClaudeEntryProcess) with its
  * low-level `interrupt`, its `stopState`, its `inFlight` and `startedInputs`
@@ -104,8 +106,7 @@ async function interruptClaudeTurn(client, { waiting, runningLoop, timeoutMs }) 
   try {
     const withdrawals = Promise.all(waiting.map(withdraw));
     let atReceipt = UNREAD;
-    const receipt = await within(client.interrupt({ spareBackgroundTasks: true, timeoutMs,
-      onReceipt: () => { atReceipt = runningLoop(); } }));
+    const receipt = await within(client.interrupt({ timeoutMs, onReceipt: () => { atReceipt = runningLoop(); } }));
     if (receipt === EXPIRED) return false;
     // A client that reports no receipt's place (a stand-in) is read once its interrupt resolves.
     const interrupted = atReceipt === UNREAD ? runningLoop() : atReceipt;

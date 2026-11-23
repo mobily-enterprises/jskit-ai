@@ -609,9 +609,11 @@ export async function createClaudeCodeProcess({
       }
     });
     signal?.addEventListener("abort", abort, { once: true });
-    const initializing = client.initialize(commandWrapper ? { hooks: {
+    // perTaskStopAffordance: a person's Stop interrupts the turn and its background agents run on and report, as
+    // after Esc in Claude Code; a process stop still ends them.
+    const initializing = client.initialize({ perTaskStopAffordance: true, ...(commandWrapper ? { hooks: {
       PreToolUse: [{ matcher: "^Bash$", hookCallbackIds: ["jskit-command-wrapper"], timeout: 30 }]
-    } } : {}, { timeoutMs: initializationTimeoutMs, onProgress: onInitializationProgress });
+    } } : {}) }, { timeoutMs: initializationTimeoutMs, onProgress: onInitializationProgress });
     const initialization = await (native.exited ? Promise.race([
       initializing,
       native.exited.then(processExit => {

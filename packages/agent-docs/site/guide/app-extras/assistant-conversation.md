@@ -4934,9 +4934,14 @@ keeps the process. A native-representation conversation's Stop (the provider's
 `cancel`) reaches the retained owner this way, and the person's running command
 then settles with the interrupted turn. Claude's drain loop starts queued input as soon as an
 interrupted turn ends, so the retained owner first writes `cancel_async_message`
-for each of the turn's inputs Claude has not begun, then the `interrupt` control
-with `spare_background_tasks: true`, which leaves background agents and commands
-running (a plain interrupt ends them). It waits for the result of the loop that
+for each of the turn's inputs Claude has not begun, then the plain `interrupt`
+control. Background agents and commands keep running because every Claude
+process declares `perTaskStopAffordance: true` in its `initialize` request
+(Claude Code 2.1.246 and later; Claude reads it from a process's first
+initialize, and the interrupt carries no such field). Without that declaration,
+and in Claude Code before 2.1.246, an interrupt ends background agents. The
+interrupt's `cancel_queued` is not used: it would also drop a background task's
+queued report. It waits for the result of the loop that
 was under way where Claude wrote its receipt, then records the turn
 `interrupted`, keeping displayed partial output as commentary. Background tasks
 stay counted: their progress does not reopen the stopped turn, while their

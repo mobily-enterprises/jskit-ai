@@ -410,8 +410,8 @@ test("a person's Stop ends Claude's turn and keeps its process, where a backgrou
   await f.startTask("background-agent");
   const native = f.entry.process;
   assert.equal((await f.owner.interrupt(f.entry)).interrupted, true);
-  assert.deepEqual(f.behavior.requests.filter(request => request.subtype === "interrupt").map(request => request.spareBackgroundTasks), [true],
-    "Claude's interrupt spares its background tasks");
+  assert.equal(f.behavior.requests.filter(request => request.subtype === "interrupt").length, 1,
+    "Stop is Claude's own interrupt, once");
   assert.equal(native.stops, 0, "Stop does not stop the Claude process");
   assert.equal(f.entry.process, native);
   assert.deepEqual([f.entry.turn.state, f.entry.turn.active], ["interrupted", false]);
@@ -1257,9 +1257,9 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
   const saved = new Map();
   const messages = [];
   const processes = [];
-  // requests: every control request; tasks: Claude's running background tasks;
-  // queued: inputs Claude acknowledged but has not begun (see queue()).
-  const behavior = { account: "account-a", publication, requests: [], tasks: new Set(), queued: new Map() };
+  // requests: every control request; queued: inputs Claude acknowledged but has
+  // not begun (see queue()).
+  const behavior = { account: "account-a", publication, requests: [], queued: new Map() };
   let beforeState;
   // A Stop waits this long for Claude to end its turn before stopping the process.
   const owner = createClaudeConversationOwner({ configRoot: root, interruptTimeoutMs: 250,
@@ -1289,8 +1289,11 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
       configure() { return {}; },
       async create(options) {
         // Claude Code 2.1.330's answers: an interrupt's receipt precedes the
-        // interrupted turn's result, a plain one ends background tasks, and its
-        // drain loop then runs every input still queued.
+        // interrupted turn's result, and its drain loop then runs every input
+        // still queued. Background tasks run on: this stands for a process
+        // createClaudeCodeProcess started, whose initialize declared
+        // perTaskStopAffordance (claudeProcess.test.js shows Claude then spares
+        // them); only a process stop ends them.
         const native = { executionId: `execution-${processes.length}`, options, stops: 0,
           async stop() { native.stops++; return { scopeEmpty: true, exited: true }; },
           client: { async request(request) {
@@ -1332,13 +1335,9 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
               }
             },
             async interrupt(control = {}) {
-              behavior.requests.push({ process: native, subtype: "interrupt", spareBackgroundTasks: control.spareBackgroundTasks === true });
+              behavior.requests.push({ process: native, subtype: "interrupt" });
               const receipt = { still_queued: [...behavior.queued.keys()] };
               await control.onReceipt?.(receipt);
-              if (control.spareBackgroundTasks !== true) for (const taskId of behavior.tasks) {
-                await options.onEvent({ type: "system", subtype: "task_notification", task_id: taskId, status: "killed" });
-              }
-              if (control.spareBackgroundTasks !== true) behavior.tasks.clear();
               await options.onEvent({ type: "result", subtype: "success", result: "", terminal_reason: "aborted_streaming" });
               // A background task's report that waited in the queue starts Claude's next loop.
               if (behavior.reportAfterInterrupt) {
@@ -1387,7 +1386,7 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
   const frame = input => entry.process.options.onEvent({ session_id: conversationId, ...input });
   const final = () => owner.readFinalAssistantResult(context.key, conversationId, entry.turn?.id || "");
   // A background task Claude starts, such as an Agent it runs in the background.
-  const startTask = taskId => { behavior.tasks.add(taskId); return frame({ type: "system", subtype: "task_started", task_id: taskId }); };
+  const startTask = taskId => frame({ type: "system", subtype: "task_started", task_id: taskId });
   // The next send is a steer Claude acknowledges and holds behind its running tool call.
   const queue = () => {
     const send = entry.process.client.send;

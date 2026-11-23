@@ -122,7 +122,9 @@ test("Claude control replies bypass slow event persistence while events remain o
 
 // A person's Stop waits for the turn that was under way where Claude wrote its
 // interrupt's receipt, so the receipt is read at its place among the frames.
-test("Claude's interrupt can spare background tasks and reports its receipt between the frames around it", async () => {
+// Claude reads no field on the interrupt about background tasks: initialize
+// settles that for the process (perTaskStopAffordance).
+test("Claude's interrupt is the plain control and reports its receipt between the frames around it", async () => {
   const written = [];
   const observed = [];
   const stream = fakeStream((frame, socket) => {
@@ -136,8 +138,8 @@ test("Claude's interrupt can spare background tasks and reports its receipt betw
   } });
   try {
     let atReceipt;
-    const receipt = await client.interrupt({ spareBackgroundTasks: true, onReceipt: value => { atReceipt = [[...observed], value]; } });
-    assert.deepEqual(written, [{ subtype: "interrupt", spare_background_tasks: true }]);
+    const receipt = await client.interrupt({ onReceipt: value => { atReceipt = [[...observed], value]; } });
+    assert.deepEqual(written, [{ subtype: "interrupt" }]);
     assert.deepEqual(receipt, { still_queued: [] });
     assert.deepEqual(atReceipt, [[1], { still_queued: [] }], "Read after the frame before the receipt, before the one after it");
     stream.push(null);

@@ -77,6 +77,59 @@ test("standalone Claude startup uses the supplied execution host and carries its
   assert.deepEqual(await native.stop(), { scopeEmpty: true, exited: true });
 });
 
+// A person's Stop ends Claude's turn as Esc does, and the turn's background
+// agent runs on (owner, 2026-11-23). Claude Code (2.1.246 and later) spares
+// background agents on an interrupt only for a client whose initialize
+// declared perTaskStopAffordance; it reads no field on the interrupt itself.
+// On the canary a Stop sent with spare_background_tasks ended the agent.
+test("Claude's interrupt ends the turn and spares its background agent, which runs on and reports", { skip: process.platform === "win32", timeout: 5_000 }, async (t) => {
+  const setup = await fixture(t, `
+    import { createInterface } from "node:readline";
+    const emit = frame => process.stdout.write(JSON.stringify(frame) + "\\n");
+    let spares = false;
+    createInterface({ input: process.stdin }).on("line", line => {
+      const frame = JSON.parse(line);
+      if (frame.type === "user") {
+        emit(frame);
+        emit({ type: "system", subtype: "task_started", task_id: "agent", tool_use_id: "agent-call", task_type: "local_agent" });
+        return;
+      }
+      if (frame.type !== "control_request") return;
+      if (frame.request.subtype === "initialize") spares = frame.request.perTaskStopAffordance === true;
+      emit({ type: "control_response", response: { subtype: "success", request_id: frame.request_id,
+        response: frame.request.subtype === "interrupt" ? { still_queued: [] } : {} } });
+      if (frame.request.subtype !== "interrupt") return;
+      emit({ type: "result", subtype: "success", result: "", terminal_reason: "aborted_streaming" });
+      if (!spares) {
+        emit({ type: "system", subtype: "task_notification", task_id: "agent", status: "killed" });
+        return;
+      }
+      // The agent finishes after the Stop, and Claude answers its report in a loop of its own.
+      setTimeout(() => {
+        emit({ type: "system", subtype: "task_notification", task_id: "agent", status: "completed" });
+        emit({ type: "user", uuid: "agent-report", origin: { kind: "task-notification" }, message: { role: "user", content: "Agent report" } });
+        emit({ type: "result", subtype: "success", result: "The agent finished." });
+      }, 20);
+    });
+  `);
+  const frames = [];
+  const started = Promise.withResolvers();
+  const settled = Promise.withResolvers();
+  const native = await createClaudeCodeProcess({ ...setup, onEvent(frame) {
+    frames.push(frame);
+    if (frame.subtype === "task_started") started.resolve();
+    if (frame.subtype === "task_notification") settled.resolve(frame.status);
+  } });
+  t.after(() => native.stop());
+  await native.client.send("Start a background agent", { messageId: "request", sessionId: "conversation" });
+  await started.promise;
+  assert.deepEqual(await native.client.interrupt(), { still_queued: [] });
+  assert.equal(await settled.promise, "completed", "The interrupt must not end the background agent");
+  while (!frames.some(frame => frame.result === "The agent finished.")) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.deepEqual(frames.filter(frame => frame.type === "result").map(frame => frame.terminal_reason || frame.result),
+    ["aborted_streaming", "The agent finished."], "The Stop ended the turn, and the same process answered the agent's report");
+});
+
 test("a Claude process for a raised tool result limit has an MCP output cap that every result within it fits", { skip: process.platform === "win32" }, async (t) => {
   const setup = await fixture(t, `
     import { createInterface } from "node:readline";

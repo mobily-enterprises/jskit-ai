@@ -254,22 +254,29 @@ function createClaudeJsonClient({
     return supportsSendNow;
   }
 
-  /** The protocol handshake, with the host's hooks. */
-  function initialize({ hooks } = {}, options) {
-    return request({ subtype: "initialize", ...(hooks ? { hooks } : {}) }, options);
+  /**
+   * The protocol handshake, with the host's hooks. `perTaskStopAffordance`
+   * (Claude Code 2.1.246 and later) makes every later interrupt of this
+   * process spare its running background agents; without it an interrupt ends
+   * them. Claude reads only the process's first initialize.
+   */
+  function initialize({ hooks, perTaskStopAffordance = false } = {}, options) {
+    return request({ subtype: "initialize", ...(hooks ? { hooks } : {}),
+      ...(perTaskStopAffordance ? { perTaskStopAffordance: true } : {}) }, options);
   }
 
   /**
-   * Claude's interrupt, which ends the running turn. With `spareBackgroundTasks`
-   * its background agents and commands keep running, as after Esc in Claude
-   * Code. A control response passes the ordered event queue, so `onReceipt`
-   * runs in that queue at the receipt's place: after the frames Claude wrote
-   * before it are handled and before any later one, where the turn's state
-   * says whether a turn was under way when the interrupt landed.
+   * Claude's interrupt, which ends the running turn. Whether its background
+   * agents run on was settled at initialize (`perTaskStopAffordance`); the
+   * interrupt itself carries no such field. A control response passes the
+   * ordered event queue, so `onReceipt` runs in that queue at the receipt's
+   * place: after the frames Claude wrote before it are handled and before any
+   * later one, where the turn's state says whether a turn was under way when
+   * the interrupt landed.
    */
-  async function interrupt({ spareBackgroundTasks = false, timeoutMs, onReceipt } = {}) {
+  async function interrupt({ timeoutMs, onReceipt } = {}) {
     let ordered;
-    const receipt = await request({ subtype: "interrupt", ...(spareBackgroundTasks ? { spare_background_tasks: true } : {}) }, {
+    const receipt = await request({ subtype: "interrupt" }, {
       ...(timeoutMs === undefined ? {} : { timeoutMs }),
       ...(onReceipt ? { onResponse: value => {
         ordered = events.then(() => onReceipt(value));

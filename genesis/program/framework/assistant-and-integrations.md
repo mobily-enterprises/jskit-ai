@@ -156,10 +156,12 @@ refused control leaves the steer waiting for the tool call and is reported as th
 `steering_background_failed` diagnostic. One native result can finish every
 input Claude has started reading. Explicit Stop is the only
 interrupt. A person's Stop ends the turn as Esc does in Claude Code and keeps
-the process: it withdraws the turn's inputs Claude has not begun, interrupts
-with Claude's `spare_background_tasks`, waits for the loop under way at the
-interrupt's receipt and records the turn interrupted. Background tasks run on
-and report, and the next message, with any model or effort change, goes to the
+the process: it withdraws the turn's inputs Claude has not begun, sends
+Claude's plain interrupt, waits for the loop under way at the interrupt's
+receipt and records the turn interrupted. Background tasks run on and report
+because the process declared `perTaskStopAffordance` in its `initialize`
+(Claude Code 2.1.246 and later; without it an interrupt ends background
+agents), and the next message, with any model or effort change, goes to the
 same process. When Claude does not end the turn in time or an input may still
 run, and for a runtime binding, a canonical conversation's Stop, a wait's time
 limit and a closing owner, Stop still stops the process. The retained
