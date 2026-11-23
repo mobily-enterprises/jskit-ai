@@ -410,6 +410,10 @@ function useList({
     );
   }
 
+  // Changing the search or a filter starts the list again at its first page: the new key's cached pages are trimmed to
+  // the first. The trim runs at the change itself (flush "sync"), before vue-query's own watcher on the query's
+  // options sees the new key. In the same pre-flush, the two watchers run in the order they were notified, and when
+  // vue-query's runs first, its refetch of the new key takes every cached page and puts them all back over the trim.
   watch(activeSearchQuery, (nextValue, previousValue) => {
     if (!querySearchEnabled.value) {
       return;
@@ -419,7 +423,7 @@ function useList({
     }
 
     list.trimToFirstPage();
-  });
+  }, { flush: "sync" });
   watch(
     [
       activeQueryParamsToken,
@@ -428,7 +432,8 @@ function useList({
     ],
     () => {
       list.trimToFirstPage();
-    }
+    },
+    { flush: "sync" }
   );
   const listItems = computed(() => (Array.isArray(list.items.value) ? list.items.value : []));
 
