@@ -225,7 +225,9 @@ function createTx(state, touched) {
           createdAt: input.createdAt || nowIso(),
           updatedAt: input.updatedAt || nowIso(),
           disabled: input.disabled === true,
-          pendingEmail: input.pendingEmail || ""
+          pendingEmail: input.pendingEmail || "",
+          passwordChangedAt: input.passwordChangedAt || "",
+          emailChangedAt: input.emailChangedAt || ""
         };
         state.users.push(user);
         mark("users");
@@ -246,7 +248,9 @@ function createTx(state, touched) {
           return null;
         }
         user.password = clone(passwordRecord);
-        user.updatedAt = nowIso();
+        // A reset and a change alike: the password changed now.
+        user.passwordChangedAt = nowIso();
+        user.updatedAt = user.passwordChangedAt;
         mark("users");
         return clone(user);
       },
@@ -282,7 +286,8 @@ function createTx(state, touched) {
         }
         user.email = email;
         user.pendingEmail = "";
-        user.updatedAt = nowIso();
+        user.emailChangedAt = nowIso();
+        user.updatedAt = user.emailChangedAt;
         mark("users");
         return clone(user);
       }
@@ -297,7 +302,9 @@ function createTx(state, touched) {
           secondFactorAt: input.secondFactorAt || "",
           ip: input.ip || "",
           userAgent: input.userAgent || "",
-          lastSeenAt: input.lastSeenAt || ""
+          lastSeenAt: input.lastSeenAt || "",
+          signInIp: input.signInIp || "",
+          signInUserAgent: input.signInUserAgent || ""
         };
         state.sessions.push(session);
         mark("sessions");
@@ -354,6 +361,7 @@ function createTx(state, touched) {
         }
         return count;
       },
+      // Where the session was signed in from never changes.
       async touch(sessionId, { lastSeenAt, ip, userAgent }) {
         const session = state.sessions.find((entry) => entry.id === sessionId);
         if (!session) {

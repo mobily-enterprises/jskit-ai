@@ -152,6 +152,10 @@ Exports
 Exports
 - None
 
+### `migrations/auth_local_db_sign_in_facts.cjs`
+Exports
+- None
+
 ### `migrations/auth_local_db_used_passes-collation.cjs`
 Exports
 - None

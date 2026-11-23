@@ -158,11 +158,13 @@ test("a database the released migrations left half-migrated recovers on the next
   const knex = await database.restoredWithDefault(OTHER_DEFAULT);
   await assert.rejects(migrateReleased(knex, RELEASED), /errno: 150|incorrectly formed/u);
 
-  // The state the refused key left, as dogandgroom's database measured it.
+  // The state the refused key left, as dogandgroom's database measured it, with the migrations released since that
+  // sort before the refused one (auth_local_db_sign_in_facts.cjs).
   assert.deepEqual(await recorded(knex), [
     ...EARLY,
     "auth_local_db_oauth_invitation.cjs",
     "auth_local_db_sessions_metadata.cjs",
+    "auth_local_db_sign_in_facts.cjs",
     "auth_local_db_used_passes.cjs",
     "auth_local_db_users_disabled_message.cjs",
     "auth_local_db_users_email_verified.cjs",

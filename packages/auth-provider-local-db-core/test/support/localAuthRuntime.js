@@ -8,6 +8,7 @@ import oauthMigration from "../../migrations/auth_local_db_oauth.cjs";
 import oauthInvitationMigration from "../../migrations/auth_local_db_oauth_invitation.cjs";
 import protectionMigration from "../../migrations/auth_local_db_protection.cjs";
 import sessionsMetadataMigration from "../../migrations/auth_local_db_sessions_metadata.cjs";
+import signInFactsMigration from "../../migrations/auth_local_db_sign_in_facts.cjs";
 import usedPassesMigration from "../../migrations/auth_local_db_used_passes.cjs";
 import disabledMessageMigration from "../../migrations/auth_local_db_users_disabled_message.cjs";
 import emailVerifiedMigration from "../../migrations/auth_local_db_users_email_verified.cjs";
@@ -22,6 +23,7 @@ const LOCAL_AUTH_MIGRATIONS = Object.freeze([
   oauthInvitationMigration,
   protectionMigration,
   sessionsMetadataMigration,
+  signInFactsMigration,
   usedPassesMigration,
   disabledMessageMigration,
   emailVerifiedMigration,

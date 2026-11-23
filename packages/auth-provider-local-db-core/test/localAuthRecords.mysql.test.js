@@ -17,8 +17,10 @@ const NEXT_PASSWORD = Object.freeze({ algorithm: "scrypt", version: "2", salt: "
 const NO_PASSWORD = Object.freeze({ algorithm: "", version: "", salt: "", hash: "" });
 const CREATED = "2026-11-01T08:00:00.000Z";
 const ISO_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/u;
-const ACCOUNT_KEYS = ["id", "email", "displayName", "password", "createdAt", "updatedAt", "emailVerifiedAt", "disabled", "disabledMessage", "pendingEmail"];
-const SESSION_KEYS = ["id", "userId", "tokenHash", "purpose", "createdAt", "expiresAt", "revokedAt", "secondFactorAt", "ip", "userAgent", "lastSeenAt"];
+const ACCOUNT_KEYS = ["id", "email", "displayName", "password", "createdAt", "updatedAt", "emailVerifiedAt", "disabled", "disabledMessage", "pendingEmail",
+  "passwordChangedAt", "emailChangedAt"];
+const SESSION_KEYS = ["id", "userId", "tokenHash", "purpose", "createdAt", "expiresAt", "revokedAt", "secondFactorAt", "ip", "userAgent", "lastSeenAt",
+  "signInIp", "signInUserAgent"];
 const RECOVERY_KEYS = ["id", "userId", "tokenHash", "createdAt", "expiresAt", "usedAt"];
 
 /** The current second, as the second-precision timestamps keep it. */
@@ -62,7 +64,9 @@ test("accounts: create answers the account it wrote, reads find it by id and ema
     emailVerifiedAt: "",
     disabled: false,
     disabledMessage: "",
-    pendingEmail: ""
+    pendingEmail: "",
+    passwordChangedAt: "",
+    emailChangedAt: ""
   }, "create answers what it wrote, to the millisecond, and updatedAt defaults to createdAt");
 
   const before = thisSecond();
@@ -113,8 +117,9 @@ test("accounts: password, profile and email-proof updates answer the account aft
   let before = thisSecond();
   const repassworded = await backend.withTransaction((tx) => tx.users.updatePassword("usr_ada", NEXT_PASSWORD));
   assert.deepEqual(Object.keys(repassworded), ACCOUNT_KEYS);
-  assert.deepEqual({ ...repassworded, updatedAt: "" }, { ...created, password: NEXT_PASSWORD, updatedAt: "" });
+  assert.deepEqual({ ...repassworded, updatedAt: "", passwordChangedAt: "" }, { ...created, password: NEXT_PASSWORD, updatedAt: "" });
   assertStoredSince(repassworded.updatedAt, before, "updatePassword touches updatedAt");
+  assert.equal(repassworded.passwordChangedAt, repassworded.updatedAt, "updatePassword stamps when the password changed");
   assert.deepEqual((await backend.withTransaction((tx) => tx.users.updatePassword("usr_ada", { hash: "only" }))).password,
     { algorithm: "", version: "", salt: "", hash: "only" }, "missing password fields are written empty");
   assert.equal(await backend.withTransaction((tx) => tx.users.updatePassword("usr_missing", NEXT_PASSWORD)), null);
@@ -133,6 +138,7 @@ test("accounts: password, profile and email-proof updates answer the account aft
   before = thisSecond();
   const verified = await backend.withTransaction((tx) => tx.users.markEmailVerified("usr_ada"));
   assertStoredSince(verified.emailVerifiedAt, before, "markEmailVerified stamps the proof");
+  assert.equal(verified.emailChangedAt, "", "a first proof of the email is no change of it");
   const updatedAt = verified.updatedAt;
   const again = await backend.withTransaction((tx) => tx.users.markEmailVerified("usr_ada"));
   assert.equal(again.emailVerifiedAt, verified.emailVerifiedAt, "the first proof is kept");
@@ -159,7 +165,9 @@ test("sessions: create, reads, revoke once, revoke a user's live sessions but on
     secondFactorAt: "",
     ip: "",
     userAgent: "",
-    lastSeenAt: ""
+    lastSeenAt: "",
+    signInIp: "",
+    signInUserAgent: ""
   }, "a session without a purpose is a normal one");
   const preview = await backend.withTransaction((tx) => tx.sessions.create(session("ses_two", "usr_ada", "2026-12-01T00:00:00.000Z", { purpose: "dev-auth" })));
   assert.equal(preview.purpose, "dev-auth");

@@ -30,6 +30,44 @@ function assertAuthPolicyDeps(deps = {}) {
   };
 }
 
+const textOr = (value) => (typeof value === "string" ? value : "");
+
+/**
+ * How the session was signed in, each field "" when the provider does not know it, or null when the provider keeps
+ * none.
+ * @param {unknown} value
+ * @returns {import("../types.js").AuthSessionSignIn | null}
+ */
+function normalizeSessionSignIn(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const source = /** @type {Record<string, unknown>} */ (value);
+  return Object.freeze({
+    at: textOr(source.at),
+    ip: textOr(source.ip),
+    userAgent: textOr(source.userAgent),
+    purpose: textOr(source.purpose)
+  });
+}
+
+/**
+ * When the account's password and email last changed, each "" when not since the provider kept it, or null when the
+ * provider keeps neither.
+ * @param {unknown} value
+ * @returns {import("../types.js").AuthCredentialsChangedAt | null}
+ */
+function normalizeCredentialsChangedAt(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const source = /** @type {Record<string, unknown>} */ (value);
+  return Object.freeze({
+    password: textOr(source.password),
+    email: textOr(source.email)
+  });
+}
+
 function normalizeActorResolution(result) {
   const source = asObject(result);
 
@@ -37,7 +75,9 @@ function normalizeActorResolution(result) {
     authenticated: Boolean(source.authenticated),
     actor: Object.hasOwn(source, "actor") ? source.actor : null,
     // When the session last proved its second factor, as ISO text, or "".
-    secondFactorAt: typeof source.secondFactorAt === "string" ? source.secondFactorAt : "",
+    secondFactorAt: textOr(source.secondFactorAt),
+    sessionSignIn: normalizeSessionSignIn(source.signIn),
+    credentialsChangedAt: normalizeCredentialsChangedAt(source.credentialsChangedAt),
     transientFailure: Boolean(source.transientFailure)
   };
 }

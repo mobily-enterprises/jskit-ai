@@ -22,7 +22,9 @@
  *   `disabledMessage`, or that the account is disabled when it has none; the file backend keeps no message. A user's
  *   `pendingEmail` is the address its email change waits to confirm ("" when none): `updatePendingEmail` sets it, and
  *   `updateEmail` changes the email to a confirmed address and clears it, refusing an email another account has with
- *   a ConflictError.
+ *   a ConflictError. A user's `passwordChangedAt` is when its password last changed and `emailChangedAt` when its
+ *   email did ("" when it has not since they were kept): `updatePassword` (a reset and a change alike) and
+ *   `updateEmail` set them now, in the same write; creating an account sets neither.
  * @property {{
  *   create(input: object): Promise<object>,
  *   findById(sessionId: string): Promise<object | null>,
@@ -35,7 +37,9 @@
  * }} sessions A session's `secondFactorAt` is when it last proved its second factor ("" when it has not):
  *   `markSecondFactorProved` marks one session, `clearSecondFactorForUser` every session of the user. A session keeps
  *   where it was last seen from, `ip` and `userAgent` (`create` takes them with `lastSeenAt`), and when, `lastSeenAt`,
- *   each "" when unknown; `touch` notes it seen again, keeping its `ip` or `userAgent` when the new one is "".
+ *   each "" when unknown; `touch` notes it seen again, keeping its `ip` or `userAgent` when the new one is "". It also
+ *   keeps where it was signed in from, `signInIp` and `signInUserAgent` ("" when unknown): `create` takes them, and
+ *   nothing changes them after.
  * @property {{
  *   create(input: object): Promise<object>,
  *   findByTokenHash(tokenHash: string): Promise<object | null>,

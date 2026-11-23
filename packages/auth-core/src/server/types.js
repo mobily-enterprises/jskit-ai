@@ -17,8 +17,35 @@
  * @property {boolean} [transientFailure] True when authentication could not be decided at this time.
  * @property {string} [secondFactorAt] When the request's session last proved its second factor, as ISO text, or ""
  *   when it has not; the auth policy compares it with a route's `secondFactor`.
+ * @property {AuthSessionSignIn} [signIn] How the request's session was signed in; the auth policy sets it as
+ *   `request.sessionSignIn`. A provider that keeps none (OIDC, Supabase) leaves it out.
+ * @property {AuthCredentialsChangedAt} [credentialsChangedAt] When the account's password and email last changed; the
+ *   auth policy sets it as `request.credentialsChangedAt`. A provider that keeps neither leaves it out.
  * @property {boolean} [refreshRequired] True when the session must be refreshed first, which a caller
  *   that asked for no refresh (`refreshSession: false`), such as a realtime socket, cannot do.
+ */
+
+/**
+ * How a session was signed in, kept from its sign-in and never changed by later requests: when (`at`, ISO text: the
+ * session's creation, which a refresh never renews), from where (`ip`, the sign-in request's `request.ip`, and
+ * `userAgent`, its `User-Agent`, at most 512 characters) and why (`purpose`: `normal` for an ordinary sign-in,
+ * `dev-auth` for a development one, or another the provider gives). Each is "" when unknown: a session signed in
+ * before its provider kept them, or by a sign-in without a request, has `ip` and `userAgent` "". An action that asks
+ * where its session was signed in from refuses one whose `ip` or `userAgent` is "", so its person signs in again.
+ * @typedef {object} AuthSessionSignIn
+ * @property {string} at
+ * @property {string} ip
+ * @property {string} userAgent
+ * @property {string} purpose
+ */
+
+/**
+ * When an account's credentials last changed, as ISO text: `password` (a reset or a change) and `email` (a change
+ * to a confirmed address), each "" when it has not since its provider kept it. Registering, and confirming a new
+ * account's email, set neither.
+ * @typedef {object} AuthCredentialsChangedAt
+ * @property {string} password
+ * @property {string} email
  */
 
 /**
