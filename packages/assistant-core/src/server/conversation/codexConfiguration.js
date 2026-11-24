@@ -179,8 +179,9 @@ async function codexModelCatalogRevision({ command, codexHome, bundled, addition
 // exist. A thread override changes routing, but cannot supply model metadata.
 // Export from the installed CLI so native model definitions stay CLI-owned.
 // An app-server start reuses the runtime's exported catalogue until its
-// revision changes, so reconnects and idle restarts run no exporter.
-export async function prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [], codexHome }) {
+// revision changes, so reconnects and idle restarts run no exporter. `env` is
+// the exporter's environment when it is not this process's (a helper's own).
+export async function prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [], codexHome, env }) {
   if (!codexHome) throw new TypeError("prepareCodexModelCatalog requires the Codex home whose configuration the catalogue reads.");
   const catalogPath = path.join(runtimeDir, "models.json");
   const revisionPath = path.join(runtimeDir, "models.revision");
@@ -196,7 +197,7 @@ export async function prepareCodexModelCatalog({ command, runtimeDir, bundled = 
     const { stdout } = await execute(command, [
       "debug", "models", ...(bundled ? ["--bundled"] : []),
       "-c", "check_for_update_on_startup=false"
-    ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 20_000, signal });
+    ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 20_000, signal, env });
     catalog = JSON.parse(stdout);
     if (!Array.isArray(catalog?.models) || !catalog.models.length) {
       throw new Error("Invalid native model catalogue");
@@ -229,6 +230,16 @@ export async function prepareCodexModelCatalog({ command, runtimeDir, bundled = 
   const exported = await codexModelCatalogRevision(revisionInput);
   if (exported) await writeFile(revisionPath, exported, { mode: 0o600 });
   return catalogPath;
+}
+
+/**
+ * The app-server arguments that hand Codex an exported catalogue. Every start passes them, helper starts too: without
+ * one, Codex's model manager fetches the provider's model list (chatgpt.com for OpenAI) before each turn and resume.
+ * They go last, after every other override (openai/codex#39012).
+ * @param {string} catalogPath
+ */
+export function codexModelCatalogArguments(catalogPath) {
+  return ["-c", `model_catalog_json=${JSON.stringify(catalogPath)}`];
 }
 
 // Read the same catalogue supplied to this runtime's native model manager.

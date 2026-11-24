@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createConversationProcessIdentity } from "./processIdentity.js";
 import { isRecord, normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
-import { prepareCodexModelCatalog, readCodexCustomModels } from "./codexConfiguration.js";
+import { codexModelCatalogArguments, prepareCodexModelCatalog, readCodexCustomModels } from "./codexConfiguration.js";
 import { startCodexHistoryAdapter } from "./codexHistoryAdapter.js";
 
 const CODEX_APP_SERVER_METADATA_FILE = "runtime.json";
@@ -41,7 +41,7 @@ export async function runCodexAppServerProcess({
   const adapter = await startCodexHistoryAdapter({ token, codexHome });
   await writeFile(`${descriptor}.tmp`, JSON.stringify({ baseUrl: adapter.baseUrl, runtimeToken: token }), { mode: 0o600 });
   await rename(`${descriptor}.tmp`, descriptor);
-  const child = spawn(command, [...args, "-c", `model_catalog_json=${JSON.stringify(catalogPath)}`], { stdio: "inherit" });
+  const child = spawn(command, [...args, ...codexModelCatalogArguments(catalogPath)], { stdio: "inherit" });
   let stopping = false;
   let forceExit;
   function stop(signal = "SIGTERM") {

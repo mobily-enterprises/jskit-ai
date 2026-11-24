@@ -4,7 +4,9 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
-import { copyCodexProviderHome } from "./codexConfiguration.js";
+import {
+  codexModelCatalogArguments, codexProviderCatalogPath, copyCodexProviderHome, prepareCodexModelCatalog
+} from "./codexConfiguration.js";
 import { codexDisabledProcessFeatureArguments } from "./codexHomeStorage.js";
 import {
   CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES, CODEX_APP_SERVER_ENDPOINT_STATUS, CODEX_APP_SERVER_EXECUTION_MODES,
@@ -184,6 +186,28 @@ export function createCodexAppServerProcessStart({
           env,
           terminalEnv: normalizedTerminalEnv
         });
+    // A managed start's leader (runCodexAppServerProcess) exports its catalogue; a helper has no leader, so its start
+    // exports one here, from the binary's bundled definitions (an export that never fetches a model list) and the
+    // copied provider home's rows, in the helper's own environment. A helper never starts without one.
+    let helperCatalogArguments = [];
+    if (helper) {
+      try {
+        helperCatalogArguments = codexModelCatalogArguments(await prepareCodexModelCatalog({
+          command: codexCommand,
+          runtimeDir,
+          bundled: true,
+          additionalModels: providerHome
+            ? JSON.parse(await readFile(codexProviderCatalogPath(helperHome), "utf8")).models
+            : [],
+          codexHome: helperHome,
+          env: Object.fromEntries(Object.entries({ ...commandBaseEnv, HOME: helperHome }).filter(([, value]) => value))
+        }));
+      } catch (cause) {
+        const error = new Error("Codex isolated helper runtime could not export its model catalogue.", { cause });
+        error.code = `${errorPrefix}codex_helper_runtime_start_failed`;
+        throw error;
+      }
+    }
     if (await fileExists(socketPath) && !socketOwnerDrained) {
       const endpointStatus = await codexAppServerEndpointStatus(endpoint, {
         timeoutMs: CODEX_APP_SERVER_LIVENESS_TIMEOUT_MS,
@@ -225,7 +249,8 @@ export function createCodexAppServerProcessStart({
             "-c",
             projectTrustOverride
           ]
-        : [])
+        : []),
+      ...helperCatalogArguments
     ];
     const runtimeToken = randomUUID();
     const commandHash = codexAppServerProcessCommandHash({
