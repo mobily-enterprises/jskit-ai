@@ -57,13 +57,18 @@ function nativeOpenCode() {
     rows[1] = { ...rows[1], text: "Done.", finish: "stop", time: { created: 2, completed: 3 } };
     busy = false;
   }
+  // One step of the turn ends with tool calls, and OpenCode stops before it runs them.
+  function step() {
+    rows[1] = { ...rows[1], text: "Running the tests.", finish: "tool-calls", time: { created: 2, completed: 3 } };
+    busy = false;
+  }
   // The provider fails the turn as a native session.error event, which only
   // polling notices; OpenCode goes idle.
   function failEvent() {
     eventFailure = Object.assign(new Error(PROVIDER_FAILURE), { name: "APIError" });
     busy = false;
   }
-  return { calls, create, fail, complete, failEvent, readFailure: () => eventFailure };
+  return { calls, create, fail, complete, step, failEvent, readFailure: () => eventFailure };
 }
 
 // One server with Vibe64's run rules: the session record keeps the OpenCode run
@@ -315,7 +320,7 @@ test("OpenCode shutdown ends a temporary conversation's turn as interrupted, and
   assert.deepEqual(closed.closes, [{ stopped: true, outcome: "failed", stoppedByShutdown: false }]);
 });
 
-test("once OpenCode's shutdown has begun, a main turn that ends on its own is left to the next server, which records it with one checkpoint", { timeout: 5_000 }, async t => {
+test("once OpenCode's shutdown has begun, a main turn that ends on its own is left to the next server, which records it completed with one checkpoint", { timeout: 5_000 }, async t => {
   const native = nativeOpenCode();
   const saved = { run: null };
   const first = server(native, saved);
@@ -336,11 +341,41 @@ test("once OpenCode's shutdown has begun, a main turn that ends on its own is le
   t.after(() => next.shutdown());
   assert.equal((await next.ready()).ok, true);
   assert.equal((await next.ready()).ok, true);
-  assert.deepEqual(next.calls.checkpoints, [`${INPUT_ID}:interrupted`], "the next server made the checkpoint once");
+  // OpenCode's history holds the turn's completed answer.
+  assert.deepEqual(next.calls.checkpoints, [`${INPUT_ID}:completed`], "the next server made the checkpoint once");
+  assert.deepEqual(runOf(saved), { active: false, state: "completed", error: "", stoppedByShutdown: true, turnId: INPUT_ID });
+
+  // A goal's recovery reads the same history.
+  const goalNative = nativeOpenCode();
+  const recovered = { run: null };
+  const ended = server(goalNative, recovered);
+  t.after(() => ended.shutdown());
+  await ended.running();
+  ended.begin();
+  goalNative.complete();
+  await ended.runtime.monitors.get(KEY);
+  assert.equal((await ended.shutdown()).ok, true);
+  const recovering = server(goalNative, recovered);
+  t.after(() => recovering.shutdown());
+  assert.deepEqual((await recovering.recover()).results, [{ ok: true, resumed: false, sessionId: SESSION_ID }]);
+  assert.deepEqual(recovering.calls.checkpoints, [`${INPUT_ID}:completed`]);
+  assert.deepEqual(runOf(recovered), { active: false, state: "completed", error: "", stoppedByShutdown: true, turnId: INPUT_ID });
+});
+
+test("the next server records an OpenCode turn the shutdown stopped completed only when OpenCode completed its answer", { timeout: 5_000 }, async t => {
+  // OpenCode ended one step of the turn with tool calls; the shutdown stopped the rest.
+  const native = nativeOpenCode();
+  native.step();
+  const saved = { run: { active: true, state: "active", error: "", observationError: "", stoppedByShutdown: true,
+    threadId: THREAD_ID, turnId: INPUT_ID, startedAt: "2026-11-05T00:00:00.000Z" } };
+  const next = server(native, saved);
+  t.after(() => next.shutdown());
+  assert.equal((await next.ready()).ok, true);
+  assert.deepEqual(next.calls.checkpoints, [`${INPUT_ID}:interrupted`]);
   assert.deepEqual(runOf(saved), { active: false, state: "interrupted", error: "", stoppedByShutdown: true, turnId: INPUT_ID });
 });
 
-test("once OpenCode's shutdown has begun, a temporary conversation's turn that ends on its own leaves its checkpoint to the next server", { timeout: 5_000 }, async t => {
+test("once OpenCode's shutdown has begun, a temporary conversation's turn that ends on its own leaves its checkpoint to the next server, which reads it completed", { timeout: 5_000 }, async t => {
   const native = nativeOpenCode();
   const first = server(native, { run: null });
   t.after(() => first.shutdown());
@@ -356,9 +391,10 @@ test("once OpenCode's shutdown has begun, a temporary conversation's turn that e
   const next = server(native, { run: null });
   t.after(() => next.shutdown());
   const ended = [];
-  const read = await next.readTemporary("ses_temp", { runId: INPUT_ID, async ended() { ended.push(INPUT_ID); } });
-  assert.deepEqual({ status: read.status, error: read.error }, { status: "interrupted", error: "" });
-  assert.deepEqual(ended, [INPUT_ID], "recording the run lets the application make its checkpoint");
+  const read = await next.readTemporary("ses_temp", { runId: INPUT_ID, async ended(result) { ended.push([INPUT_ID, result?.outcome]); } });
+  // OpenCode's history holds the turn's completed answer.
+  assert.deepEqual({ status: read.status, error: read.error, text: read.text }, { status: "completed", error: "", text: "Done." });
+  assert.deepEqual(ended, [[INPUT_ID, "completed"]], "recording the run lets the application make its checkpoint, with its outcome");
 });
 
 const STEER_ID = "msg_steer";

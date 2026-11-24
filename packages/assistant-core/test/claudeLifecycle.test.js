@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -122,6 +122,44 @@ async function lifecycleFixture(t, { turnEndCheckpoint = async () => {} } = {}) 
   });
   return { root, calls, processes, session, contextFor, application, account, terminals, running, idle, archive,
     get owner() { return owner; }, restart() { owner = create(); return owner; } };
+}
+
+// Claude's session file for a conversation: below the owner's configuration
+// root, in the folder named for the session's working directory.
+function writeClaudeHistory(root, sessionId, conversationId, frames) {
+  const directory = path.join(root, "projects", realpathSync(path.join(root, sessionId)).replace(/[^a-zA-Z0-9]/gu, "-"));
+  mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, `${conversationId}.jsonl`);
+  writeFileSync(file, frames.map(frame => `${JSON.stringify(frame)}\n`).join(""));
+  return file;
+}
+
+// Frames as Claude Code 2.1.331 saves a stream-json turn, with the fields the
+// owner reads: the prompt under the uuid the owner sent it with, each later
+// frame naming its parent, every frame of an answer with that answer's
+// stop_reason, and no result frame. Claude saves the turn's last answer
+// (stop_reason end_turn) before it reports the turn's result.
+const frame = {
+  prompt: (uuid, parentUuid = null, content = "Work") => ({ type: "user", uuid, parentUuid, message: { role: "user", content } }),
+  attachment: (uuid, parentUuid, attachment = { type: "date" }) => ({ type: "attachment", uuid, parentUuid, attachment }),
+  answer: (uuid, parentUuid, content, stopReason = "end_turn", fields = {}) => ({ type: "assistant", uuid, parentUuid,
+    message: { id: `msg_${uuid}`, role: "assistant", model: "claude-sonnet", stop_reason: stopReason, content }, ...fields }),
+  toolResult: (uuid, parentUuid, toolUseId, toolUseResult = {}) => ({ type: "user", uuid, parentUuid, toolUseResult,
+    message: { role: "user", content: [{ type: "tool_result", tool_use_id: toolUseId, content: "ok" }] } }),
+  // Claude's own message when a background task ends, which continues the turn.
+  taskNotification: (uuid, parentUuid, taskId, toolUseId) => ({ type: "user", uuid, parentUuid,
+    origin: { kind: "task-notification" }, message: { role: "user",
+      content: `<task-notification>\n<task-id>${taskId}</task-id>\n<tool-use-id>${toolUseId}</tool-use-id>\n<status>completed</status>\n</task-notification>` } })
+};
+const text = value => ({ type: "text", text: value });
+const toolUse = (id, input = { command: "npm test" }) => ({ type: "tool_use", id, name: "Bash", input });
+
+// A turn Claude finished: a tool call, its result, then the answer.
+function answeredTurn(promptId) {
+  return [frame.prompt(promptId), frame.attachment("t1", promptId),
+    frame.answer("t2", "t1", [toolUse("toolu_1")], "tool_use"), frame.toolResult("t3", "t2", "toolu_1"),
+    frame.answer("t4", "t3", [{ type: "thinking", thinking: "Checked." }]), frame.answer("t5", "t4", [text("Done.")]),
+    { type: "last-prompt", leafUuid: "t5" }];
 }
 
 test("Claude shutdown stops every session's work although a stale archived session refuses writes", async t => {
@@ -260,6 +298,64 @@ test("once Claude's shutdown has begun, a turn that ends on its own is left to t
   assert.equal((await f.owner.closeSession({ sessionId: "a" }, f.application)).ok, true);
   assert.equal((await f.owner.closeSession({ sessionId: "a" }, f.application)).ok, true);
   assert.deepEqual(f.calls.checkpoints, ["a:interrupted"]);
+});
+
+test("a Claude turn whose answer arrives once shutdown has begun is recorded completed by the next server, through its one completed checkpoint", { timeout: 5_000 }, async t => {
+  const f = await lifecycleFixture(t);
+  const a = await f.running("a");
+  f.owner.beginShutdown();
+  // Claude saves the turn's answer, then reports its result.
+  writeClaudeHistory(f.root, "a", MAIN_IDS.a, answeredTurn(a.turn.id));
+  await f.processes[0].options.onEvent({ type: "result", subtype: "success", result: "Done." });
+  assert.equal((await f.owner.invalidateRuntimes({ reason: "server-shutdown" }, f.application, f.account)).ok, true);
+  assert.deepEqual(f.calls.checkpoints, [], "shutdown ran no checkpoint");
+  assert.equal(JSON.parse(f.session("a").records.get(MAIN_IDS.a)).state, "active", "the turn is left to the next server");
+  f.restart();
+  assert.equal((await f.owner.closeSession({ sessionId: "a" }, f.application)).ok, true);
+  assert.equal((await f.owner.closeSession({ sessionId: "a" }, f.application)).ok, true);
+  assert.deepEqual(f.calls.checkpoints, ["a:completed"], "the next server ran the completed checkpoint, once");
+  const { executionId, state } = JSON.parse(f.session("a").records.get(MAIN_IDS.a));
+  assert.deepEqual({ executionId, state }, { executionId: "", state: "completed" });
+});
+
+test("the next Claude server records a left turn completed only when Claude's history holds that turn's last answer", async t => {
+  const f = await lifecycleFixture(t);
+  const records = f.session("a").records;
+  const prompt = "11111111-1111-4111-8111-111111111111";
+  const steer = "22222222-2222-4222-8222-222222222222";
+  const background = toolUse("toolu_bg", { command: "npm run build", run_in_background: true });
+  const startedInBackground = [frame.prompt(prompt), frame.answer("b1", prompt, [background], "tool_use"),
+    frame.toolResult("b2", "b1", "toolu_bg", { backgroundTaskId: "task_1" }), frame.answer("b3", "b2", [text("Started the build.")])];
+  const cases = [
+    ["completed", "completed", answeredTurn(prompt)],
+    ["completed", "completed after its background task reported", [...startedInBackground,
+      frame.taskNotification("b4", "b3", "task_1", "toolu_bg"), frame.answer("b5", "b4", [text("The build passed.")])]],
+    ["completed", "completed after a steer the record names", [frame.prompt(prompt), frame.answer("s1", prompt, [toolUse("toolu_2")], "tool_use"),
+      frame.toolResult("s2", "s1", "toolu_2"), frame.prompt(steer, "s2", "Also check the docs"), frame.answer("s3", steer, [text("Both done.")])],
+    { lastMessageId: steer }],
+    ["interrupted", "no history", null],
+    ["interrupted", "an unfinished last frame", answeredTurn(prompt), {}, '{"type":"assistant","uuid":"t6"'],
+    ["interrupted", "its last message a tool call", [frame.prompt(prompt), frame.answer("c1", prompt, [toolUse("toolu_3")], "tool_use")]],
+    ["interrupted", "its answer waiting on a background task", startedInBackground],
+    ["interrupted", "a later prompt answered", [...answeredTurn(prompt), frame.prompt(steer, "t5", "Next"), frame.answer("d1", steer, [text("Next done.")])]],
+    ["interrupted", "input queued after the answer", [...answeredTurn(prompt), { type: "queue-operation", operation: "enqueue", content: "More" }]],
+    ["interrupted", "Claude's API error", [frame.prompt(prompt),
+      frame.answer("e1", prompt, [text("API Error: overloaded")], "end_turn", { isApiErrorMessage: true })]],
+    ["interrupted", "an unfinished goal still judging the answer", [frame.prompt(prompt),
+      frame.attachment("g1", prompt, { type: "goal_status", condition: "Ship it", met: false }), frame.answer("g2", "g1", [text("Shipped.")])]],
+    ["interrupted", "only another turn's answer", [frame.prompt(steer), frame.answer("h1", steer, [text("Done.")])]]
+  ];
+  const ids = cases.map((_, index) => `${String(index).padStart(8, "0")}-0000-4000-8000-000000000000`);
+  cases.forEach(([, , frames, saved = {}, tail], index) => {
+    records.set(ids[index], JSON.stringify({ executionId: `execution-${index}`, state: "active", turnId: prompt, main: false, ...saved }));
+    if (!frames) return;
+    const file = writeClaudeHistory(f.root, "a", ids[index], frames);
+    if (tail) appendFileSync(file, tail);
+  });
+  assert.equal((await f.owner.closeSession({ sessionId: "a" }, f.application)).ok, true);
+  assert.deepEqual(cases.map(([, name], index) => [name, JSON.parse(records.get(ids[index])).state]),
+    cases.map(([state, name]) => [name, state]));
+  assert.equal(f.calls.stops.length, cases.length, "each left execution's exit was proven first");
 });
 
 test("outside shutdown a Claude turn that ends on its own still runs its checkpoint at once", { timeout: 5_000 }, async t => {
