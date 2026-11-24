@@ -7,7 +7,8 @@
 // ends the run. A port that already answers is refused before anything is built or started: a server left there by an
 // earlier run would answer for this run's. Stopped by Playwright (SIGTERM), by Ctrl-C, or by the end of the stdin pipe
 // Playwright gives its webServer (a Playwright that ended without stopping it), the launcher stops its servers and
-// waits for them, within Playwright's grace, before it exits.
+// waits for them, within Playwright's grace, before it exits. `jskit browser-test-server` (browser-test-server.mjs) runs it
+// for one server a host starts, with `terminal`: that server's output also reaches the launcher's own.
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createWriteStream, fstatSync, mkdirSync, writeFileSync } from "node:fs";
@@ -122,7 +123,7 @@ const started = performance.now();
 const appRoot = process.cwd();
 const {
   workers, host, basePort, server, build, prepare, env, health, workerEnvironments: workerEnvironmentsFile, signIn,
-  signedInStates
+  signedInStates, terminal
 } = JSON.parse(process.env[SETTINGS_VARIABLE] || "{}");
 // The servers, and the databases prepared for them, are APP_ENV=test.
 useTestAppEnvironment(process.env, "jskit browser tests");
@@ -156,6 +157,10 @@ try {
     const output = createWriteStream(path.join(appRoot, log));
     child.stdout.pipe(output);
     child.stderr.pipe(output);
+    if (terminal) {
+      child.stdout.pipe(process.stdout, { end: false });
+      child.stderr.pipe(process.stderr, { end: false });
+    }
     child.once("exit", (code, signal) => {
       if (stopping) return;
       console.error(`[browser-tests] ${name} stopped (${signal || `exit ${code}`}); log: ${log}`);

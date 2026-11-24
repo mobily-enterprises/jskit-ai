@@ -462,3 +462,14 @@ host serves it, starts no second server, and restores normal Preview after the
 batch. Database isolation alone does not
 disable email, payments or other external effects: configure those test controls
 and verify the actual server identity before destructive requests.
+
+A host's browser test target, such as a Vibe64 Outputs target with
+``- Data: `test` ``, runs `jskit browser-test-server <host> <port>`: one worker's
+server of the app's own `browserTestConfig()`, on the production build, with the
+database its `prepare` module gives that worker (`BROWSER_TEST_DB_NAME` itself in
+the database patterns), its test-only `env` and `APP_ENV=test`, on the host's
+address. The JSKIT Stack piece declares that target as `test-app`, so
+`vibe64-helper playwright --target test-app npm-run test:e2e` runs the app's
+suite against its own test database from the first commit. The target signs
+nothing in; the host supplies the suite's login state through the target's
+Preview identity, the same command as the normal target's.

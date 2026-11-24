@@ -11,6 +11,7 @@ import {
   formatCheckReport,
   formatExportSummary
 } from "./i18n.mjs";
+import { serveBrowserTestTarget } from "./browser-test-server.mjs";
 import { checkDataAccess, formatDataAccessReport } from "./data-access.mjs";
 import { checkManifestCapabilities, formatManifestCapabilitiesReport } from "./manifest-capabilities.mjs";
 import { checkMaterial3, formatMaterial3Report } from "./material3.mjs";
@@ -34,6 +35,7 @@ function usage() {
     "  jskit i18n check <locale> [--root <path>]",
     "  jskit package nix [--root <path>]",
     "  jskit test [node options] [files or globs]",
+    "  jskit browser-test-server [host] [port]",
     "",
     "Commands:",
     "  update       Align root and workspace @jskit-ai/* declarations to this published catalog, then run npm install.",
@@ -83,6 +85,12 @@ function usage() {
     "               connected database. Given no files, it",
     "               fails when a file under tests/ is named as a test (x.integration.js, x.spec.js) that node's",
     "               default pattern would leave out; a database test is named x.integration.test.js.",
+    "  browser-test-server",
+    "               Serve the app for a host's browser test run, such as a Vibe64 Outputs target with Data test, on",
+    "               [host] [port] (else HOST and PORT): one worker's server of the app's playwright.config.mjs",
+    "               browserTestConfig(), on the production build, with the database its prepare module gives that",
+    "               worker, its test-only env and APP_ENV=test. The host's suite runs against it with",
+    "               PLAYWRIGHT_BASE_URL and the login state the host supplies. It runs until it is stopped.",
     "",
     "<locale> is a BCP 47 language tag, such as fr or pt-BR."
   ].join("\n");
@@ -94,7 +102,7 @@ function parseArgs(argv = []) {
   const command = commandArgument === "--help" || commandArgument === "-h"
     ? "help"
     : commandArgument;
-  if (command === "test") {
+  if (command === "test" || command === "browser-test-server") {
     return { command, args };
   }
   const options = {
@@ -285,6 +293,10 @@ async function main(argv = process.argv.slice(2)) {
   }
   if (options.command === "test") {
     process.exitCode = await runTests(options.args);
+    return;
+  }
+  if (options.command === "browser-test-server") {
+    await serveBrowserTestTarget(options.args);
     return;
   }
 
