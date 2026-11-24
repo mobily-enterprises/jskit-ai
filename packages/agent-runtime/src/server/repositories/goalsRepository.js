@@ -74,6 +74,11 @@ export function createGoalsRepository({ goals, options }) {
     return change(id, { lease_until: inSeconds(seconds) });
   }
 
+  /** Its server stopped the round part-way: due again now as the same round (`rounds` as before it), its lease let go. */
+  function handOver(id, rounds) {
+    return change(id, { lease_until: null, round_at: now(), rounds, updated_at: now() });
+  }
+
   /** The goal's row once its round has started (one more round, none queued), or undefined when it is gone. */
   async function startRound(id, rounds) {
     const current = await goals.patch(id, { rounds, round_at: null, updated_at: now() }, { ...options, missing: "skip" });
@@ -96,6 +101,7 @@ export function createGoalsRepository({ goals, options }) {
     stopRounds,
     retryLater,
     extendLease,
+    handOver,
     startRound,
     finishRound
   });

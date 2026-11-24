@@ -72,7 +72,9 @@ export function goalTools(operations) {
  * `owner(row)` extra columns for a new goal; `spent(goal)` what the job has cost so far;
  * `track(goal, work)` meters it; `background(work)` keeps a round going after the turn that queued
  * it. Each optional hook is a function, or left out for its named default. Without
- * `notices`, each server finds due rounds on its own timer.
+ * `notices`, each server finds due rounds on its own timer. `respond`'s `signal` is the round's
+ * server stopping (the loop's drain): a reply that ends at its next step once it aborts lets the
+ * round be handed over at once, due again as the same round for another server, told on `channel`.
  * @param {object} dependencies
  * @param {Readonly<Record<string, import("@jskit-ai/resource-runtime/server/types").ResourceHandle>>} dependencies.resources The owner's handles (agentResources()).
  * @param {(reason: string) => import("@jskit-ai/resource-runtime/server/types").SystemContext} dependencies.systemContext The owner's system context factory.
@@ -81,7 +83,7 @@ export function goalTools(operations) {
  * @param {import("./types.js").AgentNotices | null} [dependencies.notices]
  * @param {typeof GOAL_LIMITS} [dependencies.limits]
  * @param {(goal: object) => Promise<object | null>} dependencies.find
- * @param {(row: object, options: { timeZone: string, language: string, prompt: string, goalTurn: boolean }) => Promise<unknown>} dependencies.respond
+ * @param {(row: object, options: { timeZone: string, language: string, prompt: string, goalTurn: boolean, signal: AbortSignal }) => Promise<unknown>} dependencies.respond
  * @param {(row: object) => Promise<boolean>} dependencies.claim
  * @param {(row: object, event: { text: string, detail: string }) => Promise<unknown>} dependencies.record
  * @param {(row: object, event: object) => Promise<unknown>} [dependencies.notify]
@@ -207,6 +209,13 @@ export function createGoals({
     await goals.resumePaused(conversationId);
   }
 
+  // Set once this server is stopping (start's drain): it claims no more rounds, and the one in progress (`rounding`) is
+  // handed over.
+  let handingOver = false;
+  /** @type {AbortController | null} */
+  let rounding = null;
+  let handed = 0;
+
   async function round(goal) {
     const row = await find(goal);
     if (!row) {
@@ -222,23 +231,42 @@ export function createGoals({
       goals.extendLease(goal.id, limits.leaseSeconds).catch(() => {});
       runs.heartbeat(row.conversation_id).catch(() => {});
     }, runs.limits.heartbeatMs);
+    // This server's stop ends the round's reply at its next step, for another server to carry on.
+    const control = new AbortController();
+    rounding = control;
+    if (handingOver) control.abort(new Error("This server is stopping: another carries the goal's round on."));
+    let handedOver = false;
     try {
       // Inside the try: a round that cannot start stops its lease renewal and frees the conversation too.
       const current = await goals.startRound(goal.id, goal.rounds + 1);
       await notify(row, { type: "working", working: true, status: "Carrying on with the goal" });
-      await track(goal, () => respond(row, { timeZone: goal.time_zone, language: goal.language, prompt: roundPrompt(current), goalTurn: true }));
+      await track(goal, () => respond(row, {
+        timeZone: goal.time_zone,
+        language: goal.language,
+        prompt: roundPrompt(current),
+        goalTurn: true,
+        signal: control.signal
+      }));
       await goals.finishRound(goal.id);
     } catch (error) {
-      // An error stops the rounds (DSH: disarm); the person can ask to carry on.
-      console.error(`Goal ${goal.id} round failed: ${error?.message || error}`);
-      await goals.stopRounds(goal.id, String(error?.message || error).slice(0, 500));
+      if (control.signal.aborted) {
+        // Handed over: due again now as the same round, which another server runs.
+        handedOver = true;
+        handed += 1;
+        await goals.handOver(goal.id, goal.rounds);
+      } else {
+        // An error stops the rounds (DSH: disarm); the person can ask to carry on.
+        console.error(`Goal ${goal.id} round failed: ${error?.message || error}`);
+        await goals.stopRounds(goal.id, String(error?.message || error).slice(0, 500));
+      }
     } finally {
       clearInterval(keep);
+      if (rounding === control) rounding = null;
       await runs.release(row.conversation_id).catch(() => {});
       await notify(row, { type: "messages" });
-      await notify(row, { type: "working", working: false });
+      if (!handedOver) await notify(row, { type: "working", working: false });
     }
-    await afterTurn(goal.conversation_id);
+    if (!handedOver) await afterTurn(goal.conversation_id);
   }
 
   let running = null;
@@ -246,7 +274,7 @@ export function createGoals({
     if (running) return running;
     running = (async () => {
       try {
-        for (let count = 0; count < 100; count += 1) {
+        for (let count = 0; count < 100 && !handingOver; count += 1) {
           const goal = await goals.claimDue(limits.leaseSeconds);
           if (!goal) break;
           await round(goal);
@@ -268,11 +296,19 @@ export function createGoals({
     const unsubscribe = channelNotices.subscribe(channel, "all", () => tick());
     tick();
     return {
+      /**
+       * Shutting down: claim nothing more, and hand the round in progress over at once, waiting for it to stop (at most
+       * `ms`, never to finish): its reply stops at its next step, the round is due again, and every server is told.
+       * @param {number} ms
+       */
       async drain(ms) {
         stopped = true;
         clearInterval(timer);
         unsubscribe();
+        handingOver = true;
+        rounding?.abort(new Error("This server is stopping: another carries the goal's round on."));
         await settledWithin(running, ms);
+        if (handed) wake();
       }
     };
   }
