@@ -208,3 +208,67 @@ test("a round that cannot start frees the conversation and stops renewing its le
   assert.equal(goal.status, "paused", "the rounds stopped");
   assert.equal(goal.reason, "the goal could not be saved");
 });
+
+test("a server that stops hands its goal round over at once: the round stops mid model call, is due again as the same round, and another server carries it on straight away", { skip: DATABASE }, async (context) => {
+  const knex = await testDatabase(context);
+  const agent = await agentOwner(knex);
+  // Notices as the servers share them: what one publishes reaches every listener at once.
+  const listeners = new Set();
+  const notices = {
+    publish: async () => { for (const listener of [...listeners]) listener({}); },
+    subscribe: (_channel, _key, listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+  };
+  let started = false;
+  let stoppedBy = null;
+  /** A server: its own goals and runs on the one database, whose rounds go as `round` says. */
+  const server = (round) => {
+    const runs = createRuns(agent);
+    let goals = null;
+    goals = createGoals({
+      ...agent,
+      runs,
+      notices,
+      limits: { ...GOAL_LIMITS, retryMs: 200 },
+      find: async (goal) => ({ conversation_id: goal.conversation_id }),
+      respond: (row, options) => round(goalTools(goals.operationsFor(row, { human: !options.goalTurn, ...options })), options),
+      claim: (row) => runs.claim(row.conversation_id),
+      record: async () => {},
+      notify: async () => {}
+    });
+    return goals;
+  };
+  // This server's round talks for 22 s, unless something stops it first; the other's completes the goal.
+  const stopping = server(async (_tools, options) => {
+    started = true;
+    stoppedBy = await new Promise((resolve) => {
+      const late = setTimeout(() => resolve(null), 22_000);
+      options.signal?.addEventListener("abort", () => {
+        clearTimeout(late);
+        resolve(options.signal.reason);
+      }, { once: true });
+    });
+    if (stoppedBy) throw stoppedBy;
+  });
+  const other = server((tools) => tools.updateGoal.execute({ action: "complete" }));
+  await stopping.operationsFor({ conversation_id: 7 }, { human: true }).create("Carry on elsewhere.");
+  await stopping.afterTurn(7);
+  for (let waited = 0; !started && waited < 5000; waited += 10) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.ok(started, "this server's round started");
+  // The other server's loop looks once now (the round is this server's) and next in an hour.
+  const loop = other.start({ everyMs: 3_600_000 });
+  context.after(() => loop.drain(1000));
+
+  const before = performance.now();
+  await stopping.start({ everyMs: 3_600_000 }).drain(20_000);
+  const took = performance.now() - before;
+  for (let waited = 0; (await knex("agent_goals").where({ conversation_id: 7 }).first()).status !== "complete" && waited < 5000; waited += 25) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.ok(took < 5000, `handed over without waiting for the drain's time (${Math.round(took)} ms)`);
+  assert.ok(stoppedBy instanceof Error, `the stop ended its model call (${stoppedBy})`);
+  const goal = await knex("agent_goals").where({ conversation_id: 7 }).first();
+  assert.deepEqual([goal.status, goal.rounds], ["complete", 1], "carried on as the same round");
+});
