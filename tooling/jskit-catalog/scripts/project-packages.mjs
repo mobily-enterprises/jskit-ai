@@ -13,6 +13,8 @@ const DEPENDENCY_FIELDS = Object.freeze([
   "optionalDependencies"
 ]);
 const UPDATE_SCRIPT = "npx --yes @jskit-ai/jskit-catalog@latest update";
+// The fix for a JSKIT pin that is not this catalog's: the update moves them together, never npm on one package.
+const UPDATE_FIX = "Run npm run jskit:update, which moves every JSKIT pin to this catalog and installs it.";
 // JSKIT packages a release retired, each with what replaced it. The updater removes their declarations itself, and
 // refuses while the application's own code still imports one, naming the import to use instead.
 const RETIRED_PACKAGES = Object.freeze({
@@ -206,7 +208,7 @@ async function checkProject({ projectRoot = process.cwd(), catalog, additionalMa
     if (declaration.declaredVersion !== expectedVersion) {
       issues.push(
         `${declaration.source}#${declaration.field}.${declaration.packageId} is ${declaration.declaredVersion}; ` +
-        `expected ${expectedVersion}.`
+        `expected ${expectedVersion}. ${UPDATE_FIX}`
       );
     }
   }
@@ -238,7 +240,11 @@ async function checkProject({ projectRoot = process.cwd(), catalog, additionalMa
         }
         const installed = (await readJsonRecord(installedPath)).value;
         if (installed.version !== record.version) {
-          issues.push(`${packagePath} installed ${installed.version}; lockfile requires ${record.version}. Run npm ci.`);
+          // A newer JSKIT copy in place of the locked one (a source under development) is where the catalog that
+          // runs comes from, and npm ci would put the old one back: the pins move to it instead.
+          const ahead = installed.version === normalizedCatalog.versions.get(resolveLockPackageName(packagePath, record));
+          issues.push(`${packagePath} installed ${installed.version}; lockfile requires ${record.version}. ` +
+            (ahead ? `${installed.version} is the version this catalog names, so the project's pins are behind it. ${UPDATE_FIX}` : "Run npm ci."));
         }
       }
       for (const manifest of manifests) {
@@ -268,7 +274,7 @@ async function checkProject({ projectRoot = process.cwd(), catalog, additionalMa
       }
       if (installation.version !== expectedVersion) {
         issues.push(
-          `${installation.path} resolves ${installation.packageId}@${installation.version}; expected ${expectedVersion}.`
+          `${installation.path} resolves ${installation.packageId}@${installation.version}; expected ${expectedVersion}. ${UPDATE_FIX}`
         );
       }
       const entries = byPackageId.get(installation.packageId) || [];
