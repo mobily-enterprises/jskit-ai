@@ -38,6 +38,10 @@ Before implementation, read the narrow relevant source pattern completely. If
 its owner package is installed, prefer that version-matched package-owned copy.
 Do not install an unrelated runtime package only to read documentation.
 
+Where the host provides a managed browser runner, every Playwright suite runs
+through it from the first run, never through `npx playwright test`,
+`playwright test` or a package script such as `npm run test:e2e`.
+
 Before adding or changing browser-test setup, read the browser verification
 guide at
 `https://mobily-enterprises.github.io/jskit-ai/guide/framework/ui-operations#browser-verification`.
