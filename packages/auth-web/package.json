@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-web",
-  "version": "0.2.56",
+  "version": "0.2.57",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -29,14 +29,14 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/auth-pass": "0.1.6",
+    "@jskit-ai/auth-pass": "0.1.7",
     "uqr": "0.1.3"
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.2.37",
-    "@jskit-ai/http-runtime": "0.2.32",
-    "@jskit-ai/kernel": "0.2.32",
-    "@jskit-ai/shell-web": "0.2.48",
+    "@jskit-ai/auth-core": "0.2.38",
+    "@jskit-ai/http-runtime": "0.2.33",
+    "@jskit-ai/kernel": "0.2.33",
+    "@jskit-ai/shell-web": "0.2.49",
     "@tanstack/vue-query": "^5.90.5",
     "pinia": "^4.0.3",
     "vue": "^3.5.44",

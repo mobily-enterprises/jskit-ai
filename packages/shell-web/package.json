@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.2.48",
+  "version": "0.2.49",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -47,14 +47,14 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/architecture-inspector": "0.1.31"
+    "@jskit-ai/architecture-inspector": "0.1.32"
   },
   "devDependencies": {
     "@jskit-ai/material-web": "0.1.9",
     "@vue/compiler-sfc": "3.5.44"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.32",
+    "@jskit-ai/kernel": "0.2.33",
     "pinia": "^4.0.3",
     "vue": "^3.5.44",
     "vue-router": "^5.3.1",

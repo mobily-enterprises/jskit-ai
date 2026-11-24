@@ -100,6 +100,6 @@ way home works.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/workspaces-web@0.2.77`
+- Owner: `@jskit-ai/workspaces-web@0.2.78`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/workspaces-web/patterns/workspace-surfaces/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/workspaces-web/patterns/workspace-surfaces/example)
