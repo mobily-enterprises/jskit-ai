@@ -192,6 +192,23 @@
         "remove": {
           "explain": "Enter a code to remove the authenticator app. Pages that ask for a code won't open until you set one up again."
         }
+      },
+      "clientConsent": {
+        "title": "Connect {client}",
+        "heading": "{client} wants to use {app} as you",
+        "signedInAs": "You are signed in as {email}.",
+        "rights": "{client} will be able to see and do everything you can in {app}. Everything it does is done as you, under your name.",
+        "disconnect": "You can disconnect it at any time in {client}. Signing out of your other sessions in {app} disconnects it too.",
+        "allow": "Allow",
+        "deny": "Don't allow",
+        "refusedTitle": "This connection can't go on",
+        "refused": {
+          "unknownClient": "{app} doesn't know the app that sent you here.",
+          "unknownRedirect": "The app that sent you here asked to come back to an address {app} doesn't allow.",
+          "expiredConsent": "This page has expired. Start connecting again from the app you came from.",
+          "otherSession": "The account signed in here changed after this page opened. Start connecting again from the app you came from."
+        },
+        "thisApp": "this app"
       }
     }
   }

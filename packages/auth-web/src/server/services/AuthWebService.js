@@ -135,6 +135,39 @@ class AuthWebService {
     return authService.signInWithPass(input, request);
   }
 
+  /**
+   * The provider's OAuth authorization server metadata, or null when it has no clients, or has no authorization server.
+   * @returns {Record<string, unknown> | null}
+   */
+  clientAuthorizationMetadata() {
+    const { authService } = this;
+    // readable-check: allow method-probe - optional operation: an auth provider may be no authorization server
+    if (typeof authService.clientAuthorizationMetadata !== "function") {
+      return null;
+    }
+    return authService.clientAuthorizationMetadata();
+  }
+
+  /** The consent page's view of an authorization request (the routes run only for a provider that has clients). */
+  startClientAuthorization(query, request) {
+    return this.authService.startClientAuthorization(query, request);
+  }
+
+  /** The person's answer on the consent page. */
+  decideClientAuthorization(input, request) {
+    return this.authService.decideClientAuthorization(input, request);
+  }
+
+  /** The token endpoint's answer to a client's form. */
+  exchangeClientToken(form, request) {
+    return this.authService.exchangeClientToken(form, request);
+  }
+
+  /** Ends the session of the token a client revokes. */
+  revokeClientToken(form) {
+    return this.authService.revokeClientToken(form);
+  }
+
   writeSessionCookies(reply, session) {
     if (session && reply) {
       this.authService.writeSessionCookies(reply, session);

@@ -25,6 +25,7 @@
       "requires": [
         "auth.extensions",
         "runtime.app-root",
+        "runtime.config",
         "runtime.env",
         "runtime.logger"
       ]

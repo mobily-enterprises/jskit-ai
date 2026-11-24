@@ -12,6 +12,11 @@ const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30;
 const SEEN_AGAIN_AFTER_MS = 5 * 60 * 1000;
 // The longest browser description a session keeps.
 const USER_AGENT_MAX_LENGTH = 512;
+// A connected client's session has purpose "client.<client id>" (clientAuthorization.js): it authenticates bearer
+// requests only, and no browser.
+const CLIENT_SESSION_PREFIX = "client.";
+// A bearer token as RFC 6750 spells it.
+const BEARER_PATTERN = /^Bearer ([A-Za-z0-9._~+/-]+=*)$/u;
 
 function nowSeconds() {
   return Math.floor(Date.now() / 1000);
@@ -169,13 +174,14 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
    * A new session of the user, signed in and seen now from where the request that signs it in comes from.
    * @param {import("../types.js").AuthLocalBackendTransaction} tx
    * @param {{ id: string }} user
-   * @param {{ purpose?: string, ttlSeconds?: number, request?: object | null }} [options]
+   * @param {{ id?: string, purpose?: string, ttlSeconds?: number, request?: object | null }} [options] `id` names the
+   *   session instead of a new random id, for a session that must be made at most once.
    */
-  async function createSessionForUser(tx, user, { purpose = "normal", ttlSeconds = REFRESH_TTL_SECONDS, request = null } = {}) {
+  async function createSessionForUser(tx, user, { id = "", purpose = "normal", ttlSeconds = REFRESH_TTL_SECONDS, request = null } = {}) {
     const refreshToken = randomToken(36);
     const client = requestClient(request);
     const session = await tx.sessions.create({
-      id: createId("ses"),
+      id: id || createId("ses"),
       userId: user.id,
       tokenHash: sha256Base64url(refreshToken),
       purpose,
@@ -238,10 +244,10 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
     // A check without profile synchronization does not answer for a synchronizing one, and only an object can be
     // remembered.
     if (!syncProfile || !request || typeof request !== "object") {
-      return authenticateFromCookies(request, { syncProfile });
+      return authenticateFromCredentials(request, { syncProfile });
     }
     if (!requestAuthentications.has(request)) {
-      const answer = authenticateFromCookies(request, { syncProfile });
+      const answer = authenticateFromCredentials(request, { syncProfile });
       requestAuthentications.set(request, answer);
       // A failure is not remembered: a later check in the request tries again.
       answer.catch(() => {
@@ -264,6 +270,67 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
     if (answer) {
       requestAuthentications.set(request, answer.then((result) => (result.authenticated ? { ...result, actor } : result)));
     }
+  }
+
+  /**
+   * A request is authenticated by the credentials its route takes (auth-core sets `request.authCredentials`): a bearer
+   * route by its Authorization header alone, every other route by its cookies alone.
+   */
+  function authenticateFromCredentials(request, options) {
+    return request?.authCredentials === "bearer" ? authenticateFromBearer(request, options) : authenticateFromCookies(request, options);
+  }
+
+  /**
+   * A connected client's request: its bearer access token, of a client session that is not revoked or expired, of an
+   * account that is not disabled. It never refreshes (the client asks the token endpoint) and writes no cookie.
+   */
+  async function authenticateFromBearer(request, { syncProfile }) {
+    const match = BEARER_PATTERN.exec(String(request?.headers?.authorization || "").trim());
+    const payload = match ? verifySignedToken(match[1], config.sessionSecret) : null;
+    if (!payload?.sid || !payload?.sub || !String(payload.purpose || "").startsWith(CLIENT_SESSION_PREFIX)) {
+      return unauthenticatedAuthResult();
+    }
+    const resolved = await backend.withTransaction(async (tx) => {
+      const session = await tx.sessions.findById(String(payload.sid));
+      if (!session || session.revokedAt || isExpiredIso(session.expiresAt) || session.purpose !== payload.purpose) {
+        return null;
+      }
+      const user = await tx.users.findById(String(payload.sub));
+      if (!user || user.disabled || String(session.userId) !== String(user.id)) {
+        return null;
+      }
+      await noteSessionSeen(tx, session, request);
+      return { user, session };
+    });
+    if (!resolved) {
+      return unauthenticatedAuthResult();
+    }
+    const authPayload = await buildSessionAuthPayload({
+      appProfileProjection,
+      devAuth,
+      profileProjector,
+      request,
+      session: resolved.session,
+      user: resolved.user,
+      syncProfile,
+      onlyWhenChanged: true
+    });
+    if (!authPayload) {
+      return unauthenticatedAuthResult();
+    }
+    return {
+      authenticated: true,
+      ...authPayload,
+      credentials: "bearer",
+      session: null,
+      sessionId: resolved.session.id,
+      secondFactorAt: "",
+      sessionPurpose: resolved.session.purpose,
+      signIn: sessionSignIn(resolved.session),
+      credentialsChangedAt: credentialsChangedAt(resolved.user),
+      clearSession: false,
+      transientFailure: false
+    };
   }
 
   async function authenticateFromCookies(request, { syncProfile }) {
@@ -493,4 +560,4 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
   });
 }
 
-export { cookieOptions, createLocalSessions, createLoggedSignInEvents, safeRequestCookies };
+export { buildSessionPayload, CLIENT_SESSION_PREFIX, cookieOptions, createLocalSessions, createLoggedSignInEvents, safeRequestCookies };

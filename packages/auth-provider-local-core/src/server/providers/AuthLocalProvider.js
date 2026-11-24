@@ -54,6 +54,7 @@ function sendAsAppEnvironmentSays({ env, logger, sender, name }) {
 const AuthLocalProvider = defineProvider({
   id: "auth.local",
   requires: {
+    appConfig: "runtime.config",
     appRoot: "runtime.app-root",
     env: "runtime.env",
     extensions: "auth.extensions",
@@ -79,6 +80,8 @@ const AuthLocalProvider = defineProvider({
   },
   /**
    * @param {object} dependencies
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.appConfig The server configuration, whose
+   *   `auth.clients` names the applications people may connect.
    * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
    * @param {import("../types.js").AuthLocalBackend | null} dependencies.backend The `auth.local.backend`, when one is installed.
    * @param {import("../types.js").AuthLocalConfirmationMode | null} dependencies.confirmationMode The
@@ -102,6 +105,7 @@ const AuthLocalProvider = defineProvider({
    */
   async boot(
     {
+      appConfig,
       appRoot,
       backend,
       confirmationMode,
@@ -129,7 +133,8 @@ const AuthLocalProvider = defineProvider({
       fileBackend,
       emailRecovery,
       emailConfirmationSender,
-      emailChangeSender: emailedChange
+      emailChangeSender: emailedChange,
+      clients: appConfig.auth?.clients
     });
     if (config.passSignIn && passIdentity === null) {
       throw new Error("AUTH_PASS_PUBLIC_KEY turns on one-time pass sign-in, and no auth.local.pass-identity is installed to name the account each pass signs in. Install one, or unset AUTH_PASS_PUBLIC_KEY.");

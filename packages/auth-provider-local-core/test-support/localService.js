@@ -21,8 +21,9 @@ import { createLoggedSignInEvents } from "../src/server/lib/sessions.js";
  * @param {boolean} [options.emailRecovery] True when the test passes its own recoverySender.
  * @param {boolean} [options.emailConfirmationSender] True when the test passes its own confirmationSender.
  * @param {boolean} [options.emailChangeSender] True when the test passes its own emailChangeSender.
+ * @param {object} [options.clients] config.auth.clients, the OAuth clients people may connect.
  */
-function localServiceOptions({ env = {}, emailRecovery = false, emailConfirmationSender = false, emailChangeSender = false } = {}) {
+function localServiceOptions({ env = {}, emailRecovery = false, emailConfirmationSender = false, emailChangeSender = false, clients } = {}) {
   return {
     config: resolveLocalAuthConfig({
       appRoot: os.tmpdir(),
@@ -37,7 +38,8 @@ function localServiceOptions({ env = {}, emailRecovery = false, emailConfirmatio
       fileBackend: false,
       emailRecovery,
       emailConfirmationSender,
-      emailChangeSender
+      emailChangeSender,
+      clients
     }),
     invitationContextResolver: invitationAsGiven,
     logger: silentLogger,

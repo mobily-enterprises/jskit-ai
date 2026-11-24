@@ -52,6 +52,20 @@ function resolveCsrfToken(request) {
   return request.headers["csrf-token"] || request.headers["x-csrf-token"] || request.headers["x-xsrf-token"] || null;
 }
 
+/**
+ * A bearer route's answer to a request it did not sign in (RFC 6750, RFC 9728): where the protected resource is
+ * described, so a client finds its authorization server. Without a public URL it names no metadata.
+ */
+function bearerChallenge(request, publicOrigin) {
+  const pathname = safeRequestUrl(request).pathname.replace(/\/+$/u, "");
+  const presented = /^Bearer /iu.test(String(request.headers.authorization || ""));
+  const params = [
+    publicOrigin ? `resource_metadata="${publicOrigin}/.well-known/oauth-protected-resource${pathname}"` : "",
+    presented ? 'error="invalid_token"' : ""
+  ].filter(Boolean);
+  return params.length ? `Bearer ${params.join(", ")}` : "Bearer";
+}
+
 function resolveOwnerValue(meta, request) {
   // readable-check: allow method-probe - data: a route's auth policy config may name an owner resolver
   if (typeof meta.ownerResolver === "function") {
@@ -74,6 +88,7 @@ function resolveOwnerValue(meta, request) {
 function authPolicyPlugin(deps = {}, options = {}) {
   const { resolveActor, resolveContext, hasPermission, onPolicyDenied } = assertAuthPolicyDeps(deps);
   const apiPrefix = normalizeApiPrefix(options.apiPrefix);
+  const publicOrigin = URL.canParse(String(options.appPublicUrl || "")) ? new URL(options.appPublicUrl).origin : "";
   const unsafeMethods = normalizeUnsafeMethods(options.unsafeMethods);
   const csrfCookieOpts =
     options.csrfCookieOpts && typeof options.csrfCookieOpts === "object" ? options.csrfCookieOpts : {};
@@ -108,6 +123,8 @@ function authPolicyPlugin(deps = {}, options = {}) {
     fastify.decorateRequest("secondFactorAt", "");
     fastify.decorateRequest("sessionSignIn", null);
     fastify.decorateRequest("credentialsChangedAt", null);
+    // The credentials the route takes ("cookies" or "bearer"), which the auth service authenticates the request by.
+    fastify.decorateRequest("authCredentials", "cookies");
 
     fastify.addHook("preHandler", async (request, reply) => {
       const pathname = request.raw.url || request.url || "/";
@@ -116,7 +133,9 @@ function authPolicyPlugin(deps = {}, options = {}) {
       }
 
       const meta = resolveAuthPolicyMeta(resolveRouteConfig(request));
-      if (meta.csrfProtection && unsafeMethods.has(String(request.method || "").toUpperCase())) {
+      request.authCredentials = meta.credentials;
+      const bearer = meta.credentials === "bearer";
+      if (meta.csrfProtection && !bearer && unsafeMethods.has(String(request.method || "").toUpperCase())) {
         await enforceCsrfProtection(fastify, request, reply);
       }
 
@@ -124,7 +143,11 @@ function authPolicyPlugin(deps = {}, options = {}) {
         return;
       }
 
-      const actorResolution = normalizeActorResolution(await resolveActor(request, reply, meta));
+      const resolution = normalizeActorResolution(await resolveActor(request, reply, meta));
+      // A provider that signs requests in by cookies alone does not sign in a bearer route's caller.
+      const actorResolution = bearer && resolution.authenticated && resolution.credentials !== "bearer"
+        ? { ...resolution, authenticated: false, actor: null }
+        : resolution;
       if (actorResolution.transientFailure) {
         onPolicyDenied({
           reason: AUTH_POLICY_DENY_REASONS.AUTH_UPSTREAM_UNAVAILABLE,
@@ -148,6 +171,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
           actor: actorResolution.actor,
           context: null
         });
+        if (bearer) reply.header("www-authenticate", bearerChallenge(request, publicOrigin));
         throw createError(401, "Authentication required.", { code: "auth.session.required" });
       }
 

@@ -362,3 +362,44 @@ test("each policy refusal carries its own code next to the English", async () =>
     status: 503, message: "Authentication service temporarily unavailable. Please retry.", code: "auth.session.unavailable"
   });
 });
+
+test("a bearer route signs in by the Authorization header alone, takes no CSRF token, and tells a refused client where to sign in", async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  const credentialsSeen = [];
+  await authPolicyPlugin({
+    async resolveActor(request) {
+      credentialsSeen.push(request.authCredentials);
+      const header = String(request.headers.authorization || "");
+      if (request.authCredentials === "bearer" && header === "Bearer good") {
+        return { authenticated: true, actor: { id: "7" }, credentials: "bearer" };
+      }
+      // A provider that signs requests in by cookies alone, whatever the route takes.
+      if (header === "Bearer from-cookies") return { authenticated: true, actor: { id: "8" } };
+      return { authenticated: false, actor: null };
+    },
+    hasPermission() {
+      return true;
+    }
+  }, { appEnv: "test", appPublicUrl: "https://app.example/" })(app);
+  app.post("/api/mcp", { config: { authPolicy: "required", credentials: "bearer" } }, (request) => ({ user: request.user.id }));
+  app.post("/api/write", { config: { authPolicy: "required" } }, () => ({ ok: true }));
+  const post = (url, authorization) => app.inject({ method: "POST", url, headers: authorization ? { authorization } : {} });
+
+  const signedIn = await post("/api/mcp", "Bearer good");
+  assert.equal(signedIn.statusCode, 200, signedIn.body);
+  assert.deepEqual(signedIn.json(), { user: "7" });
+  assert.deepEqual(credentialsSeen, ["bearer"]);
+
+  const anonymous = await post("/api/mcp");
+  assert.equal(anonymous.statusCode, 401);
+  assert.equal(anonymous.headers["www-authenticate"], 'Bearer resource_metadata="https://app.example/.well-known/oauth-protected-resource/api/mcp"');
+  const refused = await post("/api/mcp?page=2", "Bearer expired");
+  assert.equal(refused.headers["www-authenticate"],
+    'Bearer resource_metadata="https://app.example/.well-known/oauth-protected-resource/api/mcp", error="invalid_token"');
+  assert.equal((await post("/api/mcp", "Bearer from-cookies")).statusCode, 401, "a cookie answer does not sign in a bearer route's caller");
+
+  const cookieRoute = await post("/api/write", "Bearer good");
+  assert.equal(cookieRoute.statusCode, 403, "a cookie route still asks for its CSRF token");
+  assert.equal(cookieRoute.headers["www-authenticate"], undefined);
+});

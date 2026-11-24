@@ -438,6 +438,7 @@ test("installing the DB backend capability makes local auth database-backed", as
   const runtime = createCapabilityRuntime({
     inputs: {
       "runtime.app-root": process.cwd(),
+      "runtime.config": {},
       "runtime.env": {
         AUTH_LOCAL_SESSION_SECRET: "test-secret",
         AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "response",

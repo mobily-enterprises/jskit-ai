@@ -3,6 +3,7 @@ import { isDevAuthBootstrapEnabled } from "@jskit-ai/auth-core/server/devAuth";
 import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { createLocalAccounts } from "./accounts.js";
+import { createClientAuthorization } from "./clientAuthorization.js";
 import { PROVIDER_ID } from "./authPayloads.js";
 import { createLocalDeliveries } from "./deliveries.js";
 import { createLocalEmailChange } from "./emailChange.js";
@@ -200,6 +201,8 @@ function createLocalAuthService({
     ? createLocalSecondFactor({ backend, config, logger, secondFactorEvents, sessions })
     : NO_SECOND_FACTOR;
 
+  const clientAuthorization = createClientAuthorization({ backend, config, sessions });
+
   const passSignIn = config.passSignIn
     ? createLocalPassSignIn({ backend, config, passIdentity, profileProjector, sessions })
     : NO_PASS_SIGN_IN;
@@ -251,6 +254,11 @@ function createLocalAuthService({
     confirmRegistration,
     login: accounts.login,
     signInWithPass: passSignIn.signInWithPass,
+    clientAuthorizationMetadata: clientAuthorization.metadata,
+    startClientAuthorization: clientAuthorization.startAuthorization,
+    decideClientAuthorization: clientAuthorization.decideAuthorization,
+    exchangeClientToken: clientAuthorization.exchangeToken,
+    revokeClientToken: clientAuthorization.revokeToken,
     requestOtpLogin,
     verifyOtpLogin,
     writeOAuthStartCookies: oauthFlows.writeOAuthStartCookies,

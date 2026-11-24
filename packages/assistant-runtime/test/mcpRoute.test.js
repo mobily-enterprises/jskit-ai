@@ -19,6 +19,7 @@ const config = Object.freeze({
   surfaceDefinitions: { admin: { enabled: true, requiresWorkspace: false }, app: { enabled: true, requiresWorkspace: false } },
   assistantMcp: { surfaceId: "admin" }
 });
+const env = Object.freeze({ APP_PUBLIC_URL: "https://books.example/" });
 
 const booksList = Object.freeze({
   id: "demo.books.list",
@@ -38,7 +39,7 @@ async function mcpApp(t, { appConfig = config, signedIn = true } = {}) {
   const app = Fastify();
   t.after(() => app.close());
   const actions = createActionCatalogue();
-  const mcp = createAssistantMcp({ actions, config: appConfig });
+  const mcp = createAssistantMcp({ actions, config: appConfig, env });
   actions.register({ contributorId: "test.books", domain: "demo", actions: [booksList] });
   actions.register({ contributorId: "test.mcp", domain: "assistant", actions: createAssistantMcpActions({ mcp }) });
   if (signedIn) actions.registerContextContributor({ id: "test.actor", contribute: () => ({ actor: { id: "3" } }) });
@@ -98,7 +99,7 @@ test("an application without assistantMcp has no endpoint, and one naming an unk
 
 test("the endpoint's action runs on the configured surface only and is never a tool", async () => {
   const actions = createActionCatalogue();
-  const mcp = createAssistantMcp({ actions, config });
+  const mcp = createAssistantMcp({ actions, config, env });
   const [definition] = createAssistantMcpActions({ mcp });
   assert.equal(definition.id, ASSISTANT_MCP_ACTION_ID);
   assert.deepEqual(definition.surfaces, ["admin"]);
@@ -106,3 +107,23 @@ test("the endpoint's action runs on the configured surface only and is never a t
   assert.deepEqual(definition.permission, { require: "authenticated" });
 });
 
+test("the endpoint signs its callers in by bearer token alone, and says where its tokens come from", async (t) => {
+  const actions = createActionCatalogue();
+  const mcp = createAssistantMcp({ actions, config: { ...config, assistantMcp: { surfaceId: "admin", rateLimit: { max: 600, timeWindow: "1 minute" } } }, env });
+  const router = createRouter();
+  registerAssistantMcpRoutes(router, { mcp });
+  const post = router.list().find((route) => route.method === "POST" && route.path === "/api/mcp");
+  assert.equal(post.config.credentials, "bearer");
+  assert.deepEqual(post.rateLimit, { max: 600, timeWindowMs: 60_000 });
+
+  const app = await mcpApp(t);
+  const described = await app.inject({ method: "GET", url: "/.well-known/oauth-protected-resource/api/mcp" });
+  assert.equal(described.statusCode, 200, described.body);
+  assert.deepEqual(described.json(), {
+    resource: "https://books.example/api/mcp",
+    authorization_servers: ["https://books.example"],
+    bearer_methods_supported: ["header"],
+    resource_name: "Books"
+  });
+  assert.throws(() => createAssistantMcp({ actions, config, env: {} }), /assistantMcp needs APP_PUBLIC_URL/u);
+});

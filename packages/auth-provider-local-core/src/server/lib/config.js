@@ -11,6 +11,7 @@ import { assertDevelopmentOnlySettings } from "@jskit-ai/kernel/server/runtime/a
 import { SETUP_CODE_ENV, SETUP_CODE_MIN_CHARACTERS, normalizedSetupCode } from "./firstAccountSetup.js";
 import { resolveOAuthProviders } from "./oauth.js";
 import { resolveSignInThrottle } from "./signInThrottle.js";
+import { resolveAuthorizationClients } from "./clientAuthorization.js";
 
 const DEFAULT_STORE_DIR = ".jskit/auth";
 
@@ -94,9 +95,10 @@ function resolveSetupCode(env, { isStagingOrProduction }) {
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
  * @param {{ emailRecovery: boolean, emailedConfirmation: boolean, emailedChange: boolean, oauthEnabled: boolean, stagingOrProductionSecondFactor: boolean }} options
  */
-function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, emailedChange, oauthEnabled, stagingOrProductionSecondFactor }) {
+function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, emailedChange, oauthEnabled, stagingOrProductionSecondFactor, clients }) {
   const configured = String(env.APP_PUBLIC_URL || "").trim();
   if (!configured) {
+    if (clients) throw new Error("APP_PUBLIC_URL is required when config.auth.clients names clients: it is their authorization server's address.");
     if (emailRecovery) throw new Error("APP_PUBLIC_URL is required when local auth email recovery is configured.");
     if (emailedChange) throw new Error("APP_PUBLIC_URL is required when local auth emails email change links.");
     if (emailedConfirmation) {
@@ -206,8 +208,9 @@ function resolvePasswordMinLength(env) {
  * @param {boolean} input.emailRecovery True when an `auth.local.recovery-sender` is installed.
  * @param {boolean} [input.emailConfirmationSender] True when an `auth.local.confirmation-sender` is installed.
  * @param {boolean} [input.emailChangeSender] True when an `auth.local.email-change-sender` is installed.
+ * @param {unknown} [input.clients] config.auth.clients, the applications people may connect (clientAuthorization.js).
  */
-function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender = false, emailChangeSender = false }) {
+function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender = false, emailChangeSender = false, clients: configuredClients }) {
   const devAuth = resolveDevAuthPolicyFromEnv(env);
   const { isStagingOrProduction } = devAuth;
   const storeDir = resolveStoreDir(env, appRoot);
@@ -226,12 +229,14 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emai
   const sessionSecret = resolveSessionSecret(env, { storeDir, isStagingOrProduction });
   const secondFactorKey = resolveSecondFactorKey(env, { isStagingOrProduction, sessionSecret });
   const emailChangeDelivery = resolveEmailChangeDelivery({ emailChangeSender, isStagingOrProduction });
+  const clients = resolveAuthorizationClients(configuredClients);
   const appPublicUrl = resolveAppPublicUrl(env, {
     emailRecovery,
     emailedConfirmation: confirmationDelivery === "email",
     emailedChange: emailChangeDelivery === "email",
     oauthEnabled,
-    stagingOrProductionSecondFactor: isStagingOrProduction && Boolean(secondFactorKey)
+    stagingOrProductionSecondFactor: isStagingOrProduction && Boolean(secondFactorKey),
+    clients: clients.length > 0
   });
   return Object.freeze({
     storeDir,
@@ -255,6 +260,8 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emai
     signInThrottle: resolveSignInThrottle(env),
     // The trusted issuer's key, audience and resource of one-time pass sign-in (AUTH_PASS_*), or null while it is off.
     passSignIn: resolvePassSignInFromEnv(env),
+    // The applications people may connect, so they work in this app as them (config.auth.clients); [] for none.
+    clients,
     devAuth
   });
 }

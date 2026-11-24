@@ -154,6 +154,7 @@ async function createStartedApp({
   });
   const inputs = {
     "runtime.app-root": storeDir,
+    "runtime.config": {},
     "runtime.env": {
     AUTH_LOCAL_STORE_DIR: storeDir,
     AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "response",

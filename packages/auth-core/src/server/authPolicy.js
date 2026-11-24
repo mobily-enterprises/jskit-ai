@@ -47,6 +47,8 @@ function createAuthPolicy({ authService, extensions, env }) {
       // The plugin resolves the /api/ prefix by default; the CSRF cookie follows APP_ENV.
       appEnv: appEnvironment(env),
       apiPrefix: env.AUTH_API_PREFIX,
+      // A bearer route's 401 names its resource metadata at this address (APP_PUBLIC_URL).
+      appPublicUrl: env.APP_PUBLIC_URL,
       // Unset AUTH_CSRF_UNSAFE_METHODS keeps the plugin default (POST, PUT, PATCH, DELETE).
       unsafeMethods: unsafeMethods.length > 0 ? Object.freeze(unsafeMethods) : undefined,
       // The CSRF cookie's SameSite is the sign-in cookies' (AUTH_COOKIE_SAME_SITE). Unset AUTH_CSRF_COOKIE_SECURE

@@ -11,6 +11,7 @@ const AssistantMcpFeature = defineFeature({
   domain: "assistant",
   requires: {
     config: "runtime.config",
+    env: "runtime.env",
     http: "runtime.http"
   },
   optional: {
@@ -23,6 +24,7 @@ const AssistantMcpFeature = defineFeature({
     const endpoint = createAssistantMcp({
       actions: actionCatalogue,
       config: dependencies.config,
+      env: dependencies.env,
       workspaceScopeSupport: dependencies.workspaces?.scope || null
     });
     registerAssistantMcpRoutes(dependencies.http.router, { mcp: endpoint });

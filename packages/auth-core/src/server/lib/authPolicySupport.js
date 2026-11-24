@@ -78,6 +78,8 @@ function normalizeActorResolution(result) {
     secondFactorAt: textOr(source.secondFactorAt),
     sessionSignIn: normalizeSessionSignIn(source.signIn),
     credentialsChangedAt: normalizeCredentialsChangedAt(source.credentialsChangedAt),
+    // "bearer" when the provider signed the request in by its Authorization header, as a bearer route requires.
+    credentials: source.credentials === "bearer" ? "bearer" : "cookies",
     transientFailure: Boolean(source.transientFailure)
   };
 }

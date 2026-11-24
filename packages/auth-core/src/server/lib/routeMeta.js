@@ -21,8 +21,21 @@ const DEFAULT_AUTH_POLICY_META = Object.freeze({
   userField: "id",
   ownerResolver: null,
   csrfProtection: true,
-  secondFactor: false
+  secondFactor: false,
+  credentials: "cookies"
 });
+
+// What signs a route's caller in: the session cookies of a browser, or (credentials: "bearer") the Authorization
+// header of a connected client alone, which no browser page can forge, so such a route takes no CSRF token.
+const ROUTE_CREDENTIALS = Object.freeze(["cookies", "bearer"]);
+
+function resolveRouteCredentials(value) {
+  if (value === undefined || value === null || value === "") return "cookies";
+  if (!ROUTE_CREDENTIALS.includes(value)) {
+    throw new TypeError(`A route's credentials are "cookies" or "bearer", not ${JSON.stringify(value)}.`);
+  }
+  return value;
+}
 
 function resolveAuthPolicyMeta(input = {}) {
   const source = asObject(input);
@@ -37,7 +50,8 @@ function resolveAuthPolicyMeta(input = {}) {
     ownerResolver: typeof source.ownerResolver === "function" ? source.ownerResolver : null,
     csrfProtection: source.csrfProtection !== false,
     // The route's second factor requirement, as the kernel router checked it: false, true or { maxAgeSeconds }.
-    secondFactor: source.secondFactor || false
+    secondFactor: source.secondFactor || false,
+    credentials: resolveRouteCredentials(source.credentials)
   };
 }
 

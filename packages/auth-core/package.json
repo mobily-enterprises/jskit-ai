@@ -20,6 +20,7 @@
     "./server/authActor": "./src/server/authActor.js",
     "./server/authTexts": "./src/server/authTexts.js",
     "./server/booleanFlag": "./src/server/booleanFlag.js",
+    "./server/clientAuthorizationError": "./src/server/clientAuthorizationError.js",
     "./server/devAuth": "./src/server/devAuth.js",
     "./server/secondFactor": "./src/server/secondFactor.js",
     "./server/deferredAuthService": "./src/server/deferredAuthService.js",

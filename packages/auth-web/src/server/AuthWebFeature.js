@@ -1,5 +1,6 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { createAuthWeb } from "./authWeb.js";
+import { registerClientAuthorizationRoutes } from "./routes/clientAuthorizationRoutes.js";
 import { registerEmailChangeRoutes } from "./routes/emailChangeRoutes.js";
 import { registerPassSignInRoutes } from "./routes/passSignInRoutes.js";
 import { registerSecondFactorRoutes } from "./routes/secondFactorRoutes.js";
@@ -13,6 +14,9 @@ const AuthWebFeature = defineFeature({
     env: "runtime.env",
     fastify: "runtime.fastify",
     http: "runtime.http"
+  },
+  optional: {
+    appRoot: "runtime.app-root"
   },
   provides: {
     authWeb: "auth.web"
@@ -34,17 +38,27 @@ const AuthWebFeature = defineFeature({
     return { authWeb };
   },
   /**
-   * The pass sign-in route takes a form body, so it has a Fastify scope of its own, registered once runtime.http has
-   * started: the routes' rate limiter is registered by then, and limits it too.
+   * The pass sign-in route and the OAuth authorization server's routes take form bodies, so they have Fastify scopes of
+   * their own, registered once runtime.http has started: the routes' rate limiter is registered by then, and limits
+   * them too. The authorization server's routes are there only while the provider has clients (config.auth.clients).
    * @param {object} capabilities
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot | null} capabilities.appRoot Where the app's
+   *   translations of the consent page are, when there is an app root.
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} capabilities.config
    * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} capabilities.fastify
    * @param {{ outputs: { authWeb: import("./types.js").AuthWeb } }} lifecycle
    */
-  async boot({ fastify }, { outputs }) {
+  async boot({ appRoot, config, fastify }, { outputs }) {
     const { authWeb } = outputs;
     if (authWeb.passSignIn) {
       await registerPassSignInRoutes(fastify, { service: authWeb.service, rateLimit: authWeb.rateLimits.passSignIn });
     }
+    await registerClientAuthorizationRoutes(fastify, {
+      service: authWeb.service,
+      appName: String(config.app?.name || "").trim(),
+      appRoot,
+      rateLimit: authWeb.rateLimits.clientToken
+    });
   }
 });
 
