@@ -41,7 +41,13 @@ async function mcpApp(t, { appConfig = config, signedIn = true } = {}) {
   const mcp = createAssistantMcp({ actions, config: appConfig });
   actions.register({ contributorId: "test.books", domain: "demo", actions: [booksList] });
   actions.register({ contributorId: "test.mcp", domain: "assistant", actions: createAssistantMcpActions({ mcp }) });
-  if (signedIn) actions.registerContextContributor({ id: "test.actor", contribute: () => ({ actor: { id: "3" } }) });
+  if (signedIn) {
+    actions.registerContextContributor({ id: "test.actor", contribute: () => ({ actor: { id: "3" } }) });
+    // Where auth-core's plugin puts the user a service key acts as.
+    app.addHook("preHandler", async (request) => {
+      request.user = { id: "3", providerUserId: "3" };
+    });
+  }
   const router = createRouter();
   registerAssistantMcpRoutes(router, { mcp });
   registerApiErrorHandler(app);
@@ -63,6 +69,7 @@ test("the MCP endpoint answers JSON-RPC over HTTP POST with the signed-in person
 
   const called = await post(app, { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "demo_books_list", arguments: {} } });
   assert.deepEqual(called.json().result, { content: [{ type: "text", text: "{\"count\":3}" }], isError: false });
+  assert.equal(called.headers["acting-as-user"], "3", "the caller learns who it acted as");
 
   const notified = await post(app, { jsonrpc: "2.0", method: "notifications/initialized" });
   assert.equal(notified.statusCode, 202);
@@ -106,3 +113,17 @@ test("the endpoint's action runs on the configured surface only and is never a t
   assert.deepEqual(definition.permission, { require: "authenticated" });
 });
 
+test("the endpoint signs in by a service key alone, answers GET and DELETE without one, and takes a rate limit", () => {
+  const routesOf = (appConfig) => {
+    const router = createRouter();
+    registerAssistantMcpRoutes(router, { mcp: createAssistantMcp({ actions: createActionCatalogue(), config: appConfig }) });
+    return new Map(router.list().map((route) => [route.method, route]));
+  };
+  const routes = routesOf(config);
+  assert.equal(routes.get("POST").auth, "required");
+  assert.equal(routes.get("POST").config.credentials, "bearer", "a browser's cookies never sign it in");
+  assert.equal(routes.get("POST").rateLimit, null);
+  for (const method of ["GET", "DELETE"]) assert.equal(routes.get(method).auth, "public", method);
+  const limited = routesOf({ ...config, assistantMcp: { surfaceId: "admin", rateLimit: { max: 120, timeWindow: "1 minute" } } });
+  assert.deepEqual(limited.get("POST").rateLimit, { max: 120, timeWindowMs: 60_000 });
+});

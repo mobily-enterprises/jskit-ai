@@ -27,6 +27,10 @@ npm install @jskit-ai/auth-provider-oidc-core @jskit-ai/auth-web
 The dependency graph supplies `@jskit-ai/auth-core`. Do not install two
 providers for the same `auth.service` capability.
 
+With local auth, another application's server can also call the app's bearer
+routes as one of its users at a time, with a service key an administrator
+makes: see [Service keys](/guide/app-setup/service-keys).
+
 ## Provider ownership
 
 The selected provider owns identity verification and sessions. The application

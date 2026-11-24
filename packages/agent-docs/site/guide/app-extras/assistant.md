@@ -1022,10 +1022,17 @@ surface:
 config.assistantMcp = { surfaceId: "admin" };
 ```
 
+Its callers are other applications' servers. Each POST signs in by a
+[service key](/guide/app-setup/service-keys) and names the user it acts as
+(`Authorization: Bearer <key>` and `Act-As-User: <user id or email>`), never by
+a browser's cookies, and the answer names that user's id in `Acting-As-User`.
+`assistantMcp.rateLimit` (`{ max, timeWindow }`, as a route's) limits the calls
+from one address, from which a key's server calls for all its users.
+
 Each POST carries one JSON-RPC message (`initialize`, `ping`, `tools/list`,
 `tools/call`) and gets its answer as JSON; a notification gets `202` with no
 body. The endpoint keeps no session and opens no stream: `GET` and `DELETE`
-answer `405`. Every message runs as the person signed in to the request, through
+answer `405`. Every message runs as the user the key acts as, through
 the endpoint's own action (`assistant.mcp.request`), so a tool sees the same
 permissions, surface and workspace as that surface's HTTP routes, and a person
 lists and calls only what they may run.

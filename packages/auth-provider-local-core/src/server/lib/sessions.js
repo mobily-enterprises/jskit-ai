@@ -2,6 +2,7 @@ import { AUTH_TEXTS, createAuthError } from "@jskit-ai/auth-core/server/authText
 import { hostOnlyCookieName } from "@jskit-ai/auth-core/server/utils";
 import { buildSessionAuthPayload, isAuthenticatingSession } from "./authPayloads.js";
 import { createId, isExpiredIso, isoFromNow, randomToken, sha256Base64url, signToken, verifySignedToken } from "./tokens.js";
+import { SERVICE_KEY_PURPOSE, resolveServiceKeyCall, serviceKeyRefusal } from "./serviceKeys.js";
 
 const ACCESS_TOKEN_COOKIE_NAME = "jskit_local_access_token";
 const REFRESH_TOKEN_COOKIE_NAME = "jskit_local_refresh_token";
@@ -238,10 +239,10 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
     // A check without profile synchronization does not answer for a synchronizing one, and only an object can be
     // remembered.
     if (!syncProfile || !request || typeof request !== "object") {
-      return authenticateFromCookies(request, { syncProfile });
+      return authenticateFromCredentials(request, { syncProfile });
     }
     if (!requestAuthentications.has(request)) {
-      const answer = authenticateFromCookies(request, { syncProfile });
+      const answer = authenticateFromCredentials(request, { syncProfile });
       requestAuthentications.set(request, answer);
       // A failure is not remembered: a later check in the request tries again.
       answer.catch(() => {
@@ -264,6 +265,49 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
     if (answer) {
       requestAuthentications.set(request, answer.then((result) => (result.authenticated ? { ...result, actor } : result)));
     }
+  }
+
+  /**
+   * A request is authenticated by the credentials its route takes (auth-core sets `request.authCredentials`): a bearer
+   * route by its service key and the user it acts as alone, every other route by its cookies alone.
+   */
+  function authenticateFromCredentials(request, options) {
+    return request?.authCredentials === "bearer" ? authenticateFromServiceKey(request, options) : authenticateFromCookies(request, options);
+  }
+
+  /**
+   * A service key's call (serviceKeys.js): signed in as the active user its Act-As-User names, never as the key's own
+   * service user, which it carries as `via`. It refreshes nothing and writes no cookie; its sign-in has no address and
+   * no second factor, so a route that asks for either refuses it.
+   */
+  async function authenticateFromServiceKey(request, { syncProfile }) {
+    const resolved = await resolveServiceKeyCall({ backend, sessionSecret: config.sessionSecret }, request);
+    if ("refusal" in resolved) return serviceKeyRefusal(resolved.refusal, resolved.actAs);
+    const authPayload = await buildSessionAuthPayload({
+      appProfileProjection,
+      devAuth,
+      profileProjector,
+      request,
+      session: resolved.key,
+      user: resolved.user,
+      syncProfile,
+      onlyWhenChanged: true
+    });
+    if (!authPayload) return serviceKeyRefusal("actAsUnknown", String(resolved.user.id));
+    return {
+      authenticated: true,
+      ...authPayload,
+      credentials: "bearer",
+      via: Object.freeze({ userId: String(resolved.keyUser.id), name: resolved.keyUser.displayName }),
+      session: null,
+      sessionId: resolved.key.id,
+      secondFactorAt: "",
+      sessionPurpose: SERVICE_KEY_PURPOSE,
+      signIn: sessionSignIn(resolved.key),
+      credentialsChangedAt: credentialsChangedAt(resolved.user),
+      clearSession: false,
+      transientFailure: false
+    };
   }
 
   async function authenticateFromCookies(request, { syncProfile }) {

@@ -19,6 +19,11 @@ function createAuthActionContextContributor() {
       contribution.membership = request.membership;
     }
 
+    // A service key's call acts as `actor`; `actingVia` names the key, for the records that say who did what.
+    if (request?.actingVia) {
+      contribution.actingVia = request.actingVia;
+    }
+
     if (permissions.length > 0) {
       contribution.permissions = permissions;
     }

@@ -15,7 +15,8 @@ test("withAuthPolicy applies stable defaults", () => {
       userField: "id",
       ownerResolver: null,
       csrfProtection: true,
-      secondFactor: false
+      secondFactor: false,
+      credentials: "cookies"
     }
   });
 });
@@ -48,7 +49,8 @@ test("mergeAuthPolicy preserves existing config fields and adds auth policy defa
     userField: "id",
     ownerResolver: null,
     csrfProtection: true,
-    secondFactor: false
+    secondFactor: false,
+    credentials: "cookies"
   });
 });
 
@@ -94,4 +96,10 @@ test("mergeAuthPolicy coerces unsupported owner resolver values to null", () => 
   );
 
   assert.equal(merged.config.ownerResolver, null);
+});
+
+test("a route takes cookies unless it says bearer, and any other credentials stop it", () => {
+  assert.equal(mergeAuthPolicy({ config: { credentials: "bearer" } }, {}).config.credentials, "bearer");
+  assert.equal(mergeAuthPolicy({}, { credentials: "cookies" }).config.credentials, "cookies");
+  assert.throws(() => mergeAuthPolicy({}, { credentials: "token" }), /credentials are "cookies" or "bearer", not "token"/u);
 });

@@ -362,3 +362,54 @@ test("each policy refusal carries its own code next to the English", async () =>
     status: 503, message: "Authentication service temporarily unavailable. Please retry.", code: "auth.session.unavailable"
   });
 });
+
+test("a bearer route signs in by the Authorization header alone, takes no CSRF token, and refuses in the provider's words", async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  const credentialsSeen = [];
+  const REFUSED = { status: 403, code: "auth.serviceKey.actAsInactive", message: "User \"9\" is disabled, so nothing may act as them." };
+  await authPolicyPlugin({
+    async resolveActor(request) {
+      credentialsSeen.push(request.authCredentials);
+      const header = String(request.headers.authorization || "");
+      if (request.authCredentials === "bearer" && header === "Bearer good") {
+        return { authenticated: true, actor: { id: "7" }, credentials: "bearer", via: { userId: "1", name: "Mercbot" } };
+      }
+      if (header === "Bearer inactive") return { authenticated: false, refusal: REFUSED };
+      if (header === "Bearer odd") return { authenticated: false, refusal: { status: 500, code: "x", message: "Odd." } };
+      // A provider that signs requests in by cookies alone, whatever the route takes.
+      if (header === "Bearer from-cookies") return { authenticated: true, actor: { id: "8" } };
+      return { authenticated: false, actor: null };
+    },
+    hasPermission() {
+      return true;
+    }
+  }, { appEnv: "test" })(app);
+  app.post("/api/mcp", { config: { authPolicy: "required", credentials: "bearer" } },
+    (request) => ({ user: request.user.id, via: request.actingVia }));
+  app.post("/api/write", { config: { authPolicy: "required" } }, (request) => ({ via: request.actingVia }));
+  const post = (url, authorization) => app.inject({ method: "POST", url, headers: authorization ? { authorization } : {} });
+
+  const signedIn = await post("/api/mcp", "Bearer good");
+  assert.equal(signedIn.statusCode, 200, signedIn.body);
+  assert.deepEqual(signedIn.json(), { user: "7", via: { userId: "1", name: "Mercbot" } });
+  assert.deepEqual(credentialsSeen, ["bearer"]);
+
+  const anonymous = await post("/api/mcp");
+  assert.equal(anonymous.statusCode, 401);
+  assert.equal(anonymous.headers["www-authenticate"], "Bearer");
+  const wrong = await post("/api/mcp", "Bearer expired");
+  assert.equal(wrong.statusCode, 401);
+  assert.equal(wrong.headers["www-authenticate"], 'Bearer error="invalid_token"');
+  const inactive = await post("/api/mcp", "Bearer inactive");
+  assert.equal(inactive.statusCode, 403);
+  assert.equal(inactive.json().code, REFUSED.code);
+  assert.equal(inactive.json().message, REFUSED.message, "Fastify's own error answer, which the app's API error handler words as error");
+  assert.equal(inactive.headers["www-authenticate"], undefined, "only a 401 challenges");
+  assert.equal((await post("/api/mcp", "Bearer odd")).statusCode, 401, "a refusal is 400, 401 or 403");
+  assert.equal((await post("/api/mcp", "Bearer from-cookies")).statusCode, 401, "a cookie answer does not sign in a bearer route's caller");
+
+  const cookieRoute = await post("/api/write", "Bearer good");
+  assert.equal(cookieRoute.statusCode, 403, "a cookie route still asks for its CSRF token");
+  assert.equal(cookieRoute.headers["www-authenticate"], undefined);
+});

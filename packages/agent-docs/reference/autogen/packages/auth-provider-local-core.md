@@ -155,6 +155,9 @@ Exports
 - `createLocalFileBackend`
 - `createLoggedSecondFactorEvents`
 - `createLoggedSignInEvents`
+- `ACT_AS_USER_HEADER`
+- `SERVICE_KEY_PURPOSE`
+- `createServiceKeyRecord`
 - `SETUP_CODE_ENV`
 - `SETUP_CODE_FILE`
 - `createFirstAccountSetup`
@@ -245,6 +248,14 @@ Exports
 ### `src/server/lib/service.js`
 Exports
 - `createLocalAuthService({ backend, config, confirmationMode = confirmEveryRegistrationByLink, confirmationSender, deliveries: givenDeliveries = null, emailChangeSender, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passIdentity = noPassIdentities, passwordStrategy, profileProjector, recoverySender, secondFactorEvents, signInEvents })`
+
+### `src/server/lib/serviceKeys.js`
+Exports
+- `ACT_AS_USER_HEADER`
+- `SERVICE_KEY_PURPOSE`
+- `createServiceKeyRecord({ userId, now = Date.now(), days = DEFAULT_LIFETIME_DAYS } = /** @type {any} */ ({}))`
+- `resolveServiceKeyCall({ backend, sessionSecret }, request)`
+- `serviceKeyRefusal(reason, actAs = "")`
 
 ### `src/server/lib/sessions.js`
 Exports

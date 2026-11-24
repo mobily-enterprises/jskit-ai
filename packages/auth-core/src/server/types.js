@@ -23,6 +23,13 @@
  *   auth policy sets it as `request.credentialsChangedAt`. A provider that keeps neither leaves it out.
  * @property {boolean} [refreshRequired] True when the session must be refreshed first, which a caller
  *   that asked for no refresh (`refreshSession: false`), such as a realtime socket, cannot do.
+ * @property {"cookies" | "bearer"} [credentials] What signed the request in: "bearer" when its Authorization header
+ *   did, on a route that declares `credentials: "bearer"`; the auth policy treats any other answer on such a route as
+ *   signed out.
+ * @property {{ userId: string, name: string }} [via] The service key a bearer request acts through (its service user),
+ *   while `actor` is the user it acts as.
+ * @property {{ status: 400 | 401 | 403, code: string, message: string }} [refusal] Why a bearer request is refused, in
+ *   words its caller is answered with.
  */
 
 /**

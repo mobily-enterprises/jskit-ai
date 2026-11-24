@@ -153,6 +153,8 @@ Local functions
 - `textOr(value)`
 - `normalizeSessionSignIn(value)`
 - `normalizeCredentialsChangedAt(value)`
+- `normalizeVia(value)`
+- `normalizeRefusal(value)`
 
 ### `src/server/lib/errors.js`
 Exports
@@ -195,6 +197,8 @@ Exports
 - `resolveAuthPolicyMeta(input = {})`
 - `withAuthPolicy(meta = {})`
 - `mergeAuthPolicy(routeOptions = {}, meta = {})`
+Local functions
+- `resolveRouteCredentials(value)`
 
 ### `src/server/lib/routeVisibilityResolver.js`
 Exports
