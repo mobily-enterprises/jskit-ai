@@ -193,6 +193,11 @@ test("isGenericHttpErrorMessage recognises only the transport's own wording", ()
   assert.equal(isGenericHttpErrorMessage(null), false);
 });
 
+test("isGenericHttpErrorMessage counts a request's deadline (TimeoutError) as the transport's own wording", () => {
+  assert.equal(isGenericHttpErrorMessage(new DOMException("signal timed out", "TimeoutError")), true);
+  assert.equal(isGenericHttpErrorMessage(new DOMException("The operation was aborted.", "AbortError")), false);
+});
+
 test("buildValidationFailure carries field codes like the server's validation response", () => {
   const fieldErrorCodes = { name: { code: "kernel.validation.field.required", params: {} } };
   assert.deepEqual(buildValidationFailure({ fieldErrors: { name: "Field is required" }, fieldErrorCodes }), {

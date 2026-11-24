@@ -37,3 +37,10 @@ test("toUiErrorMessage uses fallback copy for generic transport errors", () => {
   );
   assert.equal(toUiErrorMessage({}, "Unable to save."), "Unable to save.");
 });
+
+test("a request past its deadline reads as transport wording, never the browser's \"signal timed out\"", () => {
+  const timedOut = new DOMException("signal timed out", "TimeoutError");
+  assert.equal(toQueryErrorMessage(timedOut, "Unable to load list."), "Unable to load list.");
+  assert.equal(toUiErrorMessage(timedOut, "Unable to save."), "Unable to save.");
+  assert.equal(toUiErrorMessage(timedOut), "The server took too long to answer. Try again.");
+});
