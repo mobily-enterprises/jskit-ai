@@ -57,6 +57,12 @@ where `subscribe` returns a function that stops listening (PostgreSQL LISTEN/NOT
 With it, a new goal round or a queued summary wakes every server at once; without it, each server
 finds due work on its own timer. `goals.start()` and `summaries.start()` run those loops.
 
+A server that stops drains `goals.start()`'s loop, which hands its round in progress over at once:
+`respond` gets the round's `signal`, which aborts as the drain starts, and a reply that stops at its
+next step (the agent loop's model call ends there and then) leaves the round due again as the same
+round, its count as before, for another server, which `notices` wakes at once. A `respond` that
+ignores `signal` finishes its round within the drain's `ms`, as before.
+
 For a turn, `defaultTools({ root, commands, planning, conversationId, post, goals:
 goals.operationsFor(row) })` gives the agent its tools; `post(messages)` adds cards to the chat and
 tells open pages. `planningNotes(planning, conversationId)` gives the state note's to-do list and
