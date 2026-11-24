@@ -13,7 +13,6 @@ const DEPENDENCY_FIELDS = Object.freeze([
   "optionalDependencies"
 ]);
 const UPDATE_SCRIPT = "npx --yes @jskit-ai/jskit-catalog@latest update";
-// The fix for a JSKIT pin that is not this catalog's: the update moves them together, never npm on one package.
 const UPDATE_FIX = "Run npm run jskit:update, which moves every JSKIT pin to this catalog and installs it.";
 // JSKIT packages a release retired, each with what replaced it. The updater removes their declarations itself, and
 // refuses while the application's own code still imports one, naming the import to use instead.
@@ -240,11 +239,9 @@ async function checkProject({ projectRoot = process.cwd(), catalog, additionalMa
         }
         const installed = (await readJsonRecord(installedPath)).value;
         if (installed.version !== record.version) {
-          // A newer JSKIT copy in place of the locked one (a source under development) is where the catalog that
-          // runs comes from, and npm ci would put the old one back: the pins move to it instead.
+          // The catalog that runs comes from a newer JSKIT copy (a source under development); npm ci would put the old one back.
           const ahead = installed.version === normalizedCatalog.versions.get(resolveLockPackageName(packagePath, record));
-          issues.push(`${packagePath} installed ${installed.version}; lockfile requires ${record.version}. ` +
-            (ahead ? `${installed.version} is the version this catalog names, so the project's pins are behind it. ${UPDATE_FIX}` : "Run npm ci."));
+          issues.push(`${packagePath} installed ${installed.version}; lockfile requires ${record.version}. ${ahead ? `${installed.version} is the version this catalog names, so the project's pins are behind it. ${UPDATE_FIX}` : "Run npm ci."}`);
         }
       }
       for (const manifest of manifests) {
