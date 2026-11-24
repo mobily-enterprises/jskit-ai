@@ -1,9 +1,16 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import fsPromises, { lstat } from "node:fs/promises";
+import fsPromises, { lstat, mkdtemp, readFile, rm } from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
+import {
+  CODEX_APP_SERVER_METADATA_SCHEMA_VERSION, CODEX_APP_SERVER_PROVIDER_ID, codexAppServerTerminalEnvHash,
+  writeCodexAppServerMetadata
+} from "../src/server/conversation/codexProcess.js";
+import { createCodexAppServerRuntime } from "../src/server/conversation/codexRuntime.js";
 import { createConversationProcessIdentity } from "../src/server/conversation/processIdentity.js";
 
 const TOKEN_ENV = "JSKIT_EXECUTION_RUNTIME_TOKEN";
@@ -222,8 +229,10 @@ test("a /proc table that cannot be listed is ambiguous, never exit proof", linux
     await identity.inspect(owned),
     await identity.stop(owned, { processIdentitySettleTimeoutMs: 50 })
   ]);
-  assert.deepEqual(inspection, { processGroupIds: [], status: "ambiguous" });
-  assert.deepEqual(stopped, { identityStatus: "ambiguous", processExitVerified: false, stopped: false });
+  // The refusal names why: the listing's own error.
+  const processTableError = tooManyFiles.message;
+  assert.deepEqual(inspection, { processGroupIds: [], processTableError, status: "ambiguous" });
+  assert.deepEqual(stopped, { identityStatus: "ambiguous", processExitVerified: false, processTableError, stopped: false });
   assert.equal(processGroupIsRunning(child.pid), true);
   assert.deepEqual(await identity.inspect(owned), { processGroupIds: [child.pid], status: "exact" });
 });
@@ -240,8 +249,9 @@ test("a live member whose stat cannot be read keeps its group from looking exite
     await identity.inspect(owned),
     await identity.stop(owned, { processIdentitySettleTimeoutMs: 50 })
   ]);
-  assert.deepEqual(inspection, { processGroupIds: [], status: "ambiguous" });
-  assert.deepEqual(stopped, { identityStatus: "ambiguous", processExitVerified: false, stopped: false });
+  const processTableError = `EMFILE: /proc/${child.pid}/stat`;
+  assert.deepEqual(inspection, { processGroupIds: [], processTableError, status: "ambiguous" });
+  assert.deepEqual(stopped, { identityStatus: "ambiguous", processExitVerified: false, processTableError, stopped: false });
   assert.equal(processGroupIsRunning(child.pid), true);
   // A process that has gone (ENOENT, ESRCH) or that hidepid hides from this user (EACCES, EPERM) is left out as before.
   for (const code of ["ENOENT", "ESRCH", "EACCES", "EPERM"]) {
@@ -251,4 +261,97 @@ test("a live member whose stat cannot be read keeps its group from looking exite
       code
     );
   }
+});
+
+test("a runtime process whose environment cannot be read is refused, never left out of the scan", linuxOnly, async (t) => {
+  const { child, identity, owned } = await ownedLinuxGroup(t);
+  // A process of the same runtime in a process group of its own, as one that called setsid is.
+  const member = await liveGroup(t, { [TOKEN_ENV]: owned.processIdentity.runtimeToken, [HASH_ENV]: commandHash });
+  const failingEnvironment = (code, pid) => async (readFile, target, ...rest) => {
+    if (String(target) === `/proc/${pid}/environ`) {
+      throw Object.assign(new Error(`${code}: /proc/${pid}/environ`), { code });
+    }
+    return readFile(target, ...rest);
+  };
+  const [inspection, stopped] = await withFsPromises("readFile", failingEnvironment("EMFILE", member.pid), async () => [
+    await identity.inspect(owned),
+    await identity.stop(owned, { processIdentitySettleTimeoutMs: 50, termTimeoutMs: 500 })
+  ]);
+  // Left out, the member's group went unsignalled and the stop proved an exit while it ran.
+  const processTableError = `EMFILE: /proc/${member.pid}/environ`;
+  assert.deepEqual(inspection, { processGroupIds: [], processTableError, status: "ambiguous" });
+  assert.deepEqual(stopped, { identityStatus: "ambiguous", processExitVerified: false, processTableError, stopped: false });
+  assert.equal(processGroupIsRunning(child.pid), true);
+  assert.equal(processGroupIsRunning(member.pid), true);
+  const readable = await identity.inspect(owned);
+  assert.deepEqual([readable.status, readable.processGroupIds.toSorted()], ["exact", [child.pid, member.pid].toSorted()]);
+  // A process that has gone (ENOENT, ESRCH) is left out; one whose environment only its own user may read (EACCES,
+  // EPERM) is another user's, which outside the leader's group is not this runtime's.
+  for (const code of ["ENOENT", "ESRCH", "EACCES", "EPERM"]) {
+    assert.deepEqual(
+      await withFsPromises("readFile", failingEnvironment(code, process.pid), () => identity.inspect(owned)),
+      readable,
+      code
+    );
+  }
+});
+
+test("a Codex runtime whose process table cannot be read is neither reused nor replaced", linuxOnly, async (t) => {
+  const { child, owned } = await ownedLinuxGroup(t);
+  const runtimeDir = await mkdtemp(join(tmpdir(), "jskit-codex-identity-"));
+  t.after(() => rm(runtimeDir, { force: true, recursive: true }));
+  const compatibility = { attachmentHostRoot: "/attachments", executionContextHash: "context", runtimesHash: "runtimes" };
+  const socketPath = join(runtimeDir, "app-server.sock");
+  const metadata = {
+    accountIdentitySignature: "account",
+    attachmentHostRoot: compatibility.attachmentHostRoot,
+    authStateSignature: "generation",
+    endpoint: `unix://${socketPath}`,
+    executionContextHash: compatibility.executionContextHash,
+    executionId: "11111111-1111-4111-8111-111111111112",
+    executionMode: "interactive",
+    historyAdapterBaseUrl: `http://127.0.0.1:23456/${owned.processIdentity.runtimeToken}/v2`,
+    pid: child.pid,
+    processCwd: runtimeDir,
+    processIdentity: owned.processIdentity,
+    processState: "running",
+    provider: CODEX_APP_SERVER_PROVIDER_ID,
+    runtimeDir,
+    runtimesHash: compatibility.runtimesHash,
+    schemaVersion: CODEX_APP_SERVER_METADATA_SCHEMA_VERSION,
+    socketPath,
+    terminalEnvHash: codexAppServerTerminalEnvHash({}),
+    toolHomeSource: "",
+    transport: "unix"
+  };
+  await writeCodexAppServerMetadata(runtimeDir, metadata);
+  const recorded = await readFile(join(runtimeDir, "runtime.json"), "utf8");
+  const executions = [];
+  const runtime = createCodexAppServerRuntime({
+    credentials: { identity: async () => "account", generation: async () => "generation", assertCurrent: async () => {} },
+    execution: {
+      async run(request) { executions.push(["run", request]); return { ok: false, output: "a replacement was started" }; },
+      async stop(executionId) { executions.push(["stop", executionId]); return { ok: false }; }
+    }
+  });
+  const ensure = (options = {}) => runtime.ensure({ codexCommand: process.execPath, compatibility, env: {}, runtimeDir, ...options });
+
+  // A group whose members are still settling stays reusable, as a host's runtime relies on.
+  const settling = await ensure({ processIdentityInspector: async () => ({ processGroupIds: [child.pid], status: "ambiguous" }) });
+  assert.deepEqual([settling.reused, settling.runtimeStatus], [true, "suspect"]);
+
+  const tooManyFiles = Object.assign(new Error("EMFILE: too many open files, scandir '/proc'"), { code: "EMFILE" });
+  const error = await withFsPromises("readdir", async (readdir, target, ...rest) => {
+    if (String(target) === "/proc") {
+      throw tooManyFiles;
+    }
+    return readdir(target, ...rest);
+  }, () => ensure().then((reused) => assert.fail(`an unchecked runtime was reused as ${reused.runtimeStatus}`), (failure) => failure));
+  assert.equal(error.code, "codex_app_server_process_identity_unreadable");
+  assert.equal(error.retryable, true);
+  assert.match(error.message, /could not check that it is its own/u);
+  assert.ok(error.message.includes(tooManyFiles.message), error.message);
+  assert.deepEqual(executions, []);
+  assert.equal(processGroupIsRunning(child.pid), true);
+  assert.equal(await readFile(join(runtimeDir, "runtime.json"), "utf8"), recorded);
 });
