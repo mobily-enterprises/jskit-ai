@@ -200,7 +200,7 @@ Local functions
 
 ### `src/server/voiceDaemon.js`
 Exports
-- `createBoundedSpeechQueue({ concurrency = 1, maximumQueued = 4 } = {})`
+- `createBoundedSpeechQueue`
 - `createVoiceDaemon({ credentialsFile, credentialsPollMs = 1000, accessLog = writeAccessLine, engine, host = "127.0.0.1", idleTimeoutMs = 90_000, logger = console, maximumConnections, maximumConnectionsPerClient, maximumQueuedSpeech, port = 3092 })`
 - `sendJson(socket, type, fields = {})`
 - `voiceDaemonError(error, fallback = { message: "Voice operation failed.", messageCode: "assistant.voice.daemon.operationFailed" })`
@@ -210,11 +210,15 @@ Exports
 - `type VoiceCredentialsRecord`
 Local functions
 - `sendPcm(socket, audio = Buffer.alloc(0))`
-- `requestPathname(request = {})`
-- `writeJsonResponse(response, statusCode, payload)`
-- `refuseUpgrade(socket, status, extraHeaders = "")`
+- `nothingToCancel()`
 - `poolSize(value)`
 - `writeAccessLine(record)`
+
+### `src/server/voiceDaemonHttp.js`
+Exports
+- `refuseUpgrade(socket, status, extraHeaders = "")`
+- `requestPathname(request = {})`
+- `writeJsonResponse(response, statusCode, payload)`
 
 ### `src/server/voiceProxy.js`
 Exports
@@ -239,6 +243,10 @@ Exports
 Local functions
 - `voiceClientToken(value = "")`
 
+### `src/server/voiceSpeechQueue.js`
+Exports
+- `createBoundedSpeechQueue({ concurrency = 1, maximumQueued = 4 } = {})`
+
 ### `src/shared/protocol.js`
 Exports
 - `VOICE_CATALOGUE_PATH`
@@ -260,8 +268,11 @@ Exports
 - `float32ToPcm16Le(samples = new Float32Array())`
 - `normalizeRecognizedText(value = "", vocabulary = {})`
 - `parseVoiceClientControl(raw = "")`
+- `parseRecognitionHotwords(text = "")`
 - `parseRecognitionSpellings(text = "")`
 - `pcm16LeToFloat32(frame = Buffer.alloc(0))`
+- `recognitionHotword(value = "")`
+- `recognitionHotwords(value = [])`
 - `recognitionSpellingCount(vocabulary = {})`
 - `recognitionSpellings(value = {})`
 - `speechPauseDurationMs(value = "")`
@@ -275,6 +286,7 @@ Exports
 Local functions
 - `spokenPhrase(value = "")`
 - `isBuiltInRecognitionSpelling(phrase = "")`
+- `hotwordRefusal(value)`
 - `recognitionVocabularyPattern(vocabulary)`
 - `applyBuiltInRecognitionSpellings(text)`
 
