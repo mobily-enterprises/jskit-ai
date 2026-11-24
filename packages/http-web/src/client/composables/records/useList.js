@@ -14,7 +14,7 @@ import {
 } from "../runtime/operationUiHelpers.js";
 import { createListUiRuntime } from "../runtime/listUiRuntime.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
-import { resolveLoadErrorStatus } from "../support/resourceLoadStateHelpers.js";
+import { resolveLoadErrorStatus, resolveScreenReadRequestRecovery } from "../support/resourceLoadStateHelpers.js";
 import { toLoadRefusalMessage } from "../support/errorMessageHelpers.js";
 import {
   buildRequestQueryObject,
@@ -253,7 +253,7 @@ function useList({
     selectItems,
     requestOptions: listRequestOptions,
     queryOptions,
-    requestRecovery,
+    requestRecovery: resolveScreenReadRequestRecovery(requestRecovery),
     requestRecoveryLabel,
     fallbackLoadError
   });

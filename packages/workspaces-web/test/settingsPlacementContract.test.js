@@ -65,6 +65,17 @@ test("workspace resource load states expose local retry actions", async () => {
   }
 });
 
+// useView and useList leave their read's network failure to the screen that shows `loadError` (the two above), so the
+// account settings invitations section, which shows none, asks for the shell's request recovery banner instead.
+test("the account settings invitations read asks for the shell's request recovery, as it shows no load error", async () => {
+  const source = await readFile(
+    path.join(packageRoot, "src/client/account-settings/useAccountSettingsInvitesSectionRuntime.js"),
+    "utf8"
+  );
+  assert.match(source, /const pendingInvitesView = useView\(\{[^}]*requestRecovery: true,/);
+  assert.doesNotMatch(source, /pendingInvitesView\.loadError/);
+});
+
 test("workspace command loading follows the http-web proxyRefs contract", async () => {
   const expectations = new Map([
     [

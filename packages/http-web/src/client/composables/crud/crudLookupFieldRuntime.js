@@ -115,9 +115,12 @@ function createCrudLookupFieldRuntime({
       continue;
     }
 
+    // A lookup field shows no load error of its own, so a network failure of its options shows as the shell's
+    // request recovery banner.
     const runtime = useList({
       ...(relationSurfaceId ? { surfaceId: relationSurfaceId } : {}),
       apiSuffix: apiPath,
+      requestRecovery: true,
       ...(transport ? { transport } : {}),
       queryKeyFactory: (surfaceId = "", scopeParamValue = "") => [
         ...normalizedQueryKeyPrefix,

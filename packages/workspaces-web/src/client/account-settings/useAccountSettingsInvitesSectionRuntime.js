@@ -60,9 +60,12 @@ function useAccountSettingsInvitesSectionRuntime() {
     });
   }
 
+  // The invitations section shows no load error of its own, so a network failure of its read shows as the shell's
+  // request recovery banner.
   const pendingInvitesView = useView({
     ownershipFilter: ROUTE_VISIBILITY_PUBLIC,
     apiSuffix: "/bootstrap",
+    requestRecovery: true,
     queryKeyFactory: () => pendingInvitesQueryKey,
     realtime: {
       event: "workspace.invitations.pending.changed"

@@ -22,7 +22,13 @@
 /** @typedef {string | ((context: Record<string, any>) => string) | import("vue").Ref<string>} ApiSuffix */
 /** @typedef {boolean | import("vue").Ref<boolean> | ((context: Record<string, any>) => boolean)} ReadEnabled */
 /** @typedef {(surfaceId: string, scopeParamValue?: string, ownershipFilter?: string) => unknown[]} QueryKeyFactory */
-/** @typedef {false | string | { enabled?: boolean, label?: string, source?: string, dedupeKey?: string, method?: string, dedupeWindowMs?: number } | null} RequestRecovery */
+/**
+ * Whether shell-web's request recovery reports a network failure of the read as its banner, with a Retry: `false` off,
+ * `true` on, a label string or an options object on with those hints. `null` takes the composable's default: on for
+ * useEndpointResource() and useListCore(); off for useList(), useView() and useAddEdit(), whose screen shows the failure
+ * as `loadError` with its own Retry, so a caller whose screen shows no load error passes `true`.
+ * @typedef {boolean | string | { enabled?: boolean, label?: string, source?: string, dedupeKey?: string, method?: string, dedupeWindowMs?: number } | null} RequestRecovery
+ */
 /** @typedef {Record<string, any> | import("vue").Ref<Record<string, any>> | ((context: Record<string, any>) => Record<string, any>) | null} RequestQueryParams */
 /** @typedef {(model: any, payload: any, context: Record<string, any>) => void} MapLoadedToModel */
 

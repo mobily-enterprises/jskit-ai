@@ -260,3 +260,24 @@ test("useCrudListParentTitle requests the parent through JSON:API record transpo
     responseKind: "record"
   });
 });
+
+// The title falls back to the entity's label and shows no load error, so the parent's read keeps the shell's request
+// recovery banner, which useView leaves out for a screen that shows its own.
+test("useCrudListParentTitle's parent read asks for the shell's request recovery", () => {
+  let capturedOptions = null;
+  useCrudListParentTitle({
+    listRuntime: { items: [], isInitialLoading: false, loadError: "" },
+    resource: contactChildResource,
+    recordIdParam: "availabilityRuleId",
+    route: {
+      matched: [{ path: "/w/:workspaceSlug/admin/contacts/:contactId/availabilities" }],
+      params: { workspaceSlug: "harbor", contactId: "538779" }
+    },
+    viewRuntimeFactory: (options = {}) => {
+      capturedOptions = options;
+      return { record: null, isLoading: false, loadError: "" };
+    }
+  });
+
+  assert.equal(capturedOptions.requestRecovery, true);
+});

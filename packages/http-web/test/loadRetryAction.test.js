@@ -4,6 +4,8 @@ import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import { createRenderer, h, reactive } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { SHELL_WEB_ERROR_RUNTIME_KEY } from "@jskit-ai/shell-web/client/error";
+import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
+import { createShellRequestRecoveryRuntime } from "../../shell-web/src/client/requestRecovery/runtime.js";
 import { useAddEdit } from "../src/client/composables/records/useAddEdit.js";
 import { useCrudList } from "../src/client/composables/records/useCrudList.js";
 import { useList } from "../src/client/composables/records/useList.js";
@@ -59,10 +61,12 @@ async function waitFor(check, message) {
 }
 
 // Mounts one runtime whose every read fails with `status` (and `message`, by default one of the server's own, and the
-// server's `code` when given), and records what it reports to the shell.
+// server's `code` when given), and records what it reports to the shell. With `shellRequestRecovery`, shell-web's
+// request recovery watches the same queries and reports to the same shell, as an app's shell has it.
 async function mountFailingLoad(t, status, useRuntime, {
   message = `Contacts refused the read (${describeStatus(status)}).`,
-  code
+  code,
+  shellRequestRecovery = false
 } = {}) {
   const requests = [];
   const client = {
@@ -95,15 +99,21 @@ async function mountFailingLoad(t, status, useRuntime, {
   });
   app.use(router);
   app.use(VueQueryPlugin, { queryClient });
-  app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, {
+  const shell = {
     report(event) {
       reports.push(event);
       return { presentationId: `presentation-${reports.length}` };
     },
     dismiss() {}
-  });
+  };
+  app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, shell);
+  const requestRecovery = shellRequestRecovery
+    ? createShellRequestRecoveryRuntime({ queryClient, errorRuntime: shell, logger: silentLogger })
+    : null;
+  requestRecovery?.install();
   app.mount(node("root"));
   t.after(() => {
+    requestRecovery?.dispose();
     app.unmount();
     queryClient.clear();
   });
@@ -267,4 +277,45 @@ test("useCrudList: a 400 for a query key the list does not take says the server'
   assertRetryOffer(mounted, { status: 400, retry: false });
   assert.equal(mounted.runtime.errorStatus, 400);
   assert.equal(mounted.runtime.loadRefusalMessage, sentence);
+});
+
+// A network failure of a screen's read shows once: the screen shows the runtime's `loadError` with Retry, and the shell
+// gets its one load notice, whose channel the app's error policy picks. shell-web's request recovery, which reports a
+// network failure of a read as its own banner with its own Retry, leaves these reads out.
+const SCREEN_READS = Object.freeze({
+  ...REFUSAL_RUNTIMES,
+  useCrudList: (client) => useCrudList(listOptions(client))
+});
+const NETWORK_FAILURE = "Failed to fetch";
+
+for (const [name, useRuntime] of Object.entries(SCREEN_READS)) {
+  test(`${name}: a network failure shows once, as its own load notice, not again as the shell's request recovery banner`, async (t) => {
+    const mounted = await mountFailingLoad(t, undefined, useRuntime, {
+      message: NETWORK_FAILURE,
+      shellRequestRecovery: true
+    });
+    // Long enough for the request recovery observer, which reports from the query cache's events, to have spoken.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    assert.deepEqual(mounted.reports.map((event) => event.intent), ["resource-load"]);
+    assertRetryOffer(mounted, { status: undefined, retry: true });
+    assert.ok(mounted.runtime.loadError);
+  });
+}
+
+// A read whose screen shows no load error (a lookup's options) asks for the banner, and gets it with its Retry.
+test("useList with requestRecovery: a network failure also shows as the shell's request recovery banner", async (t) => {
+  const mounted = await mountFailingLoad(t, undefined, (client) => useList({
+    ...listOptions(client),
+    requestRecovery: true,
+    requestRecoveryLabel: "Contacts"
+  }), { message: NETWORK_FAILURE, shellRequestRecovery: true });
+
+  await waitFor(
+    () => mounted.reports.some((event) => event.intent === "app-recoverable"),
+    "Expected the shell's request recovery banner."
+  );
+  const banner = mounted.reports.find((event) => event.intent === "app-recoverable");
+  assert.equal(banner.message, "Contacts could not reach the server or network. Check the connection and try again.");
+  assert.equal(banner.action.label, "Retry");
 });

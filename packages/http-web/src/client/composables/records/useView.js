@@ -16,6 +16,7 @@ import { createViewUiRuntime } from "../runtime/viewUiRuntime.js";
 import { createRequestQueryRuntime } from "../support/requestQueryRuntimeSupport.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
 import { resolveOperationRealtimeOptions } from "../useRealtimeQueryInvalidation.js";
+import { resolveScreenReadRequestRecovery } from "../support/resourceLoadStateHelpers.js";
 import { useJskitText } from "../../i18n.js";
 
 const { t } = useJskitText();
@@ -116,7 +117,7 @@ function useView({
     readMethod,
     readQuery: requestQueryRuntime.requestQuery,
     transport,
-    requestRecovery,
+    requestRecovery: resolveScreenReadRequestRecovery(requestRecovery),
     requestRecoveryLabel,
     refreshOnPull: true,
     fallbackLoadError

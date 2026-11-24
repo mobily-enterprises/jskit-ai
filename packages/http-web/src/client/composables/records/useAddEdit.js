@@ -15,7 +15,7 @@ import {
 import {
   resolveResourceMessages
 } from "../support/scopeHelpers.js";
-import { resolveLoadErrorStatus } from "../support/resourceLoadStateHelpers.js";
+import { resolveLoadErrorStatus, resolveScreenReadRequestRecovery } from "../support/resourceLoadStateHelpers.js";
 import { toLoadRefusalMessage } from "../support/errorMessageHelpers.js";
 import { createRequestQueryRuntime } from "../support/requestQueryRuntimeSupport.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
@@ -137,7 +137,7 @@ function useAddEdit({
     writeMethod,
     readQuery: requestQueryRuntime.requestQuery,
     transport,
-    requestRecovery,
+    requestRecovery: resolveScreenReadRequestRecovery(requestRecovery),
     requestRecoveryLabel,
     fallbackLoadError,
     fallbackSaveError: effectiveMessages.saveError

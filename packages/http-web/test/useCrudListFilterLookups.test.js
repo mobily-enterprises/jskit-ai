@@ -232,3 +232,24 @@ test("a lookup filter reads nothing until its options are shown, and labels a se
   assert.equal(lookup.options[0].label, "Farm 01");
   assert.equal(lookup.options[44].label, "Farm 45");
 });
+
+// A filter's options show no load error of their own, so both of its reads keep the shell's request recovery banner,
+// which useList leaves out for a screen that shows its own: their queries carry the recovery hints, never `false`.
+test("a lookup filter's reads ask for the shell's request recovery", async (t) => {
+  const values = reactive({ supplierContactId: ["44"] });
+  const { app, filterLookups, queryClient } = await mountSupplierLookup(values);
+  t.after(() => {
+    app.unmount();
+    queryClient.clear();
+    configureHttpWebClient({});
+  });
+  await settle(() => filterLookups.resolveLookupLabel("supplierContactId", "44", "Supplier") === "Farm 44");
+
+  // The options' query and the selected values' query, one per key they have had.
+  const recoveries = queryClient.getQueryCache().getAll().map((query) => query.meta?.jskit || {});
+  assert.ok(recoveries.length >= 2);
+  for (const recovery of recoveries) {
+    assert.notEqual(recovery.requestRecovery, false);
+    assert.equal(recovery.requestRecoveryMethod, "GET");
+  }
+});

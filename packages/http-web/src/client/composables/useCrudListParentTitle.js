@@ -95,8 +95,11 @@ function useCrudListParentTitle({
     return !listTitle;
   });
 
+  // The title falls back to the entity's label and shows no load error, so a network failure of the parent's read shows
+  // as the shell's request recovery banner.
   const parentView = viewRuntimeFactory({
     apiUrlTemplate: normalizeText(initialParentDescriptor.apiUrlTemplate),
+    requestRecovery: true,
     transport: parentTransport,
     readEnabled: shouldLoadParentRecord,
     recordIdParam: normalizeText(initialParentDescriptor.routeParamKey) || "recordId",

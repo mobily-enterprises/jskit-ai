@@ -28,6 +28,14 @@ Its banners never cover the content either: below a top app bar they are a top
 layout item of their own height, so `v-main` starts the content below them,
 and on a surface without an app bar they join the page flow above it.
 
+Request recovery reports a network failure of a `GET` or `HEAD` query as a
+banner with Retry, for reads whose screen does not show the failure itself.
+`useList()`, `useView()` and `useAddEdit()` from `@jskit-ai/http-web` show
+theirs where the read failed (`loadError`, with Retry), so their queries are
+left out unless the caller passes `requestRecovery`. A hand-written query
+whose component shows its own load error with Retry sets
+`meta: { jskit: { requestRecovery: false } }`, so the failure shows once.
+
 ## The page behind a dialog
 
 While a `v-dialog` or `v-bottom-sheet` is open, `ShellLayout` makes its page

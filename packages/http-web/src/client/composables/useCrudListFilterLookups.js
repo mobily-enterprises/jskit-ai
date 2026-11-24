@@ -77,9 +77,12 @@ function useCrudListFilterLookups(
       }
     };
 
+    // A filter's options show no load error of their own, so a network failure of them shows as the shell's request
+    // recovery banner, as does the read of the selected values' labels below.
     const runtime = useList({
       apiSuffix: filter.lookup.apiSuffix,
       ...(transport ? { transport } : {}),
+      requestRecovery: true,
       readEnabled: optionsWanted,
       queryKeyFactory: queryKeyFactory(""),
       search: {
@@ -114,6 +117,7 @@ function useCrudListFilterLookups(
       ? useList({
           apiSuffix: filter.lookup.apiSuffix,
           ...(transport ? { transport } : {}),
+          requestRecovery: true,
           readEnabled: computed(() => unlabeledValues.value.length > 0),
           queryKeyFactory: queryKeyFactory("__selected__"),
           requestQueryParams: (context) => ({

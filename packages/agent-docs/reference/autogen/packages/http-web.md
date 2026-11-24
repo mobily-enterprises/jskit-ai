@@ -394,6 +394,7 @@ Exports
 - `mergeQueryMeta(queryOptions = null, meta = {})`
 - `mergeRequestRecoveryQueryMeta(queryOptions = null, requestRecovery = null, defaults = {})`
 - `resolveLoadErrorStatus(error)`
+- `resolveScreenReadRequestRecovery(requestRecovery = null)`
 Local functions
 - `normalizeRequestRecoveryInput(requestRecovery = null)`
 - `normalizeRequestRecoveryValue(name, value)`

@@ -15,7 +15,8 @@ const hooks = registerHooks({
     return {
       format: "module",
       shortCircuit: true,
-      source: "export const useList = () => ({ items: [{ id: 7, name: 'Bath' }] });"
+      source: "export const useList = (options) => { (globalThis.lookupUseListCalls ||= []).push(options); " +
+        "return { items: [{ id: 7, name: 'Bath' }] }; };"
     };
   }
 });
@@ -303,4 +304,14 @@ test("lookup items never title the selected value with its raw id", () => {
     }),
     [{ value: "53", label: "Daycare - One Day", record: { id: 53, name: "Daycare - One Day" } }, ...listed]
   );
+});
+
+// A lookup field shows no load error of its own, so its options keep the shell's request recovery banner, which
+// useList leaves out for a screen that shows its own.
+test("a lookup field's options read asks for the shell's request recovery", () => {
+  globalThis.lookupUseListCalls = [];
+  createCrudLookupFieldRuntime({ formFields: serviceFormFields });
+
+  assert.equal(globalThis.lookupUseListCalls.length, 1);
+  assert.equal(globalThis.lookupUseListCalls[0].requestRecovery, true);
 });

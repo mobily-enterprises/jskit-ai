@@ -125,11 +125,21 @@ function mergeRequestRecoveryQueryMeta(queryOptions = null, requestRecovery = nu
   return Object.keys(meta).length > 0 ? mergeQueryMeta(sourceOptions, meta) : sourceOptions;
 }
 
+// useList(), useView() and useAddEdit() report their read's failure once, for their screen: `loadError` (shown where
+// the read failed, with Retry when trying again can help) and the shell's one `resource-load` notice, whose channel the
+// app's error policy picks. So shell-web's request recovery, which would report a network failure again as its own
+// banner, leaves their reads out unless the caller asks for it with `requestRecovery`, for a read no screen shows the
+// failure of (a lookup's options). The one rule for the three.
+function resolveScreenReadRequestRecovery(requestRecovery = null) {
+  return requestRecovery ?? false;
+}
+
 export {
   buildRequestRecoveryMeta,
   hasResolvedQueryData,
   isRetryableLoadStatus,
   mergeQueryMeta,
   mergeRequestRecoveryQueryMeta,
-  resolveLoadErrorStatus
+  resolveLoadErrorStatus,
+  resolveScreenReadRequestRecovery
 };
