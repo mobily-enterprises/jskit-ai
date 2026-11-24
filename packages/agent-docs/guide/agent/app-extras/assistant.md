@@ -795,7 +795,16 @@ extensions: {
 
 Any value other than `true` or `false` stops the catalogue with an error naming
 the action. A JSON:API CRUD feature's generated delete is destructive; its list,
-view, create and update are not. Its custom actions declare hints in their own
+view, create and update are not, unless the feature says so for a table whose
+every change a client should ask about first:
+
+```js
+defineCrudFeature({ crud, surface: "admin", assistantHints: { create: { destructive: true }, update: { destructive: true } } });
+```
+
+`assistantHints` names only the feature's own create, update or delete, each
+with `destructive` or `sendsOutside` as `true` or `false`; anything else stops
+the server, naming the hint. Its custom actions declare hints in their own
 `extensions`, and one without an assistant description is described by its
 route's `summary`, so a client reads what its route says it does.
 

@@ -58,6 +58,7 @@ const FEATURE_OPTIONS = new Set([
   "internal",
   "routes",
   "listFilterQueryValidator",
+  "assistantHints",
   "permissions",
   "scope",
   "requires",
@@ -351,6 +352,9 @@ function projectEnabledServiceOperations(service, operations) {
  * @param {object} [feature.actions] Custom actions, by name.
  * @param {string[]} [feature.operations] Defaults to every operation the CRUD contract offers.
  * @param {string} [feature.realtimeAudience] Defaults to "event_scope".
+ * @param {Record<string, { destructive?: boolean, sendsOutside?: boolean }>} [feature.assistantHints] What an assistant
+ *   client is told about the feature's generated create, update or delete beyond the defaults (a delete is
+ *   destructive), such as `{ update: { destructive: true } }` for a table whose every edit it should ask about first.
  */
 function defineCrudFeature(feature) {
   assertKnownOptions(feature);
@@ -376,7 +380,8 @@ function defineCrudFeature(feature) {
     operationInputs = {},
     actions = {},
     operations = undefined,
-    realtimeAudience = "event_scope"
+    realtimeAudience = "event_scope",
+    assistantHints = undefined
   } = feature;
   if (!isCrudContract(crud)) {
     throw new TypeError("defineCrudFeature requires crud, a CRUD contract from defineCrudContract.");
@@ -463,7 +468,8 @@ function defineCrudFeature(feature) {
       permissions: permissionOptions
     }),
     scopeInputValidator: normalizedScope.actionInputValidator,
-    servedOverHttp
+    servedOverHttp,
+    assistantHints
   }));
 
   return defineFeature({
