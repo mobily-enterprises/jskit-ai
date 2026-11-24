@@ -18,6 +18,8 @@ import { buildCrudCustomActionId } from "./customActionId.js";
 import { withRemovedProperties } from "../removedApi.js";
 
 const CRUD_OPERATION_NAMES = Object.freeze(["list", "view", "create", "update", "delete"]);
+const HINTED_OPERATION_NAMES = Object.freeze(["create", "update", "delete"]);
+const ASSISTANT_HINT_NAMES = Object.freeze(["destructive", "sendsOutside"]);
 const CRUD_MUTATION_NAMES = new Set(["create", "update", "delete"]);
 const CRUD_LIFECYCLE_PHASES = Object.freeze(["before", "execute", "after", "afterCommit"]);
 const SERVED_ACTION_CHANNELS = Object.freeze(["api", "automation", "internal"]);
@@ -186,6 +188,34 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
 }
 
 /**
+ * The hints a feature declares for its generated changes, such as `{ update: { destructive: true } }` for a table
+ * whose every edit a client should ask about first; each is laid over the generated action's own.
+ * @param {unknown} hints
+ * @param {readonly string[]} operations The feature's enabled operations.
+ * @returns {Record<string, Readonly<{ destructive?: boolean, sendsOutside?: boolean }>>}
+ */
+function normalizeOperationAssistantHints(hints, operations) {
+  if (hints === undefined || hints === null) return {};
+  if (typeof hints !== "object" || Array.isArray(hints)) {
+    throw new TypeError("defineCrudFeature assistantHints maps create, update or delete to { destructive?, sendsOutside? }.");
+  }
+  return Object.fromEntries(Object.entries(hints).map(([operation, declared]) => {
+    if (!HINTED_OPERATION_NAMES.includes(operation) || !operations.includes(operation)) {
+      throw new TypeError(`defineCrudFeature assistantHints.${operation}: hints are for the feature's own create, update or delete.`);
+    }
+    if (!declared || typeof declared !== "object" || Array.isArray(declared)) {
+      throw new TypeError(`defineCrudFeature assistantHints.${operation} must be { destructive?, sendsOutside? }.`);
+    }
+    for (const [name, value] of Object.entries(declared)) {
+      if (!ASSISTANT_HINT_NAMES.includes(name) || typeof value !== "boolean") {
+        throw new TypeError(`defineCrudFeature assistantHints.${operation}.${name}: a hint is destructive or sendsOutside, true or false.`);
+      }
+    }
+    return [operation, Object.freeze({ ...declared })];
+  }));
+}
+
+/**
  * What a CRUD feature's actions take from its definition alone, so a feature builds it once and every composition
  * reuses it: each enabled standard operation's id, channels, permission, input and assistant extension, and the
  * feature's custom actions, checked and with the scope's input composed in.
@@ -200,6 +230,8 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
  * @param {{ create?: object, update?: object }} definition.operationInputs
  * @param {Record<string, object>} definition.actions The feature's custom actions, by name.
  * @param {boolean} definition.servedOverHttp False when the feature is internal or registers no routes.
+ * @param {Record<string, { destructive?: boolean, sendsOutside?: boolean }>} [definition.assistantHints] Hints for its
+ *   generated create, update or delete.
  */
 function createCrudJsonApiActionDefinitions({
   namespace,
@@ -211,8 +243,10 @@ function createCrudJsonApiActionDefinitions({
   listFilterQueryValidator,
   operationInputs,
   actions,
-  servedOverHttp
+  servedOverHttp,
+  assistantHints = undefined
 }) {
+  const operationHints = normalizeOperationAssistantHints(assistantHints, operations);
   const additional = normalizeAdditionalActions(actions, {
     namespace,
     surface,
@@ -231,7 +265,7 @@ function createCrudJsonApiActionDefinitions({
       permission,
       input: buildActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs),
       extensions: Object.freeze({
-        assistant: createCrudAssistantExtension(resource, namespace, operation)
+        assistant: Object.freeze({ ...createCrudAssistantExtension(resource, namespace, operation), ...operationHints[operation] })
       })
     });
   });

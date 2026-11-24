@@ -53,7 +53,7 @@ Local functions
 ### `src/server/jsonApiModule/actions.js`
 Exports
 - `assertCrudOperationName(operation = "")`
-- `createCrudJsonApiActionDefinitions({ namespace, resource, surface, permissionForOperation, operations, scopeInputValidator, listFilterQueryValidator, operationInputs, actions, servedOverHttp })`
+- `createCrudJsonApiActionDefinitions({ namespace, resource, surface, permissionForOperation, operations, scopeInputValidator, listFilterQueryValidator, operationInputs, actions, servedOverHttp, assistantHints = undefined })`
 - `createCrudJsonApiActions({ namespace, resource, repository, service, scopeInputKeys, operationLifecycle, dependencies: actionDependencies, realtimeAudience, definitions: builtDefinitions, includedTypes = () => new Map(), ...definitionOptions })`
 - `normalizeCrudOperationLifecycle(value)`
 Local functions
@@ -63,6 +63,7 @@ Local functions
 - `buildLifecycleContext(value)`
 - `withRouteSummary(definition)`
 - `normalizeAdditionalActions(definitions, { namespace, surface, permissionForAction, scopeInputValidator, servedOverHttp })`
+- `normalizeOperationAssistantHints(hints, operations)`
 
 ### `src/server/jsonApiModule/assistantExtension.js`
 Exports
