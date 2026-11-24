@@ -272,3 +272,47 @@ test("a server that stops hands its goal round over at once: the round stops mid
   const goal = await knex("agent_goals").where({ conversation_id: 7 }).first();
   assert.deepEqual([goal.status, goal.rounds], ["complete", 1], "carried on as the same round");
 });
+
+test("a goal loop asked to look while it scans looks again before it ends, so a round queued meanwhile isn't left to its next scan", { skip: DATABASE }, async (context) => {
+  const knex = await testDatabase(context);
+  const agent = await agentOwner(knex);
+  const runs = createRuns(agent);
+  const handle = agent.resources.agentGoals;
+  // The loop's first look finds nothing due and, before it ends, waits for the person's turn to queue the round.
+  let looks = 0;
+  let looked = null;
+  const firstLook = new Promise((resolve) => { looked = resolve; });
+  let queue = null;
+  const queued = new Promise((resolve) => { queue = resolve; });
+  const agentGoals = { ...handle, claim: async (query, options) => {
+    looks += 1;
+    const claimed = await handle.claim(query, options);
+    if (looks === 1) {
+      looked();
+      await queued;
+    }
+    return claimed;
+  } };
+  let rounds = 0;
+  let goals = null;
+  goals = createGoals({
+    ...agent, resources: { ...agent.resources, agentGoals }, runs, limits: { ...GOAL_LIMITS, retryMs: 200 },
+    find: async (goal) => ({ conversation_id: goal.conversation_id }),
+    respond: (row, options) => {
+      rounds += 1;
+      return goalTools(goals.operationsFor(row, { human: !options.goalTurn, ...options })).updateGoal.execute({ action: "complete" });
+    },
+    claim: (row) => runs.claim(row.conversation_id),
+    record: async () => {},
+    notify: async () => {}
+  });
+  await goals.operationsFor({ conversation_id: 8 }, { human: true }).create("Queued mid-scan.");
+  const scan = goals.runDue();
+  await firstLook;
+  // The turn ends now, while the scan that found nothing is still under way: its round is queued and the loop told.
+  await goals.afterTurn(8);
+  queue();
+  await scan;
+  assert.equal(rounds, 1, "the scan looked again and ran the round queued meanwhile");
+  assert.equal((await knex("agent_goals").where({ conversation_id: 8 }).first()).status, "complete");
+});
