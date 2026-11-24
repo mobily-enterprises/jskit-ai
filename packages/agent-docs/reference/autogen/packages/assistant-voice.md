@@ -29,7 +29,7 @@ Exports
 - `createVoiceTurnId(prefix)`
 - `followMediaQuery(query, listener)`
 - `listenToDocument(type, listener)`
-- `listenToPage(type, listener)`
+- `listenToPage(type, listener, options)`
 - `pageVisible()`
 
 ### `src/client/ConversationDialog.vue`
