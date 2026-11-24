@@ -12,6 +12,7 @@
 - A still avatar for thumbnails: `useVoiceAvatar` reads `still: true` from its props, and `VoiceAvatar` has a `still` prop. A still avatar holds its state's expression: it never blinks, gestures, cycles expressions or moves its mouth, and `reducedMotion` is true for it as when the person prefers reduced motion.
 - Icons are Material Symbols `$aliases` (from `@jskit-ai/material-web`) instead of `@mdi/js` paths, and text uses Vuetify 4's Material 3 type classes (`text-body-large`, `text-title-medium`, ...) instead of Material 2 ones, which Vuetify 4 no longer styles. Upgrading: see the guide's [Move an app to the Material 3 defaults](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/material-3-migration).
 - The browser's missing microphone audio support names its sentence (`assistant.voice.errors.microphoneUnsupported`), so a translated app shows it in its language. The English message is unchanged.
+- `useVoiceLauncher` makes the click that ends a pointer hold do nothing wherever it lands, not only on the launcher. A hold that opens something over its launcher, as a full-screen `ConversationDialog` does below 600 pixels, no longer has the lifted finger press that dialog's Close, which ended voice and discarded the held words. The next press, or a keyboard or assistive click, ends the watch, so a release that makes no click (a long press on Android) leaves the person's next click alone; before, the launcher's next pointer click was swallowed when its hold was disabled. The launcher's own `click` now only taps.
 
 ### New message keys (1)
 

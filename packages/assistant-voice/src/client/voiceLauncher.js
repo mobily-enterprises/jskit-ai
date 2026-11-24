@@ -1,4 +1,5 @@
 import { onScopeDispose, ref, toValue } from "vue";
+import { listenToPage } from "./browser.js";
 
 /** Reports nothing when an application leaves out onError. */
 function ignoreLauncherError() {}
@@ -18,12 +19,30 @@ export function useVoiceLauncher({ open, enabled = true, onTap, onError = ignore
   const holding = ref(false);
   let input = null;
   let timer;
-  let suppressClick = false;
   let revision = 0;
   let session;
+  let stopSwallowing = () => {};
   function report(operation) { Promise.resolve(operation).catch(onError); }
+  // A pointer hold ends with the browser's click wherever the pointer lifts, and the hold may have opened something over
+  // the launcher there, such as a full-screen conversation's Close. That click is the hold's, so it does nothing. The
+  // next press ends the watch, as does a keyboard or assistive click (detail 0), which a release never makes.
+  function swallowReleaseClick() {
+    stopSwallowing();
+    const stops = [
+      listenToPage("click", event => {
+        stopSwallowing();
+        if (event.detail === 0) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }, { capture: true }),
+      listenToPage("pointerdown", () => stopSwallowing(), { capture: true })
+    ];
+    stopSwallowing = () => {
+      for (const stop of stops) stop();
+      stopSwallowing = () => {};
+    };
+  }
   function begin(identity, delay) {
-    suppressClick = false;
     input = identity;
     const expected = ++revision;
     timer = setTimeout(() => {
@@ -55,7 +74,7 @@ export function useVoiceLauncher({ open, enabled = true, onTap, onError = ignore
       return;
     }
     holding.value = false;
-    suppressClick = true;
+    if (!keyboard) swallowReleaseClick();
     if (session) report(discard ? session.discardHeldRecording() : session.finishHeldRecording());
     session = null;
   }
@@ -65,12 +84,12 @@ export function useVoiceLauncher({ open, enabled = true, onTap, onError = ignore
     if (event?.pointerId !== undefined && event.pointerId !== input) return;
     finish(true);
   }
-  function click(event) {
-    const suppressed = suppressClick && event.detail !== 0;
-    suppressClick = false;
-    if (suppressed) { event.preventDefault(); event.stopImmediatePropagation(); return; }
+  function click() {
     if (toValue(enabled) && tappable) report(onTap());
   }
-  onScopeDispose(cancel);
+  onScopeDispose(() => {
+    cancel();
+    stopSwallowing();
+  });
   return { holding, pointerDown, pointerUp, keyDown, keyUp, cancel, click };
 }
