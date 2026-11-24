@@ -239,6 +239,9 @@ function createTx(state, touched) {
       async findByEmail(email) {
         return clone(state.users.find((user) => user.email === email) || null);
       },
+      async findAllByEmail(email) {
+        return state.users.filter((user) => user.email === email).map(clone);
+      },
       async hasAny() {
         return state.users.length > 0;
       },

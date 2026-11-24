@@ -117,6 +117,63 @@ test("a call that names nobody, an unknown user, a disabled user or the key's ow
   assertRefused(await service.authenticateRequest(call(key, robot.providerUserId)), 403, "auth.serviceKey.actAsSelf", /its own service user/u);
 });
 
+// A store whose accounts may share an email, as an app whose accounts are its contacts: it answers every match.
+function withSharedEmails(backend, accounts) {
+  return {
+    ...backend,
+    withTransaction: (work) => backend.withTransaction((tx) => work({
+      ...tx,
+      users: {
+        ...tx.users,
+        async findById(id) {
+          return accounts.find((account) => account.id === id) || tx.users.findById(id);
+        },
+        async findAllByEmail(email) {
+          return [...await tx.users.findAllByEmail(email), ...accounts.filter((account) => account.email === email)];
+        }
+      }
+    }))
+  };
+}
+
+test("an email names a user only when exactly one enabled account has it; two enabled accounts with it name no one", async (t) => {
+  const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-service-keys-shared-"));
+  t.after(() => fs.rm(storeDir, { recursive: true, force: true }));
+  const fileBackend = createLocalFileBackend({ storeDir });
+  const plain = createLocalAuthService({ ...localServiceOptions(), backend: fileBackend });
+  const robot = (await plain.register({ email: "mercbot@example.com", password: "correct horse" })).actor;
+  const anna = (await plain.register({ email: "anna@example.com", password: "correct horse" })).actor;
+  const contact = (id, email, disabled) => ({ id, email, displayName: id, password: NO_PASSWORD, disabled });
+  const backend = withSharedEmails(fileBackend, [
+    contact("usr_twin_1", "twin@example.com", false), contact("usr_twin_2", "twin@example.com", false),
+    contact("usr_anna_old", "anna@example.com", true),
+    contact("usr_gone_1", "gone@example.com", true), contact("usr_gone_2", "gone@example.com", true)
+  ]);
+  const service = createLocalAuthService({ ...localServiceOptions(), backend });
+  const { key, record } = createServiceKeyRecord({ userId: robot.providerUserId });
+  await fileBackend.withTransaction((tx) => tx.sessions.create(record));
+
+  assertRefused(await service.authenticateRequest(call(key, "Twin@Example.com")), 403, "auth.serviceKey.actAsAmbiguous",
+    /More than one user has the email "Twin@Example.com".*by its id/u);
+  const byId = await service.authenticateRequest(call(key, "usr_twin_2"));
+  assert.equal(byId.refusal?.code, undefined, "each twin may still be acted as by id");
+  const one = await service.authenticateRequest(call(key, "anna@example.com"));
+  assert.equal(one.actor.providerUserId, anna.providerUserId, "a disabled account with the same email does not count");
+  assertRefused(await service.authenticateRequest(call(key, "gone@example.com")), 403, "auth.serviceKey.actAsInactive", /disabled/u);
+
+  const before = createLocalAuthService({ ...localServiceOptions(), backend: { ...fileBackend,
+    withTransaction: (work) => fileBackend.withTransaction((tx) => work({ ...tx, users: { ...tx.users, findAllByEmail: undefined } })) } });
+  await assert.rejects(before.authenticateRequest(call(key, "anna@example.com")), /users\.findAllByEmail\(email\).*add it to the local auth backend/u,
+    "a backend without the lookup fails naming its fix");
+});
+
+test("the file backend answers every account with an email, and none for an email no one has", async (t) => {
+  const { backend, anna } = await startService(t);
+  const found = await backend.withTransaction((tx) => tx.users.findAllByEmail("anna@example.com"));
+  assert.deepEqual(found.map((user) => user.id), [anna.providerUserId]);
+  assert.deepEqual(await backend.withTransaction((tx) => tx.users.findAllByEmail("nobody@example.com")), []);
+});
+
 test("a key's lifetime is whole days, at most ten years, and it names its user", () => {
   for (const options of [{ userId: "" }, { userId: "usr_a", days: 0 }, { userId: "usr_a", days: 3651 }, { userId: "usr_a", days: 1.5 }]) {
     assert.throws(() => createServiceKeyRecord(options), /createServiceKeyRecord/u, JSON.stringify(options));

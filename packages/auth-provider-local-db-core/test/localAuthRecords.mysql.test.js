@@ -93,6 +93,8 @@ test("accounts: create answers the account it wrote, reads find it by id and ema
     assert.equal(await tx.users.findById(null), null);
     assert.equal(await tx.users.findByEmail("nobody@example.com"), null);
     assert.equal(await tx.users.findByEmail(""), null);
+    assert.deepEqual(await tx.users.findAllByEmail("ADA@Example.com"), [read], "the unique email answers one account");
+    assert.deepEqual(await tx.users.findAllByEmail("nobody@example.com"), []);
   });
 
   const taken = (error) => {

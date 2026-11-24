@@ -256,6 +256,8 @@ Exports
 - `createServiceKeyRecord({ userId, now = Date.now(), days = DEFAULT_LIFETIME_DAYS } = /** @type {any} */ ({}))`
 - `resolveServiceKeyCall({ backend, sessionSecret }, request)`
 - `serviceKeyRefusal(reason, actAs = "")`
+Local functions
+- `userByEmail(users, email)`
 
 ### `src/server/lib/sessions.js`
 Exports
