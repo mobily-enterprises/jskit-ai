@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -120,6 +121,141 @@ test("theme variables carry Material 3 state layers and channel strings for bord
     assert.match(theme.variables["shadow-color"], /^\d+, \d+, \d+$/u);
   }
   assert.equal(light.variables["border-color"], "202, 196, 207");
+});
+
+// A browser's localStorage for one origin; `refuse` makes it throw as blocked or full storage does.
+function browserStorage({ refuse = false } = {}) {
+  const items = new Map();
+  const check = () => {
+    if (refuse) throw new Error("SecurityError: storage is disabled");
+  };
+  return {
+    items,
+    getItem(key) { check(); return items.has(key) ? items.get(key) : null; },
+    setItem(key, value) { check(); items.set(key, String(value)); },
+    removeItem(key) { check(); items.delete(key); }
+  };
+}
+
+let pageStarts = 0;
+/** One app start in a browser that has `storage`: colorSchemes.js loads afresh, as on every page load. */
+async function browserStart(t, storage) {
+  globalThis.window = { localStorage: storage };
+  t.after(() => delete globalThis.window);
+  pageStarts += 1;
+  return import(`../src/client/colorSchemes.js?start=${pageStarts}`);
+}
+
+const VIBE64_INPUT = ["#1867C0", { learning: { value: "#F5C518", blend: false }, subsystem: { value: "#367E70", blend: false } }];
+
+test("a later start reuses the colours an earlier start computed for the same theme, without computing them", async (t) => {
+  const storage = browserStorage();
+  const first = (await browserStart(t, storage)).materialThemes(...VIBE64_INPUT);
+  assert.deepEqual(first, materialThemes(...VIBE64_INPUT));
+  assert.equal(storage.items.size, 1, "the first start keeps its colours for the next");
+  const [[item, stored]] = storage.items;
+  // Changed where the first start stored it, a colour the next start shows is the stored one: it was not computed.
+  storage.setItem(item, stored.replaceAll(`"${first.light.colors.primary}"`, '"#010203"'));
+  const later = await browserStart(t, storage);
+  const reused = later.materialThemes(...VIBE64_INPUT);
+  assert.equal(reused.light.colors.primary, "#010203");
+  assert.deepEqual(reused.dark.colors.learning, first.dark.colors.learning);
+  assert.equal(reused.light.variables["border-color"], first.light.variables["border-color"]);
+  // Each call has its own objects, so an app that changes a theme changes only its own.
+  reused.light.colors.primary = "#ffffff";
+  reused.light.variables["hover-opacity"] = 1;
+  const again = later.materialThemes(...VIBE64_INPUT);
+  assert.equal(again.light.colors.primary, "#010203");
+  assert.equal(again.light.variables["hover-opacity"], 0.08);
+});
+
+test("a changed seed or colour computes the theme again and keeps the last four inputs", async (t) => {
+  const storage = browserStorage();
+  (await browserStart(t, storage)).materialThemes(...VIBE64_INPUT);
+  const [[item, stored]] = storage.items;
+  // The light scheme's primary, the first one stored.
+  storage.setItem(item, stored.replace(/"primary":"#[0-9a-f]{6}"/u, '"primary":"#010203"'));
+  const start = await browserStart(t, storage);
+  // The seed's case is not another input: the stored colours are reused for it.
+  assert.equal(start.materialThemes("#1867c0", VIBE64_INPUT[1]).light.colors.primary, "#010203");
+  const inputs = [
+    ["#B3261E", VIBE64_INPUT[1]],
+    ["#1867C0", { ...VIBE64_INPUT[1], learning: { value: "#F5C518", blend: true } }],
+    ["#1867c0", { subsystem: VIBE64_INPUT[1].subsystem, learning: VIBE64_INPUT[1].learning }],
+    ["#6750A4"]
+  ];
+  for (const input of inputs) {
+    assert.deepEqual(start.materialThemes(...input), materialThemes(...input), JSON.stringify(input));
+  }
+  const kept = JSON.parse(storage.getItem(item));
+  assert.equal(kept.inputs.length, 4);
+  const next = await browserStart(t, storage);
+  for (const input of inputs) {
+    assert.deepEqual(next.materialThemes(...input), materialThemes(...input), JSON.stringify(input));
+  }
+  // The oldest input fell out of storage, so the next start computes it again.
+  assert.deepEqual(next.materialThemes(...VIBE64_INPUT), materialThemes(...VIBE64_INPUT));
+});
+
+test("colours stored under another revision, or that are not a scheme's, are computed again", async (t) => {
+  const computed = materialThemes(...VIBE64_INPUT);
+  const tampered = (change) => {
+    const storage = browserStorage();
+    return browserStart(t, storage).then(({ materialThemes: themes }) => {
+      themes(...VIBE64_INPUT);
+      const [[item, stored]] = storage.items;
+      storage.setItem(item, JSON.stringify(change(JSON.parse(stored))));
+      return storage;
+    });
+  };
+  const cases = {
+    "an older revision": (stored) => ({ ...stored, revision: stored.revision - 1, inputs: stored.inputs.map((entry) => ({ ...entry, light: { ...entry.light, primary: "#010203" } })) }),
+    "a value that is not a hex colour": (stored) => ({ ...stored, inputs: stored.inputs.map((entry) => ({ ...entry, light: { ...entry.light, primary: "red; } body { display: none" } })) }),
+    "a role name that is not one": (stored) => ({ ...stored, inputs: stored.inputs.map((entry) => ({ ...entry, light: { ...entry.light, "x} body {": "#010203" } })) }),
+    "a missing role": (stored) => ({
+      ...stored,
+      inputs: stored.inputs.map((entry) => ({ ...entry, light: Object.fromEntries(Object.entries(entry.light).filter(([role]) => role !== "primary")) }))
+    }),
+    "a missing role of an app colour": (stored) => ({
+      ...stored,
+      inputs: stored.inputs.map((entry) => ({ ...entry, dark: Object.fromEntries(Object.entries(entry.dark).filter(([role]) => role !== "on-learning-container")) }))
+    }),
+    "not this module's": () => ["#010203"]
+  };
+  for (const [name, change] of Object.entries(cases)) {
+    const storage = await tampered(change);
+    assert.deepEqual((await browserStart(t, storage)).materialThemes(...VIBE64_INPUT), computed, name);
+    // The computed colours replace the unusable ones: the input is stored once.
+    assert.equal(JSON.parse(storage.getItem("jskit:material-themes")).inputs.length, 1, name);
+  }
+  const garbage = browserStorage();
+  garbage.setItem("jskit:material-themes", "{not json");
+  assert.deepEqual((await browserStart(t, garbage)).materialThemes(...VIBE64_INPUT), computed);
+  assert.equal(JSON.parse(garbage.getItem("jskit:material-themes")).inputs.length, 1);
+});
+
+// The colours of each stored revision: one digest of three inputs' light and dark themes.
+const REVISION_COLOURS = Object.freeze({ 1: "8e0c647d52f4394c311b8d49bfaa699997ad23a17579d8da75944818b873db63" });
+
+test("the colours a theme input gives change only with the revision browsers store them under", async (t) => {
+  const storage = browserStorage();
+  const { materialThemes: themes } = await browserStart(t, storage);
+  const colours = [themes("#6750A4"), themes(...VIBE64_INPUT), themes("#B3261E", { partner: "#0A7D3E", brandAccent: "#FF6D00" })];
+  const { revision } = JSON.parse(storage.getItem("jskit:material-themes"));
+  // A browser keeps showing the colours it stored until the revision changes.
+  assert.equal(createHash("sha256").update(JSON.stringify(colours)).digest("hex"), REVISION_COLOURS[revision],
+    `The colours differ from revision ${revision}'s: bump THEMES_REVISION in colorSchemes.js and record its digest here.`);
+});
+
+test("a browser that refuses storage still gets its theme", async (t) => {
+  const { materialThemes: themes } = await browserStart(t, browserStorage({ refuse: true }));
+  assert.deepEqual(themes(...VIBE64_INPUT), materialThemes(...VIBE64_INPUT));
+  globalThis.window = {
+    get localStorage() { throw new Error("SecurityError: the document is sandboxed"); }
+  };
+  pageStarts += 1;
+  const sandboxed = await import(`../src/client/colorSchemes.js?start=${pageStarts}`);
+  assert.deepEqual(sandboxed.materialThemes(...VIBE64_INPUT), materialThemes(...VIBE64_INPUT));
 });
 
 test("a seed that is not a six-digit hex colour is refused", () => {
