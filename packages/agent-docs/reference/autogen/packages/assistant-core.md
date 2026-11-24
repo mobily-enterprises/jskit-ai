@@ -375,7 +375,7 @@ Exports
 ### `src/server/conversation/claudeEntryStop.js`
 Exports
 - `setClaudeTurnState(entry, state, message = "")`
-- `recordClaudeEntryInterrupted({ entry, onEvent, updateState, readResult, resolveCompletion }, reason = "", settled = () => {})`
+- `recordClaudeEntryInterrupted({ entry, onEvent, updateState, readResult, resolveCompletion }, reason = "", settled = () => {}, { completed = false } = {})`
 - `stopClaudeEntryProcess(turn, reason = "", { preparing = false } = {})`
 
 ### `src/server/conversation/claudeHistory.js`
@@ -399,6 +399,7 @@ Local functions
 - `claudeHistoryFrames(file)`
 - `completeHistoryOffset(handle, start, size)`
 - `readClaudeHistoryFrames(file)`
+- `claudeTurnAnswered(frames, byId, { turnId, lastMessageId })`
 
 ### `src/server/conversation/claudeNativeTurn.js`
 Exports
@@ -1564,6 +1565,7 @@ Exports
 - `openCodePersistentConversationMessages(rows, conversationMessageId)`
 - `projectOpenCodeConversationMessages(messages, expectedId, { maximumOutput, outputSchema, previous, onMessage })`
 - `openCodeRowsForInput(value = null, inputMessageId = "")`
+- `openCodeInputAnswered(value = null, inputMessageId = "")`
 - `openCodeLastAssistantResult(value = null, { readError = openCodeMessageError } = {})`
 - `waitForOpenCodeMessages(client, conversationId = "", inputMessageId = "", { onMessages = null, readFailure = () => null, readError = openCodeMessageError, signal } = {})`
 - `waitForOpenCodeFinalResponse(client, conversationId, turn, { agent, model, recoveryMessageId, beforeRecovery = recoverWithoutProjection, ...options } = {})`

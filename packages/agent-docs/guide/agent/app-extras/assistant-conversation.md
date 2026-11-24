@@ -3562,9 +3562,24 @@ also enters the fence when nothing began it. Once the fence is set, a Claude
 or OpenCode turn that ends on its own is left to the next server like one the
 shutdown stops: Claude's saved record keeps the execution and the active turn,
 and OpenCode marks the turn `stoppedByShutdown` (a temporary conversation's
-turn ends interrupted and `afterClose` receives `stoppedByShutdown: true`), so
-the next server records the turn interrupted and runs the host's checkpoint
-once.
+turn ends interrupted and `afterClose` receives `stoppedByShutdown: true`).
+The next server decides how such a turn ended from the provider's own history,
+read once the turn's process is gone, and runs the host's checkpoint once: the
+turn is completed, through the host's completed checkpoint, when that history
+holds the turn's answer, and interrupted otherwise. For Claude the answer is
+the session file's last message, with `stop_reason` `"end_turn"` (Claude Code
+saves no result frame; it saves the answer before it reports the result),
+following the turn's latest prompt (the saved `lastMessageId`, else the turn's
+own) and then its first, with no input queued after it, no API error, no
+unfinished goal, and an end reported for every background task the turn
+started. For OpenCode it is the history's last message: the run's assistant
+answer, completed with finish `"stop"`, without an error and with text; an
+answer that finished with tool calls is not one. A history that is unreadable,
+ends mid-frame or lacks that answer leaves the turn interrupted. A temporary
+OpenCode read reports such a run `completed` and calls
+`ended({ outcome: "completed" })` (`ended` receives the read's `outcome` either
+way), so the host makes the matching checkpoint. Codex's next server already
+reads Codex's thread, where a turn Codex lists as completed completes.
 A running Codex app-server keeps the credentials it started with. A Codex turn
 whose OpenAI credentials were rejected after a sign-out or account switch
 (ChatGPT's token-refresh failure, or a 401 from OpenAI) ends with "Codex (OpenAI)
