@@ -21,10 +21,16 @@ Local functions
 - `kebabCase(name)`
 - `channels(argb)`
 - `customColorRoleNames(name)`
-- `addCustomColorRoles(roles, seedArgb, dark, name, argb, blend = true)`
-- `schemeColors(scheme, seedArgb, dark, appColors)`
-- `vuetifyTheme(seedArgb, dark, appColors)`
-- `normalizeAppColors(colors, schemeRoles)`
+- `addCustomColorRoles(schemes, seedArgb, name, argb, blend = true)`
+- `materialRoles(seedArgb, dark)`
+- `computeSchemeColors(seedArgb, appColors)`
+- `storedColorsAreUsable(colors)`
+- `browserStorage()`
+- `storedSchemeColors(storage)`
+- `remember(input, colors)`
+- `schemeColors(input, seedArgb, appColors)`
+- `vuetifyTheme(schemeColorsByRole, dark)`
+- `normalizeAppColors(colors)`
 
 ### `src/client/defaults.js`
 Exports

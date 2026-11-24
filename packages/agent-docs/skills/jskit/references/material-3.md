@@ -193,9 +193,10 @@ never "Back" or a back arrow.
   `createVuetify(createMaterialVuetifyOptions(theme))` with
   `createMaterialVuetifyOptions` from `@jskit-ai/material-web/client`, importing
   `@jskit-ai/material-web/client/material.css`. JSKIT generates the light and
-  dark schemes from the seed at startup (every role in kebab-case such as
+  dark schemes from the seed (every role in kebab-case such as
   `surface-container-low`, plus success, warning and info with their
-  containers), with
+  containers) once per seed and app colours: a browser stores them for its
+  next start, and a changed seed or colour generates them again. It sets
   `defaultTheme: "system"` so the person's light, dark or system preference
   applies. The `md3` blueprint and JSKIT's Material 3 Vuetify defaults live in
   material-web; an app keeps no defaults file and never hand-picks a colour. The

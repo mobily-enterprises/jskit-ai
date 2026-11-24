@@ -110,6 +110,33 @@ const SURFACE_TONES = Object.freeze([
   "surface-light"
 ]);
 
+// Vuetify-only names, each the Material 3 role it takes.
+const VUETIFY_ROLE_NAMES = Object.freeze({
+  // Vuetify paints fields, alerts, toolbars and timelines with surface-light; Material 3 uses the highest container.
+  "surface-light": "surface-container-highest",
+  // Content on every surface tone is on-surface in Material 3; Vuetify would otherwise pick black or white for a
+  // bg-surface-container-* or bg-surface-dim/bright element.
+  ...Object.fromEntries(SURFACE_TONES.map((surface) => [`on-${surface}`, "on-surface"])),
+  "primary-darken-1": "on-primary-container",
+  "secondary-darken-1": "on-secondary-container"
+});
+
+/**
+ * The revision of the colours a theme input gives. A browser keeps the colours it computed for an input under this
+ * revision and its later starts reuse them, so bump it whenever the same input gives other colours (a role added or
+ * remapped, a status colour moved, another Material Color Utilities): every browser then computes them again.
+ * materialWeb.test.js holds the colours of each revision, read from what a browser stores, and fails when they change
+ * without it.
+ */
+const THEMES_REVISION = 1;
+// The browser storage item that keeps the colours of the inputs computed last, newest first.
+const STORAGE_ITEM = "jskit:material-themes";
+const STORED_INPUTS = 4;
+// How many inputs' colours one page or process keeps, for an app that calls with many (a seed picker, say).
+const REMEMBERED_INPUTS = 16;
+const HEX = /^#[0-9a-f]{6}$/u;
+const ROLE_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
+
 function kebabCase(name) {
   return name.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`);
 }
@@ -128,75 +155,167 @@ function customColorRoleNames(name) {
   return [role, `on-${role}`, `${role}-container`, `on-${role}-container`];
 }
 
+// Every role a scheme has before the app's own colours: an app colour may not take one of their names.
+const SCHEME_ROLE_NAMES = new Set([
+  ...ROLE_NAMES.map(kebabCase),
+  ...Object.keys(STATUS_COLOR_HCT).flatMap(customColorRoleNames),
+  ...Object.keys(VUETIFY_ROLE_NAMES)
+]);
+
 /**
- * Adds a colour's four roles, from customColor: harmonized toward the seed unless `blend` is false, as Material Theme
- * Builder's per-colour Blend toggle does.
- * @param {Record<string, number>} roles
+ * Adds a colour's four roles to the light and the dark scheme, from one customColor (which gives both): harmonized
+ * toward the seed unless `blend` is false, as Material Theme Builder's per-colour Blend toggle does.
+ * @param {{ light: Record<string, number>, dark: Record<string, number> }} schemes
  * @param {number} seedArgb
- * @param {boolean} dark
  * @param {string} name
  * @param {number} argb
  * @param {boolean} [blend]
  */
-function addCustomColorRoles(roles, seedArgb, dark, name, argb, blend = true) {
+function addCustomColorRoles(schemes, seedArgb, name, argb, blend = true) {
   const custom = customColor(seedArgb, { name, value: argb, blend });
-  const tones = dark ? custom.dark : custom.light;
   const [role, onRole, containerRole, onContainerRole] = customColorRoleNames(name);
-  roles[role] = tones.color;
-  roles[onRole] = tones.onColor;
-  roles[containerRole] = tones.colorContainer;
-  roles[onContainerRole] = tones.onColorContainer;
+  for (const [roles, tones] of [[schemes.light, custom.light], [schemes.dark, custom.dark]]) {
+    roles[role] = tones.color;
+    roles[onRole] = tones.onColor;
+    roles[containerRole] = tones.colorContainer;
+    roles[onContainerRole] = tones.onColorContainer;
+  }
 }
 
 /**
- * One scheme's colours: every Material 3 role in kebab-case, the status colours and the app's own colours with their
- * containers, and the Vuetify-only names mapped onto Material 3 roles.
- * @param {SchemeTonalSpot} scheme
+ * Every Material 3 role of one scheme in kebab-case.
  * @param {number} seedArgb
  * @param {boolean} dark
- * @param {Array<[string, number, boolean]>} appColors
  */
-function schemeColors(scheme, seedArgb, dark, appColors) {
-  const roles = {};
-  for (const name of ROLE_NAMES) {
-    roles[kebabCase(name)] = MaterialDynamicColors[name].getArgb(scheme);
-  }
-  for (const [name, { hue, chroma, tone }] of Object.entries(STATUS_COLOR_HCT)) {
-    addCustomColorRoles(roles, seedArgb, dark, name, Hct.from(hue, chroma, tone).toInt());
-  }
-  // Vuetify paints fields, alerts, toolbars and timelines with surface-light; Material 3 uses the highest container.
-  roles["surface-light"] = roles["surface-container-highest"];
-  // Content on every surface tone is on-surface in Material 3; Vuetify would otherwise pick black or white for a
-  // bg-surface-container-* or bg-surface-dim/bright element.
-  for (const surface of SURFACE_TONES) {
-    roles[`on-${surface}`] = roles["on-surface"];
-  }
-  roles["primary-darken-1"] = roles["on-primary-container"];
-  roles["secondary-darken-1"] = roles["on-secondary-container"];
-  for (const [name, argb, blend] of appColors) {
-    addCustomColorRoles(roles, seedArgb, dark, name, argb, blend);
-  }
-  return roles;
-}
-
-/**
- * One Vuetify theme from one Material 3 scheme.
- * @param {number} seedArgb
- * @param {boolean} dark
- * @param {Array<[string, number, boolean]>} appColors
- */
-function vuetifyTheme(seedArgb, dark, appColors) {
+function materialRoles(seedArgb, dark) {
   const scheme = new SchemeTonalSpot(Hct.fromInt(seedArgb), dark, 0);
-  const roles = schemeColors(scheme, seedArgb, dark, appColors);
-  const colors = Object.fromEntries(Object.entries(roles).map(([name, argb]) => [name, hexFromArgb(argb)]));
+  return Object.fromEntries(ROLE_NAMES.map((name) => [kebabCase(name), MaterialDynamicColors[name].getArgb(scheme)]));
+}
+
+/**
+ * Both schemes' colours as hex: every Material 3 role in kebab-case, the status colours and the app's own colours
+ * with their containers, and the Vuetify-only names mapped onto Material 3 roles. This is the Material Color
+ * Utilities work; each scheme and each custom colour is computed once.
+ * @param {number} seedArgb
+ * @param {Array<[string, number, boolean]>} appColors
+ * @returns {{ light: Record<string, string>, dark: Record<string, string> }}
+ */
+function computeSchemeColors(seedArgb, appColors) {
+  const schemes = { light: materialRoles(seedArgb, false), dark: materialRoles(seedArgb, true) };
+  for (const [name, { hue, chroma, tone }] of Object.entries(STATUS_COLOR_HCT)) {
+    addCustomColorRoles(schemes, seedArgb, name, Hct.from(hue, chroma, tone).toInt());
+  }
+  for (const roles of Object.values(schemes)) {
+    for (const [name, role] of Object.entries(VUETIFY_ROLE_NAMES)) {
+      roles[name] = roles[role];
+    }
+  }
+  for (const [name, argb, blend] of appColors) {
+    addCustomColorRoles(schemes, seedArgb, name, argb, blend);
+  }
+  const hex = (roles) => Object.fromEntries(Object.entries(roles).map(([name, value]) => [name, hexFromArgb(value)]));
+  return { light: hex(schemes.light), dark: hex(schemes.dark) };
+}
+
+/** A scheme's colours as a page reads them back from storage: kebab-case names, hex values and every scheme role. */
+function storedColorsAreUsable(colors) {
+  return Boolean(
+    colors && typeof colors === "object" && !Array.isArray(colors) &&
+    Object.entries(colors).every(([name, value]) => ROLE_NAME.test(name) && HEX.test(value)) &&
+    [...SCHEME_ROLE_NAMES].every((name) => HEX.test(colors[name]))
+  );
+}
+
+/** This page's storage when it runs in a browser and may use it; null on a server or when the browser refuses it. */
+function browserStorage() {
+  try {
+    return typeof window === "object" && window?.localStorage ? window.localStorage : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The inputs' colours earlier starts stored, newest first, as `[input, { light, dark }]`: none when storage holds
+ * another revision's, cannot be read or is not what this module wrote.
+ * @param {Storage} storage
+ */
+function storedSchemeColors(storage) {
+  try {
+    const stored = JSON.parse(storage.getItem(STORAGE_ITEM) || "null");
+    if (stored?.revision !== THEMES_REVISION || !Array.isArray(stored.inputs)) {
+      return [];
+    }
+    return stored.inputs
+      .filter((entry) => typeof entry?.input === "string" && storedColorsAreUsable(entry.light) &&
+        storedColorsAreUsable(entry.dark))
+      .slice(0, STORED_INPUTS)
+      .map(({ input, light, dark }) => [input, { light, dark }]);
+  } catch {
+    return [];
+  }
+}
+
+// The colours this page or process has, by input, oldest first: a memo of computed and stored colours.
+const rememberedSchemeColors = new Map();
+
+function remember(input, colors) {
+  rememberedSchemeColors.delete(input);
+  rememberedSchemeColors.set(input, colors);
+  for (const oldest of [...rememberedSchemeColors.keys()].slice(0, -REMEMBERED_INPUTS)) {
+    rememberedSchemeColors.delete(oldest);
+  }
+}
+
+/**
+ * The colours of one theme input: the ones this page or process has, or an earlier start in this browser stored,
+ * and otherwise computed once and stored for the next start. A changed seed or colour is another input.
+ * @param {string} input
+ * @param {number} seedArgb
+ * @param {Array<[string, number, boolean]>} appColors
+ */
+function schemeColors(input, seedArgb, appColors) {
+  const remembered = rememberedSchemeColors.get(input);
+  if (remembered) {
+    return remembered;
+  }
+  const storage = browserStorage();
+  const stored = storage ? storedSchemeColors(storage) : [];
+  // The stored colours of this input, when they also hold every role of the app's own colours.
+  const appRoles = appColors.flatMap(([name]) => customColorRoleNames(name));
+  const reused = stored.find(([storedInput, { light, dark }]) => storedInput === input &&
+    appRoles.every((role) => HEX.test(light[role]) && HEX.test(dark[role])))?.[1];
+  const colors = reused || computeSchemeColors(seedArgb, appColors);
+  remember(input, colors);
+  if (storage && !reused) {
+    try {
+      storage.setItem(STORAGE_ITEM, JSON.stringify({
+        revision: THEMES_REVISION,
+        inputs: [[input, colors], ...stored.filter(([storedInput]) => storedInput !== input)].slice(0, STORED_INPUTS)
+          .map(([storedInput, { light, dark }]) => ({ input: storedInput, light, dark }))
+      }));
+    } catch {
+      // Full or refused storage: the next start computes the colours again.
+    }
+  }
+  return colors;
+}
+
+/**
+ * One Vuetify theme from one scheme's colours, its own objects each time.
+ * @param {Record<string, string>} schemeColorsByRole
+ * @param {boolean} dark
+ */
+function vuetifyTheme(schemeColorsByRole, dark) {
+  const colors = { ...schemeColorsByRole };
   return {
     dark,
     colors,
     variables: {
       ...STATE_LAYER_VARIABLES,
       // Channel strings: Vuetify writes them as rgba(var(--v-border-color), var(--v-border-opacity)).
-      "border-color": channels(roles["outline-variant"]),
-      "shadow-color": channels(roles.shadow),
+      "border-color": channels(argbFromHex(colors["outline-variant"])),
+      "shadow-color": channels(argbFromHex(colors.shadow)),
       "theme-kbd": colors["surface-container-highest"],
       "theme-on-kbd": colors["on-surface"],
       "theme-code": colors["surface-container"],
@@ -213,15 +332,14 @@ function vuetifyTheme(seedArgb, dark, appColors) {
  * scheme roles, and each a six-digit hex value (harmonized toward the seed) or `{ value, blend }`, where
  * `blend: false` keeps the colour's own hue.
  * @param {Record<string, string | { value: string, blend?: boolean }>} colors
- * @param {Set<string>} schemeRoles
  * @returns {Array<[string, number, boolean]>}
  */
-function normalizeAppColors(colors, schemeRoles) {
+function normalizeAppColors(colors) {
   return Object.entries(colors).map(([name, value]) => {
     if (!/^[a-z][A-Za-z0-9]*$/u.test(name)) {
       throw new TypeError(`Theme colour "${name}" needs a camelCase name, such as "partner" or "brandAccent".`);
     }
-    const clash = customColorRoleNames(name).find((role) => schemeRoles.has(role));
+    const clash = customColorRoleNames(name).find((role) => SCHEME_ROLE_NAMES.has(role));
     if (clash) {
       throw new TypeError(`Theme colour "${name}" would replace the scheme's "${clash}" role; choose another name.`);
     }
@@ -243,7 +361,9 @@ function normalizeAppColors(colors, schemeRoles) {
  * (SchemeTonalSpot, the Material 3 default), as Vuetify themes named light and dark. Each of the app's own colours
  * adds four roles in both schemes, harmonized toward the seed as Material Theme Builder's custom colours are:
  * `partner: "#0A7D3E"` gives partner, on-partner, partner-container and on-partner-container. A brand or partner
- * colour that must keep its hue is `{ value: "#F5C518", blend: false }`, Theme Builder's Blend switched off.
+ * colour that must keep its hue is `{ value: "#F5C518", blend: false }`, Theme Builder's Blend switched off. The colours
+ * of one input are computed once: a page or process reuses them, and a browser keeps the last few inputs' colours for
+ * its later starts (see THEMES_REVISION); a changed seed or colour computes them again.
  * @param {string} seed A hex colour such as "#6750A4".
  * @param {Record<string, string | { value: string, blend?: boolean }>} [colors] The app's own colours by camelCase
  * name: hex colours, or `{ value, blend }`.
@@ -253,12 +373,12 @@ function materialThemes(seed, colors = {}) {
   if (!/^#[0-9a-f]{6}$/iu.test(normalizedSeed)) {
     throw new TypeError(`The Material theme seed must be a six-digit hex colour, not "${normalizedSeed}".`);
   }
-  const seedArgb = argbFromHex(normalizedSeed);
-  const schemeRoles = new Set(Object.keys(vuetifyTheme(seedArgb, false, []).colors));
-  const appColors = normalizeAppColors(colors, schemeRoles);
+  const appColors = normalizeAppColors(colors);
+  const input = JSON.stringify([normalizedSeed.toLowerCase(), appColors]);
+  const { light, dark } = schemeColors(input, argbFromHex(normalizedSeed), appColors);
   return {
-    light: vuetifyTheme(seedArgb, false, appColors),
-    dark: vuetifyTheme(seedArgb, true, appColors)
+    light: vuetifyTheme(light, false),
+    dark: vuetifyTheme(dark, true)
   };
 }
 

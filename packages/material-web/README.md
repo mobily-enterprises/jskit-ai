@@ -49,7 +49,15 @@ export const theme = {
   instead (a skeleton loader's bones, a linear progress indicator's track, a
   pagination's current page). There is no
   hand-picked colour and no generator command: change the seed and both schemes
-  follow.
+  follow. The schemes are computed once per theme input, the seed (in any
+  case) and the app's colours with their order and `blend`: a page or process
+  reuses the ones it has, and a browser keeps the last four inputs' schemes in
+  `localStorage` (`jskit:material-themes`), so its next start computes none. A
+  changed seed or colour is another input and is computed again. Stored
+  schemes that are not complete sets of hex roles, or were stored under an
+  earlier revision of the generator (`THEMES_REVISION` in `colorSchemes.js`,
+  raised whenever the same input gives other colours), are computed again, and
+  a browser that refuses storage computes them at each start, as a server does.
 - **Icons.** Every Vuetify alias and JSKIT's own aliases are Material Symbols
   Rounded glyphs (outlined, Material Symbols' default; `$<name>Filled` for the
   active navigation item). JSKIT names are the symbol in camelCase: `$arrowBack`,
