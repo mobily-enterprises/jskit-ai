@@ -24,6 +24,7 @@ Exports
 - `buildHttpError`
 - `buildNetworkError`
 - `isGenericHttpErrorMessage`
+- `isRequestTimeoutError`
 - `DEFAULT_RETRYABLE_CSRF_ERROR_CODES`
 - `shouldRetryForCsrfFailure`
 - `normalizeHeaderName`
@@ -76,6 +77,7 @@ Exports
 - `buildHttpError(response, data = {})`
 - `buildNetworkError(cause)`
 - `isGenericHttpErrorMessage(error)`
+- `isRequestTimeoutError(error)`
 Local functions
 - `standardErrorMessage(payload = {})`
 - `genericHttpErrorMessage(status)`
