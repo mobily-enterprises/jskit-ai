@@ -104,6 +104,13 @@ export function createCodexAppServerProcessStart({
     );
   }
 
+  // A helper start refused before its launch removes the helper's files, so its copied provider home never stays on
+  // disk. The refusal stays the error thrown; cleanupRequired says whether those files remain, as on a failed start.
+  async function refusedHelperStart(runtimeDir, error) {
+    error.cleanupRequired = (await runtimeStop.cleanupRefusedHelperStart(runtimeDir)).cleanupFailed;
+    return error;
+  }
+
   async function startCodexAppServerProcess({
     providerHome = false,
     accountIdentitySignature = "",
@@ -147,6 +154,21 @@ export function createCodexAppServerProcessStart({
     const socketPath = codexAppServerSocketPath(runtimeDir);
     assertCodexAppServerSocketPathSupported(socketPath);
     const endpoint = codexAppServerUnixEndpoint(socketPath);
+    // Before anything in the runtime directory changes: an owner this start has not proved gone (one whose runtime.json
+    // is missing, say) keeps its socket, metadata, log, catalogue and a helper's home and workspace.
+    if (await fileExists(socketPath) && !socketOwnerDrained) {
+      const endpointStatus = await codexAppServerEndpointStatus(endpoint, {
+        timeoutMs: CODEX_APP_SERVER_LIVENESS_TIMEOUT_MS,
+        WebSocketImpl
+      });
+      if (![CODEX_APP_SERVER_ENDPOINT_STATUS.MISSING, CODEX_APP_SERVER_ENDPOINT_STATUS.UNREACHABLE]
+        .includes(endpointStatus.status)) {
+        const error = new Error("The existing Codex app-server socket still has an unretired owner.");
+        error.code = `${errorPrefix}codex_app_server_socket_owner_unverified`;
+        error.retryable = false;
+        throw error;
+      }
+    }
     const logPath = codexAppServerLogPath(runtimeDir);
     const helperHome = helper ? codexAppServerHelperHomeDir(runtimeDir) : "";
     const helperWorkspace = helper ? codexAppServerHelperWorkspaceDir(runtimeDir) : "";
@@ -167,7 +189,7 @@ export function createCodexAppServerProcessStart({
         } catch (cause) {
           const error = new Error("Codex isolated helper runtime could not copy the provider home.", { cause });
           error.code = `${errorPrefix}codex_helper_runtime_start_failed`;
-          throw error;
+          throw await refusedHelperStart(runtimeDir, error);
         }
       }
     }
@@ -207,20 +229,7 @@ export function createCodexAppServerProcessStart({
       } catch (cause) {
         const error = new Error("Codex isolated helper runtime could not export its model catalogue.", { cause });
         error.code = `${errorPrefix}codex_helper_runtime_start_failed`;
-        throw error;
-      }
-    }
-    if (await fileExists(socketPath) && !socketOwnerDrained) {
-      const endpointStatus = await codexAppServerEndpointStatus(endpoint, {
-        timeoutMs: CODEX_APP_SERVER_LIVENESS_TIMEOUT_MS,
-        WebSocketImpl
-      });
-      if (![CODEX_APP_SERVER_ENDPOINT_STATUS.MISSING, CODEX_APP_SERVER_ENDPOINT_STATUS.UNREACHABLE]
-        .includes(endpointStatus.status)) {
-        const error = new Error("The existing Codex app-server socket still has an unretired owner.");
-        error.code = `${errorPrefix}codex_app_server_socket_owner_unverified`;
-        error.retryable = false;
-        throw error;
+        throw await refusedHelperStart(runtimeDir, error);
       }
     }
     await rm(socketPath, {

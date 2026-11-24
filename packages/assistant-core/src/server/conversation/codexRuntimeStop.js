@@ -136,6 +136,27 @@ export function createCodexAppServerRuntimeStop({ execution, codexProcessIdentit
     return stopOwnedCodexAppServerExecution(metadata, options);
   }
 
+  // What a helper start makes in its runtime directory beside its process's socket and metadata: its home (with the
+  // copied provider home, which can hold the provider's sign-in), workspace, log and exported catalogue. Its stop
+  // removes them with the whole runtime directory; a failed or refused start removes them too.
+  function removeCodexAppServerHelperFiles(runtimeDir) {
+    const catalogue = codexModelCatalogPaths(runtimeDir);
+    return [
+      rm(codexAppServerHelperHomeDir(runtimeDir), { force: true, recursive: true }),
+      rm(codexAppServerHelperWorkspaceDir(runtimeDir), { force: true, recursive: true }),
+      rm(codexAppServerLogPath(runtimeDir), { force: true }),
+      rm(catalogue.catalogPath, { force: true }),
+      rm(catalogue.revisionPath, { force: true })
+    ];
+  }
+
+  // A helper start refused before its launch started no process: it removes the helper's files and never the socket
+  // or metadata, whose owner it has not proved gone.
+  async function cleanupRefusedHelperStart(runtimeDir = "") {
+    const removals = await Promise.allSettled(removeCodexAppServerHelperFiles(runtimeDir));
+    return { cleanupFailed: removals.some(({ status }) => status === "rejected") };
+  }
+
   async function cleanupFailedCodexAppServerStart(runtimeDir = "", {
     helper = false,
     executionId = "",
@@ -170,20 +191,9 @@ export function createCodexAppServerRuntimeStop({ execution, codexProcessIdentit
         cleanupFailed: true
       };
     }
-    // A helper's start exports its own catalogue, which its stop removes with the whole runtime directory; a failed
-    // start removes it too. A managed runtime keeps its catalogue, which its next start reuses until the revision changes.
-    const catalogue = codexModelCatalogPaths(runtimeDir);
-    const helperRemovals = helper
-      ? [
-          rm(codexAppServerHelperHomeDir(runtimeDir), { force: true, recursive: true }),
-          rm(codexAppServerHelperWorkspaceDir(runtimeDir), { force: true, recursive: true }),
-          rm(codexAppServerLogPath(runtimeDir), { force: true }),
-          rm(catalogue.catalogPath, { force: true }),
-          rm(catalogue.revisionPath, { force: true })
-        ]
-      : [];
+    // A managed runtime keeps its catalogue, which its next start reuses until the revision changes.
     const removals = await Promise.allSettled([
-      ...helperRemovals,
+      ...(helper ? removeCodexAppServerHelperFiles(runtimeDir) : []),
       rm(codexAppServerSocketPath(runtimeDir), { force: true }),
       rm(codexAppServerMetadataPath(runtimeDir), { force: true }),
       removeCodexAppServerMetadataTemps(runtimeDir)
@@ -325,6 +335,7 @@ export function createCodexAppServerRuntimeStop({ execution, codexProcessIdentit
     inspectProcessIdentity: inspectCodexAppServerProcessIdentity,
     stopProcess: stopCodexAppServerProcess,
     cleanupFailedStart: cleanupFailedCodexAppServerStart,
+    cleanupRefusedHelperStart,
     stopRuntime: stopCodexAppServerRuntime
   });
 }

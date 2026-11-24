@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -12,14 +13,15 @@ const ONE_MODEL = "printf '%s' '{\"models\":[{\"slug\":\"fixture-model\"}]}'";
 /**
  * Starts a runtime, with a stand-in Codex CLI whose `debug models` runs `exporter` and which records each call's home
  * and arguments and each export's working directory, under an execution host that records the launch, with the runtime
- * directory's entries and catalogue at that moment, and reports failure. `prepare` receives the runtime directory first.
+ * directory's entries and catalogue at that moment, and reports failure. `prepare` receives the runtime directory first
+ * and may return more start options.
  */
 async function startRecorded(t, configuration = {}, executionMode = "interactive", exporter = ONE_MODEL, prepare = async () => {}) {
   const dir = await mkdtemp(join(tmpdir(), "jskit-codex-"));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const runtimeDir = join(dir, "runtime");
   await mkdir(runtimeDir);
-  await prepare(runtimeDir);
+  const startOptions = await prepare(runtimeDir);
   const calls = join(dir, "calls");
   const exportDirs = join(dir, "export-dirs");
   const codexCommand = join(dir, "codex");
@@ -45,7 +47,8 @@ async function startRecorded(t, configuration = {}, executionMode = "interactive
       }
     }
   });
-  const error = await runtime.start({ codexCommand, env: process.env, executionMode, runtimeDir }).then(() => null, (failure) => failure);
+  const error = await runtime.start({ codexCommand, env: process.env, executionMode, runtimeDir, ...startOptions })
+    .then(() => null, (failure) => failure);
   const lines = async (file) => (await readFile(file, "utf8").catch(() => "")).split("\n").filter(Boolean);
   return { request, error, runtimeDir, calls: () => lines(calls), exportDirs: () => lines(exportDirs), launchEntries, launchCatalogue };
 }
@@ -124,10 +127,78 @@ test("a helper start that fails after its catalogue export leaves an empty runti
 });
 
 test("a helper app-server whose catalogue cannot be exported is refused before it starts", async (t) => {
-  const { request, error } = await startRecorded(t, {}, "helper", "echo broken >&2; false");
+  const { request, error, runtimeDir } = await startRecorded(t, {}, "helper", "echo broken >&2; false");
   assert.equal(request, null, "no launch without a catalogue");
   assert.equal(error?.code, "codex_helper_runtime_start_failed");
   assert.equal(error?.message, "Codex isolated helper runtime could not export its model catalogue.");
+  // Refused, it leaves no helper home, workspace, log or catalogue.
+  assert.deepEqual(await readdir(runtimeDir), []);
+  assert.equal(error?.cleanupRequired, false);
+});
+
+test("a helper whose provider home cannot be copied is refused and leaves no helper home, workspace, log or catalogue", async (t) => {
+  const { request, error, runtimeDir } = await startRecorded(t, {}, "helper", ONE_MODEL, async (runtimeDir) => {
+    // A provider home without its config.toml cannot be copied.
+    const toolHomeSource = join(runtimeDir, "..", "tool-home");
+    await mkdir(join(toolHomeSource, ".codex"), { recursive: true });
+    return { providerHome: true, toolHomeSource };
+  });
+  assert.equal(request, null, "no launch without the provider home");
+  assert.equal(error?.code, "codex_helper_runtime_start_failed");
+  assert.equal(error?.message, "Codex isolated helper runtime could not copy the provider home.");
+  assert.deepEqual(await readdir(runtimeDir), []);
+  assert.equal(error?.cleanupRequired, false);
+});
+
+/** A file's bytes, or the kind of anything else. */
+async function entryValue(entry, file) {
+  if (entry.isFile()) return (await readFile(file)).toString("base64");
+  if (entry.isSocket()) return "socket";
+  return entry.isDirectory() ? "directory" : "other";
+}
+
+/** Every entry under `dir`, by relative path. */
+async function snapshot(dir) {
+  const entries = await readdir(dir, { recursive: true, withFileTypes: true });
+  const values = await Promise.all(entries.map(async (entry) => {
+    const file = join(entry.parentPath, entry.name);
+    return [file.slice(dir.length + 1), await entryValue(entry, file)];
+  }));
+  return Object.fromEntries(values.sort(([a], [b]) => a.localeCompare(b)));
+}
+
+test("a helper start that finds its socket still owned refuses before it changes anything of the owner's", async (t) => {
+  let before = null;
+  const { request, error, runtimeDir, calls } = await startRecorded(t, {}, "helper", ONE_MODEL, async (runtimeDir) => {
+    // A live owner whose runtime.json ensure could not read (a missing or unreadable one) reaches a start with its
+    // socket undrained. It accepts connections and never answers, so the start cannot prove it gone.
+    const owned = {
+      "codex-home/auth.json": "the owner's sign-in",
+      "codex-home/config.toml": "model = \"owner\"\n",
+      "workspace/notes.txt": "the owner's work",
+      "app-server.log": "the owner's log\n",
+      "models.json": "{\"models\":[{\"slug\":\"owner-model\"}]}",
+      "models.revision": "owner revision",
+      "runtime.json": "{\"owner\":true}"
+    };
+    for (const [name, content] of Object.entries(owned)) {
+      await mkdir(join(runtimeDir, name, ".."), { recursive: true });
+      await writeFile(join(runtimeDir, name), content);
+    }
+    const connections = new Set();
+    const owner = createServer((connection) => connections.add(connection));
+    await new Promise((resolve) => owner.listen(join(runtimeDir, "app-server.sock"), resolve));
+    t.after(() => new Promise((resolve) => {
+      for (const connection of connections) connection.destroy();
+      owner.close(resolve);
+    }));
+    before = await snapshot(runtimeDir);
+  });
+  assert.equal(request, null, "no launch beside a live owner");
+  assert.equal(error?.code, "codex_app_server_socket_owner_unverified");
+  assert.equal(before["app-server.sock"], "socket");
+  assert.deepEqual(await snapshot(runtimeDir), before);
+  assert.deepEqual(await calls(), [], "no catalogue export");
 });
 
 test("a non-octal umask is refused before it reaches the startup script", () => {
