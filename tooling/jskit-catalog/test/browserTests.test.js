@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import http from "node:http";
 import { createRequire } from "node:module";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildFrontend } from "../scripts/browser-test-build.mjs";
 import { SETTINGS_VARIABLE, browserTestConfig, browserTestWorkers } from "../scripts/browser-tests.mjs";
 import { discoverProjectManifests } from "../scripts/project-manifests.mjs";
@@ -16,6 +16,7 @@ import { checkTestRuns } from "../scripts/test-runs.mjs";
 
 const SERVERS = fileURLToPath(new URL("../scripts/browser-test-servers.mjs", import.meta.url));
 const TIMES_REPORTER = fileURLToPath(new URL("../scripts/browser-test-times.mjs", import.meta.url));
+const JSKIT = fileURLToPath(new URL("../scripts/jskit.mjs", import.meta.url));
 
 async function withProject(files, run) {
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-browser-tests-"));
@@ -385,6 +386,88 @@ test("a local run's servers have stopped when the launcher exits, whether Playwr
       assert.deepEqual(await Promise.all([answers(basePort), answers(basePort + 1)]), [false, false], stop);
     }
   });
+});
+
+// An app's Playwright config as the foundations write it, with the fixture's own server, build, database and sign-in.
+const TARGET_CONFIG = `import { browserTestConfig } from ${JSON.stringify(pathToFileURL(fileURLToPath(new URL("../scripts/browser-tests.mjs",
+  import.meta.url))).href)};
+export default browserTestConfig({ server: "node ./server.mjs", build: "node ./build.mjs", prepare: "tests/e2e/databases.mjs",
+  env: { EMAIL_DRIVER: "simulate" }, signIn: "tests/e2e/sign-in.mjs" });
+`;
+
+/** `jskit browser-test-server` with these arguments and environment in `root`, in its own process group. */
+function serveTarget(root, args, env = {}) {
+  const child = spawn(process.execPath, [JSKIT, "browser-test-server", ...args], {
+    cwd: root, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"], detached: true
+  });
+  const target = { child, output: "", errors: "" };
+  child.stdout.on("data", (chunk) => { target.output += chunk; });
+  child.stderr.on("data", (chunk) => { target.errors += chunk; });
+  return target;
+}
+
+/** Waits until the target's output matches each pattern, or fails with what it said. */
+async function outputMatches(target, patterns, ms = 15_000) {
+  const deadline = Date.now() + ms;
+  while (!patterns.every((pattern) => pattern.test(target.output))) {
+    if (Date.now() > deadline || target.child.exitCode !== null) {
+      throw new Error(`the target said: ${target.output}${target.errors}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
+
+test("jskit browser-test-server serves the app on a host's address as one worker of a local run: built, on its own prepared database, APP_ENV=test", async () => {
+  await withProject({
+    ...LAUNCHER_APP,
+    "server.mjs": `${APP_SERVER}console.log("the app server says hello");\n`,
+    "tests/e2e/sign-in.mjs": SIGN_IN,
+    "playwright.config.mjs": TARGET_CONFIG
+  }, async (root) => {
+    const port = await freeConsecutivePorts(2);
+    // A host's target environment: the development app's settings and a suite runner's leftovers, which give way.
+    const target = serveTarget(root, ["127.0.0.1", String(port)], {
+      APP_ENV: "development", DB_NAME: "app_development", EMAIL_DRIVER: "smtp",
+      PLAYWRIGHT_BASE_URL: "http://127.0.0.1:9", PLAYWRIGHT_WORKERS: "4", TEST_PARALLEL_INDEX: "3"
+    });
+    try {
+      await outputMatches(target, [/Frontend built in/u, /^jskit browser tests: 1 server\(s\) ready/mu, /the app server says hello/u]);
+      assert.equal(await readFile(path.join(root, "dist", "index.html"), "utf8"), "built");
+      assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/api/health`)).json(), {
+        port: String(port), database: "app_browser_0", index: "0", publicUrl: `http://127.0.0.1:${port}`,
+        driver: "simulate", appEnv: "test"
+      });
+      assert.equal(await answers(port + 1), false);
+      // The host's suite signs in with the login state its host supplies: the target makes none.
+      const cache = await readdir(path.join(root, "node_modules", ".cache", "jskit-browser-tests"));
+      assert.deepEqual(cache, [`workers-${port}.json`]);
+      target.child.kill("SIGTERM");
+      assert.equal(await exitOf(target.child), 143);
+      assert.equal(await answers(port), false);
+    } finally {
+      if (target.child.exitCode === null) process.kill(-target.child.pid, "SIGKILL");
+    }
+  });
+});
+
+test("jskit browser-test-server refuses, naming the fix, an app whose Playwright config is not browserTestConfig() and a missing port", async () => {
+  const port = String(await freeConsecutivePorts(1));
+  for (const [files, args, env, refusal] of [
+    [{ "package.json": { name: "app", type: "module" } }, ["127.0.0.1", port], {},
+      /browserTestConfig\(\) describes, and playwright\.config\.mjs is missing: export defineConfig\(browserTestConfig/u],
+    [{ "package.json": { name: "app", type: "module" }, "playwright.config.mjs": "export default { testDir: \"./tests/e2e\" };\n" },
+      ["127.0.0.1", port], {},
+      /browserTestConfig\(\) describes, and playwright\.config\.mjs does not use it: export defineConfig\(browserTestConfig/u],
+    [{ "package.json": { name: "app", type: "module" }, "playwright.config.mjs": TARGET_CONFIG }, [], { PORT: "" },
+      /needs the port to serve on/u]
+  ]) {
+    await withProject(files, async (root) => {
+      const target = serveTarget(root, args, env);
+      assert.equal(await exitOf(target.child), 1);
+      assert.match(target.errors, refusal);
+      assert.equal(await answers(Number(port)), false);
+    });
+  }
 });
 
 async function findings(root) {

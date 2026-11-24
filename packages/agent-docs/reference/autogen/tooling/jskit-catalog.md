@@ -27,6 +27,10 @@ Local functions
 - `lockBuild(appRoot)`
 - `isCurrent(appRoot, inputs)`
 
+### `scripts/browser-test-server.mjs`
+Exports
+- `serveBrowserTestTarget(args = [], environment = process.env, appRoot = process.cwd())`
+
 ### `scripts/browser-test-servers.mjs`
 Exports
 - None
