@@ -278,7 +278,9 @@ export const CODEX_APP_SERVER_RUNTIME_STATUS = Object.freeze({
   INCOMPATIBLE: "incompatible",
   LIVE: "live",
   MISSING: "missing",
-  SUSPECT: "suspect"
+  SUSPECT: "suspect",
+  // Its process table could not be read, so it is neither reused nor replaced.
+  UNVERIFIED: "unverified"
 });
 
 export const CODEX_APP_SERVER_PROCESS_STATE = Object.freeze({
