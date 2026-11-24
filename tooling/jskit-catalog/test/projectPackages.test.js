@@ -845,6 +845,34 @@ test("installed check detects stale files and lock declarations, including non-J
   });
 });
 
+test("pins behind the installed catalog name npm run jskit:update, and npm ci only for a copy the catalog does not name", async () => {
+  await withProject(async (projectRoot) => {
+    // A newer JSKIT source in node_modules in place of the locked copies, as a connected source leaves it: the
+    // catalog that runs is the installed one, and the project's pins are behind it.
+    const pins = { "@jskit-ai/jskit-catalog": "0.1.8", "@jskit-ai/shell-web": "0.1.4" };
+    await writeJson(path.join(projectRoot, "package.json"), { name: "example-app", devDependencies: pins });
+    await writeJson(path.join(projectRoot, "package-lock.json"), { packages: {
+      "": { name: "example-app", devDependencies: pins },
+      "node_modules/@jskit-ai/jskit-catalog": { version: "0.1.8" },
+      "node_modules/@jskit-ai/shell-web": { version: "0.1.4" }
+    } });
+    await writeJson(path.join(projectRoot, "node_modules/@jskit-ai/jskit-catalog/package.json"), { name: "@jskit-ai/jskit-catalog", version: "0.1.9" });
+    await writeJson(path.join(projectRoot, "node_modules/@jskit-ai/shell-web/package.json"), { name: "@jskit-ai/shell-web", version: "0.1.3" });
+
+    const { issues } = await checkProject({ projectRoot, catalog: CATALOG, checkInstalled: true });
+    const issue = (pattern) => issues.find((entry) => pattern.test(entry)) || assert.fail(`no issue matches ${pattern}:\n${issues.join("\n")}`);
+    const update = /Run npm run jskit:update, which moves every JSKIT pin to this catalog and installs it\./u;
+    assert.match(issue(/devDependencies\.@jskit-ai\/jskit-catalog is 0\.1\.8; expected 0\.1\.9\./u), update);
+    assert.match(issue(/jskit-catalog resolves @jskit-ai\/jskit-catalog@0\.1\.8; expected 0\.1\.9\./u), update);
+    const ahead = issue(/node_modules\/@jskit-ai\/jskit-catalog installed 0\.1\.9; lockfile requires 0\.1\.8/u);
+    assert.match(ahead, /0\.1\.9 is the version this catalog names, so the project's pins are behind it\./u);
+    assert.match(ahead, update);
+    assert.doesNotMatch(ahead, /npm ci/u);
+    // A copy that is neither the lockfile's version nor the catalog's is a stale install.
+    assert.match(issue(/node_modules\/@jskit-ai\/shell-web installed 0\.1\.3; lockfile requires 0\.1\.4/u), /\. Run npm ci\.$/u);
+  });
+});
+
 test("composed graph follows symlinks and rejects identical-version singleton copies", async () => {
   const { checkInstalledGraph } = await import("../scripts/project-packages.mjs");
   await withProject(async (root) => {
