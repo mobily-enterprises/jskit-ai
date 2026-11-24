@@ -533,7 +533,11 @@ async function reportBannerAndMeasure(page) {
   const banner = page.locator(".shell-error-host__banner").first();
   await expect(banner).toBeVisible();
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  return banner.evaluate((element) => {
+  return measureBanner(page);
+}
+
+function measureBanner(page) {
+  return page.locator(".shell-error-host__banner").first().evaluate((element) => {
     const box = (node) => {
       const rect = node.getBoundingClientRect();
       return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right };
@@ -551,7 +555,9 @@ async function reportBannerAndMeasure(page) {
       closeColor,
       closeColorWithThemedDefault,
       appBar: appBar ? box(appBar) : null,
-      content: Array.from(document.querySelectorAll("main h1, main input, main button"))
+      // The page's content: inside main, or on a surface without a layout (sign-in) everything outside the host.
+      content: Array.from((document.querySelector("main") || document.body).querySelectorAll("h1, p, input, button"))
+        .filter((node) => !node.closest(".shell-error-host"))
         .map((node) => ({ name: node.textContent.trim() || node.name, rect: box(node) }))
     };
   });
@@ -584,11 +590,26 @@ test("shell-web error banners never cover content and keep a readable close butt
 
       await page.goto(`/home?theme=${theme}`);
       await expect(page.getByTestId("jskit-shell-app-bar")).toBeVisible();
+      const answer = page.getByRole("textbox", { name: "Unsaved answer" });
+      const contentTop = await answer.evaluate((element) => element.getBoundingClientRect().top);
       const shell = await reportBannerAndMeasure(page);
       assert.ok(
         shell.banner.top >= shell.appBar.bottom - 1,
         `${viewport.width}px ${theme}: the banner overlaps the top app bar.`
       );
+      // Under an app bar the banner takes its own room: the content starts below it, so it covers none of it and the
+      // content's controls take their own clicks. The layout eases the content down, so the check waits for it.
+      await expect.poll(async () => {
+        const { banner, content } = await measureBanner(page);
+        return content.filter((item) => overlaps(banner, item.rect)).map((item) => item.name);
+      }, { message: `${viewport.width}px ${theme}: the banner covers content below the app bar.` }).toEqual([]);
+      await answer.click({ trial: true, timeout: 2_000 });
+      // Closed, it gives its room back and the content starts where it did.
+      await page.locator(".shell-error-host__banner .v-alert__close .v-btn").first().click();
+      await expect(page.locator(".shell-error-host__banner")).toHaveCount(0);
+      await expect.poll(() => answer.evaluate((element) => element.getBoundingClientRect().top), {
+        message: `${viewport.width}px ${theme}: the content does not move back up once the banner closes.`
+      }).toBeCloseTo(contentTop, 0);
       await page.close();
     }
   }

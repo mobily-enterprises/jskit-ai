@@ -1,4 +1,5 @@
 <script setup>
+import { VLayoutItem } from "vuetify/components/VLayout";
 import { useShellErrorHost } from "../composables/useShellErrorHost.js";
 import {
   actionsFor,
@@ -13,6 +14,7 @@ import { useJskitText } from "../i18n.js";
 const { t, text, serverMessage } = useJskitText();
 const {
   bannerEntries,
+  bannerLayoutItemProps,
   bannerPlacement,
   bannersElement,
   dialogEntry,
@@ -33,45 +35,52 @@ const {
     :class="{ 'shell-error-host--inline-banners': bannerPlacement.inline }"
     aria-live="polite"
   >
-    <div
+    <!-- Below a top app bar the banners are a top layout item of their own height, so the layout starts the page's
+         content below them as it starts it below the app bar; without one they are a block in the page flow. -->
+    <component
+      :is="bannerPlacement.inline ? 'div' : VLayoutItem"
       v-if="bannerEntries.length > 0"
-      ref="bannersElement"
-      class="shell-error-host__banners"
-      :class="{ 'shell-error-host__banners--inline': bannerPlacement.inline }"
-      :style="bannerPlacement.style"
-      data-testid="shell-error-host-banners"
+      v-bind="bannerPlacement.inline ? {} : bannerLayoutItemProps"
+      class="shell-error-host__banners-place"
     >
-      <div class="shell-error-host__banner-stack">
-        <v-alert
-          v-for="entry in bannerEntries"
-          :key="entry.id"
-          :color="`${resolveSeverityColor(entry.severity)}-container`"
-          :icon="resolveSeverityIcon(entry.severity)"
-          variant="flat"
-          density="comfortable"
-          :rounded="12"
-          class="shell-error-host__banner"
-          closable
-          :close-label="t('jskit.shell.actions.close')"
-          @click:close="dismiss(entry)"
-        >
-          <div class="d-flex align-center ga-3 flex-wrap">
-            <span>{{ serverMessage(entry) }}</span>
-            <v-spacer />
-            <v-btn
-              v-for="(action, index) in actionsFor(entry)"
-              :key="index"
-              variant="text"
-              size="small"
-              class="text-none"
-              @click="runAction(entry, action)"
-            >
-              {{ text(action.label) }}
-            </v-btn>
-          </div>
-        </v-alert>
+      <div
+        ref="bannersElement"
+        class="shell-error-host__banners"
+        :class="{ 'shell-error-host__banners--inline': bannerPlacement.inline }"
+        data-testid="shell-error-host-banners"
+      >
+        <div class="shell-error-host__banner-stack">
+          <v-alert
+            v-for="entry in bannerEntries"
+            :key="entry.id"
+            :color="`${resolveSeverityColor(entry.severity)}-container`"
+            :icon="resolveSeverityIcon(entry.severity)"
+            variant="flat"
+            density="comfortable"
+            :rounded="12"
+            class="shell-error-host__banner"
+            closable
+            :close-label="t('jskit.shell.actions.close')"
+            @click:close="dismiss(entry)"
+          >
+            <div class="d-flex align-center ga-3 flex-wrap">
+              <span>{{ serverMessage(entry) }}</span>
+              <v-spacer />
+              <v-btn
+                v-for="(action, index) in actionsFor(entry)"
+                :key="index"
+                variant="text"
+                size="small"
+                class="text-none"
+                @click="runAction(entry, action)"
+              >
+                {{ text(action.label) }}
+              </v-btn>
+            </div>
+          </v-alert>
+        </div>
       </div>
-    </div>
+    </component>
 
     <!-- Material 3 keeps a snackbar clear of the actions it reports on. Vuetify places it inside the layout, above the
          navigation bar and a FAB that takes layout room (`<v-fab app layout>`). On a phone it is centred there; on
@@ -154,16 +163,18 @@ const {
   order: -1;
 }
 
+/* The floating banners' layout item spans the content's width under the app bar and takes no clicks itself. */
+.shell-error-host__banners-place {
+  pointer-events: none;
+}
+
 .shell-error-host__banners {
-  position: fixed;
-  z-index: 2600;
   pointer-events: none;
   padding: 10px 12px;
 }
 
 .shell-error-host__banners--inline {
   position: relative;
-  z-index: auto;
   padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
 }
 

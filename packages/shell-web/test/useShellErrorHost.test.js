@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { markRaw, nextTick, ref, shallowRef } from "vue";
+import { markRaw, nextTick, reactive, ref, shallowRef } from "vue";
 import { createPinia } from "pinia";
 import { useShellErrorHost } from "../src/client/composables/useShellErrorHost.js";
 import { SHELL_WEB_ERROR_RUNTIME_KEY } from "../src/client/error/inject.js";
@@ -46,16 +46,18 @@ function mountHost(t, { top = 0, width = 1280 } = {}) {
   useShellErrorPresentationStore(pinia).attachRuntimeStore(store);
   const reports = [];
   const layoutRect = shallowRef({ top, left: 0, right: 0, bottom: 0 });
+  // The layout items Vuetify has placed, by name, each with the rect it starts at.
+  const layoutItems = reactive(new Map());
   const windowWidth = ref(width);
   const { app, result } = mountComposable(useShellErrorHost, {
     plugins: [pinia],
     provide: [
       [SHELL_WEB_ERROR_RUNTIME_KEY, { report: (event) => reports.push(event) }],
-      [Symbol.for("vuetify:layout"), { mainRect: layoutRect }],
+      [Symbol.for("vuetify:layout"), { mainRect: layoutRect, getLayoutItem: (name) => layoutItems.get(name) }],
       [Symbol.for("vuetify:display"), { width: windowWidth, mobile: ref(false) }]
     ]
   });
-  return { app, heights, host: result, layoutRect, observers, openSurfaces, reports, store, windowWidth };
+  return { app, heights, host: result, layoutItems, layoutRect, observers, openSurfaces, reports, store, windowWidth };
 }
 
 test("snackbars show one at a time and the next opens after the last one leaves", async (t) => {
@@ -180,4 +182,46 @@ test("inline banners publish their height and withdraw it when they float or go"
 
   app.unmount();
   assert.equal(heights.size, 0);
+});
+
+test("below an app bar the banners take a top layout item of their own height, so the content starts below them", async (t) => {
+  const { app, heights, host, layoutItems, layoutRect } = mountHost(t, { top: 64 });
+  const element = markRaw({ getBoundingClientRect: () => ({ height: 40.2 }) });
+  assert.equal(host.bannerPlacement.value.inline, false);
+
+  host.bannersElement.value = element;
+  await nextTick();
+  assert.deepEqual(host.bannerLayoutItemProps.value, {
+    name: "shell-error-host-banners",
+    order: 1,
+    position: "top",
+    size: 41,
+    modelValue: true,
+    style: { zIndex: 2600 }
+  });
+  assert.equal(heights.size, 0, "Only inline banners publish their height.");
+
+  // Vuetify places the item under the app bar and starts the content below both: the banners still float.
+  layoutItems.set("shell-error-host-banners", { top: 64, left: 0, right: 0, bottom: 0, size: 41, position: "top" });
+  layoutRect.value = { top: 105, left: 0, right: 0, bottom: 0 };
+  await nextTick();
+  assert.equal(host.bannerPlacement.value.inline, false);
+  assert.equal(host.bannerLayoutItemProps.value.size, 41);
+
+  // Without the app bar they start at the top: they join the page flow and give the layout their room back.
+  layoutItems.set("shell-error-host-banners", { top: 0, left: 0, right: 0, bottom: 0, size: 41, position: "top" });
+  await nextTick();
+  assert.equal(host.bannerPlacement.value.inline, true);
+  assert.equal(host.bannerLayoutItemProps.value.size, 0);
+  assert.equal(heights.get("--shell-error-banners-inline-height"), "41px");
+
+  layoutItems.delete("shell-error-host-banners");
+  layoutRect.value = { top: 64, left: 0, right: 0, bottom: 0 };
+  await nextTick();
+  assert.equal(host.bannerLayoutItemProps.value.size, 41);
+  host.bannersElement.value = null;
+  await nextTick();
+  assert.equal(host.bannerLayoutItemProps.value.size, 0, "Banners that go give their room back.");
+  assert.equal(heights.size, 0);
+  app.unmount();
 });

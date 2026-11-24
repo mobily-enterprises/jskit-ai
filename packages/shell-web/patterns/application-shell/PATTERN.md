@@ -38,9 +38,11 @@ placement registry, topology, and adaptive smoke helper exported by
 - Cached route/resource state hydrates writable UI state synchronously or with
   immediate watchers.
 - Loading uses stable skeletons, not spinners or shifting status banners.
-- `ShellErrorHost` stays directly inside `v-app`. Its banners float below a top
-  app bar; on a surface without one (such as sign-in) they join the page flow
-  above the content so they never cover it. A full-viewport fixed screen on
+- `ShellErrorHost` stays directly inside `v-app`. Below a top app bar its
+  banners are a top Vuetify layout item of their own height, so `v-main`
+  starts the content below them as it starts it below the app bar; on a
+  surface without one (such as sign-in) they join the page flow above the
+  content. Either way they never cover it. A full-viewport fixed screen on
   such a surface starts at `var(--shell-error-banners-inline-height, 0px)`, as
   `@jskit-ai/auth-web`'s login and reset views do.
 - Restyle shell chrome through its custom properties, not by overriding

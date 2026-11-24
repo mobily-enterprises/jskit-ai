@@ -292,7 +292,7 @@ Exports
 ### `src/client/error/presentation.js`
 Exports
 - `actionsFor(entry)`
-- `resolveBannerPlacement(rect)`
+- `resolveBannerPlacement(top = 0)`
 - `resolveSeverityColor(severity = "error")`
 - `resolveSeverityIcon(severity = "error")`
 - `resolveTimeout(entry)`

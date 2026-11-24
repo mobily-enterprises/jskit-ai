@@ -37,14 +37,8 @@ test("an entry's actions list its action first and skip an empty one", () => {
 });
 
 test("banners float below a top app bar and join the page without one", () => {
-  assert.deepEqual(resolveBannerPlacement({ top: 0 }), { inline: true, style: undefined });
-  assert.deepEqual(resolveBannerPlacement({}), { inline: true, style: undefined });
-  assert.deepEqual(resolveBannerPlacement({ top: 64, left: 256, right: 0 }), {
-    inline: false,
-    style: {
-      top: "calc(env(safe-area-inset-top, 0px) + 64px)",
-      left: "256px",
-      right: "0px"
-    }
-  });
+  assert.deepEqual(resolveBannerPlacement(0), { inline: true });
+  assert.deepEqual(resolveBannerPlacement(), { inline: true });
+  assert.deepEqual(resolveBannerPlacement(Number.NaN), { inline: true });
+  assert.deepEqual(resolveBannerPlacement(64), { inline: false });
 });

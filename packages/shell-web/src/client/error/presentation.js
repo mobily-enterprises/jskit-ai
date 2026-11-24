@@ -37,23 +37,12 @@ function actionsFor(entry) {
   return entry ? [entry.action, ...entry.additionalActions].filter(Boolean) : [];
 }
 
-// Banners float just below a top app bar. A surface without one (sign-in pages)
-// has nothing to float under, so the banners join the page flow above the
-// content instead of covering it.
-function resolveBannerPlacement(rect) {
-  const top = Number(rect.top) || 0;
-  if (top <= 0) {
-    return { inline: true, style: undefined };
-  }
-
-  return {
-    inline: false,
-    style: {
-      top: `calc(env(safe-area-inset-top, 0px) + ${top}px)`,
-      left: `${Number(rect.left) || 0}px`,
-      right: `${Number(rect.right) || 0}px`
-    }
-  };
+// Banners sit just below a top app bar, in a top layout item of their own height, so the page's content starts below
+// them as it starts below the app bar. A surface without one (sign-in pages) has no app bar to sit under, so the
+// banners join the page flow above the content instead. Neither covers the content. `top` is where the banners start:
+// the height of the top app bar, 0 without one.
+function resolveBannerPlacement(top = 0) {
+  return Object.freeze({ inline: !(Number(top) > 0) });
 }
 
 export {

@@ -13,7 +13,16 @@ import { useShellErrorPresentationStore } from "../src/client/stores/useShellErr
 import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
 
 const componentUrl = new URL("../src/client/components/ShellErrorHost.vue", import.meta.url).href;
+// The host imports VLayoutItem from Vuetify's own entry, whose CSS Node cannot load; like the other Vuetify
+// components here, it is a stub.
+const layoutStubUrl = `data:text/javascript,${encodeURIComponent(
+  "export const VLayoutItem = { name: \"VLayoutItem\", setup: (_props, { slots }) => () => slots.default?.() };"
+)}`;
 const hooks = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier !== "vuetify/components/VLayout") return nextResolve(specifier, context);
+    return { url: layoutStubUrl, shortCircuit: true };
+  },
   load(url, context, nextLoad) {
     if (url !== componentUrl) return nextLoad(url, context);
     const { descriptor } = parse(readFileSync(new URL(url), "utf8"));
@@ -52,7 +61,10 @@ function fixture(t) {
   app.use(pinia);
   useShellErrorPresentationStore(pinia).attachRuntimeStore(store);
   app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, runtime);
-  app.provide(Symbol.for("vuetify:layout"), { mainRect: shallowRef({ top: 0, left: 0, right: 0, bottom: 0 }) });
+  app.provide(Symbol.for("vuetify:layout"), {
+    mainRect: shallowRef({ top: 0, left: 0, right: 0, bottom: 0 }),
+    getLayoutItem: () => undefined
+  });
   app.provide(Symbol.for("vuetify:display"), { width: shallowRef(1280), mobile: shallowRef(false) });
   globalThis.document = { documentElement: { style: { removeProperty() {} } }, querySelector: () => null };
   for (const name of ["VSnackbar", "VDialog", "VCard", "VCardTitle", "VCardText", "VCardActions", "VSpacer", "VAlert", "VBtn"]) {

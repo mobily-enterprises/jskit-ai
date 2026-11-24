@@ -24,6 +24,9 @@ elsewhere on the page stay. Medium and wider bars show them all.
 `ShellErrorHost` centres its snackbar above the navigation bar on compact
 windows and starts it at the content's start edge, at most half the content's
 width, on wider ones, so it never covers the FAB or the actions it reports on.
+Its banners never cover the content either: below a top app bar they are a top
+layout item of their own height, so `v-main` starts the content below them,
+and on a surface without an app bar they join the page flow above it.
 
 ## The page behind a dialog
 
