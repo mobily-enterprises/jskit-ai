@@ -139,7 +139,7 @@ function createConversationTurns({ storage, streams, events, entries, reads, del
                 throw failure("This native completion's admitted message is no longer current.", "conversation_native_completion_message_stale", 409, { messageCode: "assistant.conversation.nativeCompletionMessageStale" });
               }
             } } : {}) }));
-        } } : {}),
+        }, contextRefusalsAreResults: true } : {}),
         maximumCalls: maximumToolCalls, discoveryOnly: driver.toolDiscovery === true,
         // Only an engine whose whole history the runtime owns says it has no reason to refuse
         // unsaved tools; an engine that keeps its own history names why it can't.

@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { resolveApiErrorStatus } from "@jskit-ai/kernel/server/runtime/errors";
 import { DEFAULT_MAX_TOOL_ARGUMENT_BYTES, DEFAULT_MAX_TOOL_RESULT_BYTES } from "../lib/serviceToolCatalog.js";
 
 const unknownOutcome = "The application operation did not return a verified result. Inspect its target before requesting another execution.";
@@ -23,6 +24,26 @@ function announceTransientCall() {}
 
 const TRANSIENT_HOOKS = new Set([authorizeTransientCall, saveTransientCalls, announceTransientCall]);
 
+// A context refusal that says the call's own message is no longer the turn's: the turn has moved on, so it still ends.
+const STALE_MESSAGE_CODES = new Set(["conversation_application_tool_message_stale", "conversation_native_completion_message_stale"]);
+
+/**
+ * The host's refusal to map the context for one call, as that call's result: an error the host raised with a 4xx
+ * status (the person may not act, or no longer may). A stopped turn, a stale message and any other failure are not
+ * refusals, and still end the turn.
+ * @param {unknown} error
+ * @param {AbortSignal} signal
+ */
+function contextRefusal(error, signal) {
+  const status = resolveApiErrorStatus(error);
+  if (signal.aborted || status >= 500 || STALE_MESSAGE_CODES.has(error?.code)) return null;
+  return { ok: false, error: {
+    code: String(error?.code || "").trim() || "assistant_tool_refused",
+    message: String(error?.message || "").trim() || "The application refused this call.",
+    status
+  } };
+}
+
 /**
  * One turn's application calls. Native/API adapters only transport these calls.
  * A call to an unsaved tool (its descriptor's `unsaved`) lives in this turn's memory alone: it is
@@ -34,6 +55,8 @@ const TRANSIENT_HOOKS = new Set([authorizeTransientCall, saveTransientCalls, ann
  * @param {{ tools: object[], limits?: { maxToolArgumentBytes?: number, maxToolResultBytes?: number } }} [options.toolSet] A tool set resolved earlier for this turn.
  * @param {object} options.context The caller context the calls run as.
  * @param {() => Promise<object>} [options.prepareContext] Maps the context again before each call.
+ * @param {boolean} [options.contextRefusalsAreResults] Whether prepareContext's refusal (a 4xx error) comes back to the
+ *   model as the call's error, the call recorded `not-executed`, instead of ending the turn.
  * @param {AbortSignal} options.signal
  * @param {object[]} [options.previousCalls] The calls this turn already recorded.
  * @param {() => Promise<void> | void} [options.authorize] Rechecks admission; required unless the tool set is transient.
@@ -48,7 +71,7 @@ const TRANSIENT_HOOKS = new Set([authorizeTransientCall, saveTransientCalls, ann
  */
 export function createConversationTools({ catalog, toolSet: retainedToolSet, context, prepareContext, signal: turnSignal, previousCalls = [],
   authorize = authorizeTransientCall, save = saveTransientCalls, emit = announceTransientCall, maximumCalls = 32, discoveryOnly = false,
-  offerUnsaved = false, unsavedRefusal = "", transient = false, propagateErrors = false }) {
+  offerUnsaved = false, unsavedRefusal = "", transient = false, propagateErrors = false, contextRefusalsAreResults = false }) {
   if (transient !== true && [authorize, save, emit].some(hook => typeof hook !== "function" || TRANSIENT_HOOKS.has(hook))) {
     throw new TypeError("Conversation tools require authorization, durable save and event facilities.");
   }
@@ -58,6 +81,7 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
   if (typeof offerUnsaved !== "boolean") throw new TypeError("Unsaved application tools require an explicit server-side boolean.");
   // readable-check: allow method-probe - input validation: an optional context mapper must be a function
   if (prepareContext !== undefined && typeof prepareContext !== "function") throw new TypeError("Application tool context requires a server-owned mapper.");
+  if (typeof contextRefusalsAreResults !== "boolean") throw new TypeError("Application tool context refusals require an explicit server-side boolean.");
   const toolSet = retainedToolSet ?? catalog.resolveToolSet(context, { discoveryOnly, offerUnsaved, unsavedRefusal });
   const unsavedNames = new Set(toolSet.tools.filter(tool => tool.unsaved === true).map(tool => tool.name));
   if (unsavedNames.size && !offerUnsaved) {
@@ -82,9 +106,20 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
     return operation;
   }
 
+  /** The context for one call, or the host's refusal of it when refusals are this caller's results. */
+  async function mapContext(signal) {
+    if (!prepareContext) return { executionContext: context };
+    try { return { executionContext: await prepareContext() }; }
+    catch (error) {
+      const refusal = contextRefusalsAreResults ? contextRefusal(error, signal) : null;
+      if (!refusal) throw error;
+      return { refusal };
+    }
+  }
+
   async function run({ id, name, arguments: argumentsText }, signal) {
     await authorize();
-    let executionContext = prepareContext ? await prepareContext() : context;
+    let { executionContext, refusal } = await mapContext(signal);
     signal.throwIfAborted();
     if (typeof id !== "string" || !id || id.length > 256 || typeof name !== "string" || !name || name.length > 256 ||
         typeof argumentsText !== "string") throw new TypeError("An application tool requires its call id, name and JSON arguments.");
@@ -100,11 +135,26 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
       if (!isDeepStrictEqual(input, { id: recorded.id, name: recorded.name, arguments: recorded.arguments })) {
         throw new Error("This application tool call id already belongs to different arguments.");
       }
+      // A replay is refused as a new call is, and keeps its recorded result.
+      if (refusal) return structuredClone(refusal);
       if (!recorded.result || recorded.status === "unknown") throw outcomeUnknown(unsavedCalls.has(id));
       return structuredClone(recorded.result);
     }
     const unsaved = unsavedNames.has(name);
     let call;
+    if (refusal) {
+      // Refused before it was reserved: the call is recorded with its refusal, and nothing runs.
+      call = { ...input, status: "not-executed", ...(unsaved ? {} : { at: new Date().toISOString() }), result: refusal };
+      if (unsaved) {
+        unsavedCalls.set(id, call);
+        return structuredClone(refusal);
+      }
+      calls.set(id, call);
+      try { await save([...calls.values()]); }
+      catch (error) { calls.delete(id); throw error; }
+      await emit({ type: "tool", call: structuredClone(call) });
+      return structuredClone(refusal);
+    }
     if (unsaved) {
       // Admission and the context were checked just above; there is no reservation to wait on.
       call = { ...input, status: "running" };
@@ -119,13 +169,20 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
       await emit({ type: "tool", call: structuredClone(call) });
       try {
         await authorize();
-        if (prepareContext) executionContext = await prepareContext();
+        ({ executionContext, refusal } = await mapContext(signal));
         signal.throwIfAborted();
       } catch (error) {
         call.status = "not-executed";
         call.result = { ok: false, error: { code: "conversation_tool_not_executed", message: "Execution stopped before the action began." } };
         await save([...calls.values()]);
         throw error;
+      }
+      if (refusal) {
+        call.status = "not-executed";
+        call.result = refusal;
+        await save([...calls.values()]);
+        await emit({ type: "tool", call: structuredClone(call) });
+        return structuredClone(refusal);
       }
     }
     let failed = false;

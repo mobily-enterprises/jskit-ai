@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createSchema } from "json-rest-schema";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createConversationRuntime, createMemoryConversationStorage } from "../src/server/conversation/index.js";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 import { createConversationTools } from "../src/server/conversation/tools.js";
@@ -619,6 +620,9 @@ async function boundToolFixture(t, options = {}) {
       observed.mappings.push({ actual, admission });
       assert.equal(Object.isFrozen(admission), true);
       if (observed.denied) throw new Error("Bound write authority revoked");
+      // The host's own refusal of this mapping: each call is mapped when admitted, and again once reserved.
+      const refusal = observed.refuse?.();
+      if (refusal) throw refusal;
       return { ...actual, boundAdmission: admission, fresh: observed.mappings.length };
     } } })
   };
@@ -670,6 +674,55 @@ test("bound tools use exact accepted host rows and fresh server context without 
   assert.deepEqual(applicationTools[0], previousTools[0]);
   assert.equal(applicationTools.length, 2);
   assert.equal(applicationTools[1].status, "complete");
+});
+
+test("a host's refusal of a bound tool call comes back to the model as that call's error, and the turn goes on", async t => {
+  const f = await boundToolFixture(t);
+  await f.conversation.send(message);
+  await f.currentCommand();
+  await f.loadContract();
+  const refusal = new AppError(403, "The person this turn runs for may no longer act here.", { code: "host_actor_refused" });
+  const refused = { ok: false, error: { code: "host_actor_refused", message: refusal.message, status: 403 } };
+  // Refused when the call is admitted, and when it is reserved; a replay of a recorded call is refused too.
+  f.observed.refuse = () => refusal;
+  assert.deepEqual(await f.tools().execute(f.nativeCall), refused);
+  let mapped = 0;
+  f.observed.refuse = () => ++mapped === 2 ? refusal : null;
+  assert.deepEqual(await f.tools().execute({ ...f.nativeCall, id: "reserved-call" }), refused);
+  f.observed.refuse = () => refusal;
+  assert.deepEqual(await f.tools().execute({ id: "bound-contract", name: "assistant_action_contract",
+    arguments: JSON.stringify({ actionId: "numbers.add", version: 1 }) }), refused);
+  assert.equal(f.observed.executions.length, 0, "a refused call runs nothing");
+  // Once the host allows it, the same turn's next call runs.
+  f.observed.refuse = null;
+  const allowed = await f.tools().execute({ ...f.nativeCall, id: "allowed-call" });
+  assert.equal(allowed.ok, true, JSON.stringify(allowed));
+  assert.equal(f.observed.executions.length, 1);
+  f.finish.resolve();
+  const done = await f.conversation.wait();
+  assert.equal(done.error, "", "the turn ended without an error");
+  const calls = done.conversationLog[0].metadata.applicationTools;
+  assert.deepEqual(calls.map(call => [call.id, call.status]), [["bound-contract", "complete"], ["bound-call", "not-executed"],
+    ["reserved-call", "not-executed"], ["allowed-call", "complete"]]);
+  assert.deepEqual(calls[1].result, refused);
+  assert.deepEqual(calls[2].result, refused);
+  assert.equal(calls[0].result.ok, true, "the refused replay keeps its recorded result");
+});
+
+test("a bound tool call whose message is stale, or whose host fails, still ends the turn", async t => {
+  for (const [label, thrown] of [
+    ["stale", new AppError(409, "This application tool's admitted message is no longer current.", { code: "conversation_application_tool_message_stale" })],
+    ["failed", new Error("The goal store is unavailable.")]
+  ]) {
+    const f = await boundToolFixture(t);
+    await f.conversation.send(message);
+    await f.currentCommand();
+    await f.loadContract();
+    f.observed.refuse = () => thrown;
+    await assert.rejects(f.tools().execute(f.nativeCall), error => error === thrown, label);
+    f.finish.resolve();
+    assert.equal((await f.conversation.wait()).error, thrown.message, `${label}: the turn ended with the call's error`);
+  }
 });
 
 test("bound tool result-save retry uses its original accepted request after steering without repeating the effect", async t => {
