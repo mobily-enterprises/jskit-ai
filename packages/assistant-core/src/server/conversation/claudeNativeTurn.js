@@ -106,8 +106,10 @@ function claudeResultMessage(frame, turnId, result) {
  * @typedef {import("./providers/claude.js").ClaudeProcessControl & {
  *   stopExecution?: (executionId: string, options?: object) => Promise<object>,
  *   releaseExecution?: () => Promise<unknown>,
- *   ownerClosing?: () => boolean
- * }} ClaudeTurnProcess
+ *   ownerClosing?: () => boolean,
+ *   answeredInHistory?: () => Promise<boolean>
+ * }} ClaudeTurnProcess `answeredInHistory` tells whether Claude's history holds the answer that
+ *   ended the turn an earlier server left (see claudeTurnAnswered); a retained entry's owner supplies it.
  */
 
 /**

@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
-  OPENCODE_INTERRUPT_TIMEOUT_MS, openCodeLastAssistantResult, openCodeMessageRows, openCodeRowsForInput, readOpenCodeMessagesUntil,
+  OPENCODE_INTERRUPT_TIMEOUT_MS, openCodeInputAnswered, openCodeLastAssistantResult, openCodeMessageRows, openCodeRowsForInput, readOpenCodeMessagesUntil,
   openCodePersistentConversationMessages, openCodeStructuredOutput, waitForOpenCodeMessages, steerOpenCodeTurn, dispatchOpenCodeTurn,
   observeOpenCodeTurnCompletion
 } from "./openCodeTurn.js";
@@ -173,16 +173,18 @@ export function createOpenCodeTemporaryConversations({ processes, temporaryConve
     const result = openCodeLastAssistantResult(rows, { readError });
     const messages = openCodePersistentConversationMessages(rows, projection.messageId);
     const runId = tracked?.inputMessageId || [...rows].reverse().find((row) => row.type === "user")?.id || "";
-    // The application marks the run a previous server's shutdown stopped: that
+    // The application marks the run a previous server's shutdown left: that
     // run's native abort is the shutdown's interruption, not its failure, and
-    // recording it lets the application make the checkpoint it still owes.
+    // recording it (with how it ended) lets the application make the checkpoint
+    // it still owes. A turn whose answer arrived as the shutdown stopped is left
+    // like one it stopped; OpenCode's completed answer for the run completes it.
     const shutdownStop = projection.stoppedByShutdown;
     const stoppedByShutdown = !tracked && Boolean(runId) && shutdownStop?.runId === runId;
     let conversationStatus = "completed";
     if (status.type !== "idle" || tracked?.active) conversationStatus = "inProgress";
-    else if (tracked?.interrupted || stoppedByShutdown) conversationStatus = "interrupted";
+    else if (tracked?.interrupted || stoppedByShutdown && !openCodeInputAnswered(rows, runId)) conversationStatus = "interrupted";
     else if (tracked?.error || result.error) conversationStatus = "failed";
-    if (stoppedByShutdown) await shutdownStop.ended();
+    if (stoppedByShutdown) await shutdownStop.ended({ outcome: conversationStatus });
     return {
       conversationId,
       ok: true,

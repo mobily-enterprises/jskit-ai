@@ -142,7 +142,9 @@ const historyCache = new Map();
 // inputs can be large and are never part of the projection.
 function retainedClaudeFrame(frame) {
   if (!["user", "assistant", "system", "attachment", "result", "last-prompt"].includes(frame.type)) {
-    return { type: frame.type, uuid: frame.uuid, parentUuid: frame.parentUuid };
+    // Whether Claude queued input or took it in (see claudeTurnAnswered).
+    return { type: frame.type, uuid: frame.uuid, parentUuid: frame.parentUuid,
+      ...(frame.type === "queue-operation" ? { operation: frame.operation } : {}) };
   }
   const content = frame.message?.content;
   if (!Array.isArray(content) || !["user", "assistant"].includes(frame.type)) {
@@ -150,12 +152,17 @@ function retainedClaudeFrame(frame) {
     const { toolUseResult: _result, ...retained } = frame;
     return retained;
   }
+  // A tool call Claude runs in the background, and the task a tool result
+  // moved there, are kept (see claudeTurnAnswered).
   const blocks = frame.type === "user"
     ? content.filter(block => block?.type === "text")
     : content.map(block => block?.type === "tool_use" && block.name !== "StructuredOutput"
-      ? { type: "tool_use", id: block.id, name: block.name } : block);
-  const { toolUseResult: _result, ...retained } = frame;
-  return { ...retained, message: { ...frame.message, content: blocks } };
+      ? { type: "tool_use", id: block.id, name: block.name,
+        ...(block.input?.run_in_background === true ? { input: { run_in_background: true } } : {}) } : block);
+  const { toolUseResult: result, ...retained } = frame;
+  const backgroundTaskId = result?.backgroundTaskId;
+  return { ...retained, message: { ...frame.message, content: blocks },
+    ...(typeof backgroundTaskId === "string" && backgroundTaskId ? { toolUseResult: { backgroundTaskId } } : {}) };
 }
 
 function claudeHistoryFrames(file) {
@@ -208,7 +215,7 @@ async function readClaudeHistoryFrames(file) {
       frames: reusable ? cached.frames.concat(added) : added };
     const current = historyCache.get(file.path);
     if (current) current.value = value;
-    return value.frames;
+    return value;
   } catch (error) {
     const current = historyCache.get(file.path);
     if (current) delete current.value;
@@ -246,8 +253,13 @@ async function readClaudeHistory(options) {
   // Snapshot the file length. A writer can be in the middle of its last frame;
   // Live history reads allow that unfinished tail. Stopped maintenance can
   // require the existing strict parser without changing live observation.
-  if (options.allowIncompleteTail ?? true) frames = await claudeHistoryFrames(file);
-  else {
+  // Whether the file ends with a complete frame.
+  let complete = true;
+  if (options.allowIncompleteTail ?? true) {
+    const read = await claudeHistoryFrames(file);
+    frames = read.frames;
+    complete = read.offset === file.size;
+  } else {
     for await (const frame of readClaudeJsonFrames(createReadStream(file.path, { end: file.size - 1 }))) {
       if (!frame.isSidechain) frames.push(frame);
     }
@@ -415,8 +427,61 @@ async function readClaudeHistory(options) {
     }
   }
   return { exists: true, messages: [...messages.values()], userIds, goal, goalCommandId, ...inspected,
+    // An unfinished goal judges the turn's answer before the turn ends.
+    ...(options.answeredTurn ? { turnAnswered: complete && goal?.status !== "active" &&
+      claudeTurnAnswered(frames, byId, options.answeredTurn) } : {}),
     text: [...messages.values()].filter((message) => message.role === "assistant" && message.userId === lastUserId)
       .map((message) => message.text).join("\n") };
+}
+
+const ENDED_TASK_PATTERN = /<status>(?:completed|failed|killed|stopped)<\/status>/u;
+
+/**
+ * Whether Claude's saved frames end with the last answer of the turn `turnId`
+ * began, whose latest prompt is `lastMessageId` (the turn's own, without a
+ * steer). Claude Code (2.1.331, stream-json) saves no result frame: it saves
+ * the turn's last answer, with stop_reason "end_turn", before it reports the
+ * turn's result. That answer must be the history's last message, with no input
+ * queued after it, and reach, through the frames it follows, the turn's latest
+ * prompt and then its first; every background task the turn started must have
+ * reported its end. Anything else (a tool call, an API error, a placeholder,
+ * another prompt's answer) leaves the turn unanswered.
+ * @param {object[]} frames the history's frames, in file order
+ * @param {Map<string, object>} byId those frames by uuid
+ * @param {{ turnId: string, lastMessageId?: string }} turn
+ */
+function claudeTurnAnswered(frames, byId, { turnId, lastMessageId }) {
+  let index = frames.length - 1;
+  while (index >= 0 && !["user", "assistant"].includes(frames[index].type)) index--;
+  const answer = frames[index];
+  if (!turnId || answer?.type !== "assistant" || answer.parent_tool_use_id || answer.isApiErrorMessage ||
+      answer.message?.stop_reason !== "end_turn" || claudeNoResponsePlaceholder(answer) ||
+      !answer.message.content?.some(block => block.type === "text" && block.text?.trim())) return false;
+  if (frames.slice(index + 1).some(frame => frame.type === "queue-operation" && frame.operation === "enqueue" ||
+      frame.type === "last-prompt" && frame.rewound === true)) return false;
+  const started = new Set();
+  const ended = new Set();
+  const seen = new Set();
+  let latestPrompt = "";
+  for (let frame = answer; frame && !seen.has(frame); frame = byId.get(frame.parentUuid || frame.logicalParentUuid)) {
+    seen.add(frame);
+    if (frame.type === "assistant") {
+      for (const block of frame.message?.content || []) {
+        if (block.type === "tool_use" && block.input?.run_in_background === true) started.add(block.id);
+      }
+    } else if (frame.type === "user" && frame.toolUseResult?.backgroundTaskId) {
+      started.add(frame.toolUseResult.backgroundTaskId);
+    } else if (frame.type === "user" && frame.origin?.kind === "task-notification") {
+      const notification = claudeUserText(frame.message?.content);
+      if (ENDED_TASK_PATTERN.test(notification)) {
+        for (const [, , id] of notification.matchAll(/<(task-id|tool-use-id)>([^<]+)<\/\1>/gu)) ended.add(id);
+      }
+    } else if (claudeAuthoredMessage(frame)) {
+      latestPrompt ||= frame.uuid;
+      if (frame.uuid === turnId) return latestPrompt === (lastMessageId || turnId) && [...started].every(id => ended.has(id));
+    }
+  }
+  return false;
 }
 
 /** Remove the stopped temporary conversation's active native transcript. */

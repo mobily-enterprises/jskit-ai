@@ -10,14 +10,15 @@ export function setClaudeTurnState(entry, state, message = "") {
 }
 
 /**
- * Records a retained entry's interrupted turn: the host's interrupted checkpoint
- * and saved state, then the turn's completion, and then `settled`. A checkpoint
- * the host refuses still records the interruption, with the refusal as its
- * message, and the refusal is thrown after `settled`.
+ * Records a retained entry's interrupted turn (or, with `completed`, its
+ * completed one): the host's checkpoint for that end and saved state, then the
+ * turn's completion, and then `settled`. A checkpoint the host refuses still
+ * records the interruption, with the refusal as its message, and the refusal
+ * is thrown after `settled`.
  */
-export async function recordClaudeEntryInterrupted({ entry, onEvent, updateState, readResult, resolveCompletion }, reason = "", settled = () => {}) {
+export async function recordClaudeEntryInterrupted({ entry, onEvent, updateState, readResult, resolveCompletion }, reason = "", settled = () => {}, { completed = false } = {}) {
   if (entry.turn?.active) {
-    try { await updateState("interrupted", reason); }
+    try { await (completed ? updateState("completed") : updateState("interrupted", reason)); }
     catch (error) {
       // The native turn has ended (its process stopped, or Claude ended it) even
       // when the host refuses its checkpoint. Retain that refusal without
@@ -53,6 +54,8 @@ export async function stopClaudeEntryProcess(turn, reason = "", { preparing = fa
   if (!bound) entry.stopping = true;
   const operation = async () => {
     const startup = entry.startupCleanup?.executionId === entry.executionId ? entry.startupCleanup : null;
+    // A turn no process of this server runs: an earlier server left it.
+    const left = !entry.process && !startup;
     let proof;
     try {
       if (!bound || entry.process || entry.executionId) {
@@ -86,9 +89,14 @@ export async function stopClaudeEntryProcess(turn, reason = "", { preparing = fa
       if (entry.startupCleanup === startup) entry.startupCleanup = null;
       return entry.exitProof;
     }
+    // That server's shutdown leaves a turn whose answer arrived as it stopped,
+    // like one it stopped. Once the exit is proven, Claude's history decides:
+    // its last answer for the turn completes it, through the host's completed
+    // checkpoint. A history that is unreadable or lacks that answer interrupts it.
+    const completed = left && Boolean(entry.turn?.active) && await process.answeredInHistory().catch(() => false) === true;
     await recordClaudeEntryInterrupted(turn, reason, () => {
       if (entry.startupCleanup === startup) entry.startupCleanup = null;
-    });
+    }, { completed });
     return entry.exitProof;
   };
   entry.stopPending = operation().catch(error => { if (bound) error.cleanupFailed = true; throw error; })

@@ -1,6 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
-  OPENCODE_INTERRUPT_TIMEOUT_MS, inspectOpenCodeMessageAdmission, openCodeMessageRows, dispatchOpenCodeTurn, runOpenCodeConversationTurn
+  OPENCODE_INTERRUPT_TIMEOUT_MS, inspectOpenCodeMessageAdmission, openCodeInputAnswered, openCodeMessageRows, dispatchOpenCodeTurn,
+  readOpenCodeMessagesUntil, runOpenCodeConversationTurn
 } from "./openCodeTurn.js";
 import { ensureOpenCodeSession, sameOpenCodeSelection } from "./openCodeNativeSession.js";
 import { openCodeTurnSnapshot } from "./openCodeTurnMonitor.js";
@@ -351,7 +352,8 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
   async function reconcileSessionTurn(key, target, activeRun, options, application) {
     if (endedOnPreviousServer(activeRun)) {
       await processOwner.stopUnobservedSession(target, activeRun.threadId);
-      await application.writeRun({ ...activeRun, id: activeRun.turnId }, "interrupted", activeRun.observationError);
+      const state = await leftRunState(target, activeRun, activeRun.threadId);
+      await application.writeRun({ ...activeRun, id: activeRun.turnId }, state, activeRun.observationError);
     } else if (activeRun) {
       turnMonitor.beginMessageMonitor(key, target, {
         restored: true,
@@ -391,9 +393,10 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
       await prepared.observation.write(async (run, commit) => {
         if (!needsObservationRecovery(prepared.key, run)) return;
         const threadId = normalizeNullableText(run.threadId) || target.upstreamSessionId;
-        await recoverObservation(target, threadId, () => commit(writeRun => (
-          recordStoppedObservation(prepared.key, run, threadId, writeRun)
-        )));
+        await recoverObservation(target, threadId, async () => {
+          const state = await leftRunState(target, run, threadId);
+          return commit(writeRun => recordStoppedObservation(prepared.key, run, threadId, writeRun, state));
+        });
       });
     }
     return {
@@ -459,28 +462,40 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
     return prepare();
   }
 
-  // A saved active run whose observation already ended: lost, or stopped by the
-  // previous server's shutdown. Recovery records it interrupted once native
-  // work is idle; neither is the turn's own failure.
+  // A saved active run whose observation already ended: lost, or left by the
+  // previous server's shutdown. Recovery records it once native work is idle
+  // (see leftRunState); neither is the turn's own failure.
   function endedOnPreviousServer(run) {
     return Boolean(run?.observationError || run?.stoppedByShutdown === true);
+  }
+
+  // How such a run ended. That shutdown leaves a turn whose answer arrived as it
+  // stopped like one it stopped; OpenCode's history decides: the run's answer,
+  // completed, completes it. An unreadable history, one without that answer,
+  // and a lost observation interrupt it.
+  async function leftRunState(target, run, threadId) {
+    const turnId = normalizeNullableText(run.turnId);
+    if (run.observationError || run.stoppedByShutdown !== true || !turnId) return "interrupted";
+    const messages = await readOpenCodeMessagesUntil(target.server.client, threadId,
+      rows => rows.some(row => normalizeNullableText(row?.id) === turnId)).catch(() => null);
+    return openCodeInputAnswered(messages, turnId) ? "completed" : "interrupted";
   }
 
   function needsObservationRecovery(key, run) {
     return Boolean(run?.active && endedOnPreviousServer(run) && !monitors.has(key));
   }
 
-  async function recordStoppedObservation(key, run, threadId, writeRun) {
+  async function recordStoppedObservation(key, run, threadId, writeRun, state = "interrupted") {
     const stopped = {
       ...turns.get(key),
       ...run,
       id: normalizeNullableText(run.turnId),
       threadId,
       active: false,
-      state: "interrupted",
+      state,
       updatedAt: new Date().toISOString()
     };
-    await writeRun(stopped, "interrupted", run.observationError);
+    await writeRun(stopped, state, run.observationError);
     turns.set(key, stopped);
   }
 
