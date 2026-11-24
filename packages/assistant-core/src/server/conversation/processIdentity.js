@@ -18,6 +18,17 @@ async function runPs(args) {
   return stdout;
 }
 
+/** A stop that proved nothing: the inspection that refused it, with the error that kept its process table unread. */
+function unverifiedStop(inspection, fields = {}) {
+  return {
+    ...fields,
+    identityStatus: inspection.status,
+    processExitVerified: false,
+    ...(inspection.processTableError ? { processTableError: inspection.processTableError } : {}),
+    stopped: false
+  };
+}
+
 /**
  * Process-group ownership proof used by execution hosts; callers retain their metadata contract.
  * @param {object} [options]
@@ -156,9 +167,9 @@ export function createConversationProcessIdentity({
   }
 
   /**
-   * One process's record, or null when it has gone, is hidden from this user or is a zombie. A stat read that
-   * fails for any other reason (out of file descriptors, say) throws: a live process left out of the scan would
-   * let its group look exited.
+   * One process's record, or null when it has gone, is hidden from this user or is a zombie. A stat or environment
+   * read that fails for any other reason (out of file descriptors, say) throws: a live process left out of the scan
+   * would let its group look exited, and the inspection then refuses with that error.
    */
   async function linuxProcessRecord(name) {
     let statValue;
@@ -181,8 +192,17 @@ export function createConversationProcessIdentity({
     try {
       environment = await readFile(`/proc/${name}/environ`);
     } catch (error) {
-      if (String(error?.code || "") === "ENOENT") {
+      const code = String(error?.code || "");
+      // ENOENT or ESRCH: gone since its stat was read.
+      if (["ENOENT", "ESRCH"].includes(code)) {
         return null;
+      }
+      // EACCES or EPERM: the kernel shows a process's environment only to its own user, so this is another user's
+      // process (or one that raised its privileges). It stays in the scan unreadable: in the leader's group or in a
+      // group of this runtime it makes the inspection ambiguous, and elsewhere it is not this runtime's. Every
+      // process on a host shared by several users is one, so refusing for it would refuse every inspection there.
+      if (!["EACCES", "EPERM"].includes(code)) {
+        throw error;
       }
       environmentReadable = false;
     }
@@ -283,17 +303,24 @@ export function createConversationProcessIdentity({
     return records;
   }
 
-  /** An inspector's answer, which may be null, as an exact or ambiguous set of process groups. */
+  /**
+   * An inspector's answer, which may be null, as an exact or ambiguous set of process groups. An ambiguous answer
+   * keeps `processTableError`, the error that kept the process table from being read, when that is why.
+   */
   function normalizeProcessIdentityInspection(value) {
     const status = Object.values(PROCESS_IDENTITY_STATUS).includes(value?.status)
       ? value.status
       : PROCESS_IDENTITY_STATUS.AMBIGUOUS;
+    const processTableError = status === PROCESS_IDENTITY_STATUS.AMBIGUOUS
+      ? normalizeNullableText(value?.processTableError)
+      : "";
     return {
       processGroupIds: [...new Set((Array.isArray(value?.processGroupIds)
         ? value.processGroupIds
         : [])
         .map(Number)
         .filter((processGroupId) => Number.isSafeInteger(processGroupId) && processGroupId > 0))],
+      ...(processTableError ? { processTableError } : {}),
       status
     };
   }
@@ -312,13 +339,21 @@ export function createConversationProcessIdentity({
       };
     }
     const identity = metadata.processIdentity;
-    // A process table that could not be read proves nothing either way, on either platform.
-    const records = identity.platform !== hostIdentityPlatform
-      ? null
-      : await (platform === "darwin" ? darwinProcessRecords() : linuxProcessRecords()).catch(() => null);
-    if (!records) {
+    if (identity.platform !== hostIdentityPlatform) {
       return {
         processGroupIds: [],
+        status: PROCESS_IDENTITY_STATUS.AMBIGUOUS
+      };
+    }
+    let records;
+    try {
+      records = await (platform === "darwin" ? darwinProcessRecords() : linuxProcessRecords());
+    } catch (error) {
+      // A process table that could not be read proves nothing either way, on either platform: the check refuses,
+      // and says why.
+      return {
+        processGroupIds: [],
+        processTableError: String(error?.message || error || "The process table could not be read."),
         status: PROCESS_IDENTITY_STATUS.AMBIGUOUS
       };
     }
@@ -495,20 +530,11 @@ export function createConversationProcessIdentity({
       };
     }
     if (before.status !== PROCESS_IDENTITY_STATUS.EXACT) {
-      return {
-        identityStatus: before.status,
-        processExitVerified: false,
-        stopped: false
-      };
+      return unverifiedStop(before);
     }
     const term = await signalVerifiedProcessGroups(metadata, "SIGTERM", options);
     if (term.inspection.status === PROCESS_IDENTITY_STATUS.AMBIGUOUS) {
-      return {
-        identityStatus: term.inspection.status,
-        processExitVerified: false,
-        signaledProcessGroups: term.signaledProcessGroups,
-        stopped: false
-      };
+      return unverifiedStop(term.inspection, { signaledProcessGroups: term.signaledProcessGroups });
     }
     let after = await waitForProcessIdentityExit(
       metadata,
@@ -523,12 +549,7 @@ export function createConversationProcessIdentity({
         ...kill.signaledProcessGroups
       ])];
       if (kill.inspection.status === PROCESS_IDENTITY_STATUS.AMBIGUOUS) {
-        return {
-          identityStatus: kill.inspection.status,
-          processExitVerified: false,
-          signaledProcessGroups,
-          stopped: false
-        };
+        return unverifiedStop(kill.inspection, { signaledProcessGroups });
       }
       after = await waitForProcessIdentityExit(
         metadata,
@@ -547,16 +568,18 @@ export function createConversationProcessIdentity({
       identityStatus: after.status,
       pid: Number(metadata.pid),
       processExitVerified,
+      ...(after.processTableError ? { processTableError: after.processTableError } : {}),
       signaledProcessGroups,
       stopped: processExitVerified && signaledProcessGroups.length > 0
     };
   }
 
+  /** The process's group and start time, or null when they cannot be parsed; throws when they cannot be read. */
   async function captureProcessStart(pid) {
     if (platform !== "darwin") {
-      return linuxProcessStat(await readFile(`/proc/${pid}/stat`, "utf8").catch(() => ""));
+      return linuxProcessStat(await readFile(`/proc/${pid}/stat`, "utf8"));
     }
-    const output = String(await ps(["-o", "pgid=,lstart=", "-p", String(pid)]).catch(() => ""));
+    const output = String(await ps(["-o", "pgid=,lstart=", "-p", String(pid)]));
     const match = /^\s*(\d+)\s+(.+?)\s*$/u.exec(output);
     return match ? { processGroupId: Number(match[1]), startTimeTicks: darwinStartTime(match[2]) } : null;
   }
@@ -578,11 +601,19 @@ export function createConversationProcessIdentity({
       return reported;
     }
     const normalizedPid = Number(pid);
+    let readError = null;
     const processStat = hostIdentityPlatform && Number.isSafeInteger(normalizedPid) && normalizedPid > 0
-      ? await captureProcessStart(normalizedPid)
+      ? await captureProcessStart(normalizedPid).catch((error) => {
+        readError = error;
+        return null;
+      })
       : null;
     if (!processStat?.startTimeTicks || processStat.processGroupId !== normalizedPid) {
-      const error = new Error(`${label} process identity could not be captured.`);
+      const error = readError
+        ? new Error(`${label} process identity could not be captured: ${String(readError?.message || readError)}`, {
+          cause: readError
+        })
+        : new Error(`${label} process identity could not be captured.`);
       error.code = unavailableCode;
       throw error;
     }
