@@ -188,7 +188,8 @@ export function createCodexAppServerProcessStart({
         });
     // A managed start's leader (runCodexAppServerProcess) exports its catalogue; a helper has no leader, so its start
     // exports one here, from the binary's bundled definitions (an export that never fetches a model list) and the
-    // copied provider home's rows, in the helper's own environment. A helper never starts without one.
+    // copied provider home's rows, in the helper's own environment and in its home, never where this server runs, so
+    // the export reads no project's configuration. A helper never starts without one.
     let helperCatalogArguments = [];
     if (helper) {
       try {
@@ -200,6 +201,7 @@ export function createCodexAppServerProcessStart({
             ? JSON.parse(await readFile(codexProviderCatalogPath(helperHome), "utf8")).models
             : [],
           codexHome: helperHome,
+          cwd: helperHome,
           env: Object.fromEntries(Object.entries({ ...commandBaseEnv, HOME: helperHome }).filter(([, value]) => value))
         }));
       } catch (cause) {

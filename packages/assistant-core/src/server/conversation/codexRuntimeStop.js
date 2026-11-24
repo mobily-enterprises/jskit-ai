@@ -1,5 +1,6 @@
 import { rm } from "node:fs/promises";
 import { normalizeNullableText } from "./normalize.js";
+import { codexModelCatalogPaths } from "./codexConfiguration.js";
 import {
   CODEX_APP_SERVER_METADATA_SCHEMA_VERSION, CODEX_APP_SERVER_PROCESS_IDENTITY_STATUS, CODEX_APP_SERVER_PROCESS_STATE,
   CODEX_APP_SERVER_PROVIDER_ID, acquireCodexRuntimeLock, codexAppServerHelperHomeDir, codexAppServerHelperWorkspaceDir,
@@ -169,11 +170,16 @@ export function createCodexAppServerRuntimeStop({ execution, codexProcessIdentit
         cleanupFailed: true
       };
     }
+    // A helper's start exports its own catalogue, which its stop removes with the whole runtime directory; a failed
+    // start removes it too. A managed runtime keeps its catalogue, which its next start reuses until the revision changes.
+    const catalogue = codexModelCatalogPaths(runtimeDir);
     const helperRemovals = helper
       ? [
           rm(codexAppServerHelperHomeDir(runtimeDir), { force: true, recursive: true }),
           rm(codexAppServerHelperWorkspaceDir(runtimeDir), { force: true, recursive: true }),
-          rm(codexAppServerLogPath(runtimeDir), { force: true })
+          rm(codexAppServerLogPath(runtimeDir), { force: true }),
+          rm(catalogue.catalogPath, { force: true }),
+          rm(catalogue.revisionPath, { force: true })
         ]
       : [];
     const removals = await Promise.allSettled([

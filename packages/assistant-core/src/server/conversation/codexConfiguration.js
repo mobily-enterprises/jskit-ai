@@ -175,16 +175,27 @@ async function codexModelCatalogRevision({ command, codexHome, bundled, addition
   })).digest("hex");
 }
 
+/** Where a runtime keeps the catalogue its start exports, and the revision that catalogue was exported from. */
+export function codexModelCatalogPaths(runtimeDir) {
+  return {
+    catalogPath: path.join(runtimeDir, "models.json"),
+    revisionPath: path.join(runtimeDir, "models.revision")
+  };
+}
+
 // Codex's model manager reads model_catalog_json once, before any threads
 // exist. A thread override changes routing, but cannot supply model metadata.
 // Export from the installed CLI so native model definitions stay CLI-owned.
 // An app-server start reuses the runtime's exported catalogue until its
 // revision changes, so reconnects and idle restarts run no exporter. `env` is
-// the exporter's environment when it is not this process's (a helper's own).
-export async function prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [], codexHome, env }) {
+// the exporter's environment and `cwd` its working directory when they are not
+// this process's (a helper's own environment and home, so its export reads no
+// project's configuration from wherever this process runs).
+export async function prepareCodexModelCatalog({
+  command, runtimeDir, bundled = false, signal, additionalModels = [], codexHome, env, cwd
+}) {
   if (!codexHome) throw new TypeError("prepareCodexModelCatalog requires the Codex home whose configuration the catalogue reads.");
-  const catalogPath = path.join(runtimeDir, "models.json");
-  const revisionPath = path.join(runtimeDir, "models.revision");
+  const { catalogPath, revisionPath } = codexModelCatalogPaths(runtimeDir);
   const revisionInput = { command, codexHome, bundled, additionalModels };
   const revision = await codexModelCatalogRevision(revisionInput);
   if (revision && await stat(catalogPath).then(() => true, () => false) &&
@@ -197,7 +208,7 @@ export async function prepareCodexModelCatalog({ command, runtimeDir, bundled = 
     const { stdout } = await execute(command, [
       "debug", "models", ...(bundled ? ["--bundled"] : []),
       "-c", "check_for_update_on_startup=false"
-    ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 20_000, signal, env });
+    ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 20_000, signal, env, cwd });
     catalog = JSON.parse(stdout);
     if (!Array.isArray(catalog?.models) || !catalog.models.length) {
       throw new Error("Invalid native model catalogue");
@@ -250,7 +261,7 @@ export async function readCodexModelContextWindow({ runtimeDir, model } = {}) {
     throw new TypeError("A selected Codex runtime and exact model are required.");
   }
   try {
-    const catalog = JSON.parse(await readFile(path.join(runtimeDir, "models.json"), "utf8"));
+    const catalog = JSON.parse(await readFile(codexModelCatalogPaths(runtimeDir).catalogPath, "utf8"));
     const matches = catalog.models.filter(row => row?.slug === model);
     if (matches.length !== 1) throw new Error("Unknown model");
     const { context_window: windowTokens, effective_context_window_percent: percent } = matches[0];

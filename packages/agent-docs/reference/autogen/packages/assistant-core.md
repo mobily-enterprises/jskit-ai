@@ -532,7 +532,8 @@ Exports
 - `codexAppServerTurnSettings({ effectiveSettings, cwd = "", effort = "", model = "", approvalPolicy, reasoningSummary, sandboxPolicy, externalSandbox = false } = {})`
 - `codexInteractiveArguments({ command, threadId = "", remoteEndpoint = "", model, effort, disableStartupUpdates = false, bypassApprovalsAndSandbox = false, bypassHookTrust = false } = {})`
 - `codexAppServerProjectHookTrustConfig(provider, cwd = "", { persist = false } = {})`
-- `prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [], codexHome, env })`
+- `codexModelCatalogPaths(runtimeDir)`
+- `prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [], codexHome, env, cwd })`
 - `codexModelCatalogArguments(catalogPath)`
 - `readCodexModelContextWindow({ runtimeDir, model } = {})`
 - `codexAppServerTextHasControlCharacters(value = "")`
