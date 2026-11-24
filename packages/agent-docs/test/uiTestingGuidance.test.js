@@ -283,6 +283,36 @@ test("UI testing guidance uses private local exchange support and managed storag
   }
 });
 
+test("a managed browser runner runs every Playwright suite, said before any direct Playwright command", async () => {
+  const managedRunnerRule = new RegExp(
+    "Where the host provides a managed browser runner, every Playwright suite runs through it from the first run, " +
+      "never through `npx playwright test`, `playwright test` or a package script such as `npm run test:e2e`\\.",
+    "u"
+  );
+  const relativePaths = [
+    "heuristics/ui-testing.md",
+    "skills/jskit/references/heuristics/ui-testing.md",
+    "site/guide/framework/ui-operations.md",
+    "guide/agent/framework/ui-operations.md",
+    "skills/jskit/references/ui-operations.md",
+    "skills/jskit/SKILL.md",
+    "site/guide/app-setup/upgrading-jskit.md",
+    "guide/agent/app-setup/upgrading-jskit.md",
+  ];
+
+  for (const relativePath of relativePaths) {
+    const source = (await readFile(path.join(packageRoot, relativePath), "utf8")).replace(/\s+/gu, " ");
+    const rule = source.match(managedRunnerRule);
+    assert.ok(rule, `${relativePath} must say a managed browser runner runs every Playwright suite.`);
+    // The rule itself names `npx playwright test`, so any earlier match is a direct command shown before it.
+    assert.ok(source.search(/playwright test/u) > rule.index, `${relativePath} shows direct Playwright before the rule.`);
+  }
+
+  const heuristic = (await readFile(path.join(packageRoot, "heuristics/ui-testing.md"), "utf8")).replace(/\s+/gu, " ");
+  assert.match(heuristic, /Only a machine with no managed browser runner runs Playwright directly/u);
+  assert.doesNotMatch(heuristic, /=\S+ \\ (?:npx )?playwright test/u, "No example launches Playwright with a host's variables.");
+});
+
 test("app-owned baseline tests are customizable but remain verified", async () => {
   const relativePaths = [
     "heuristics/ui-testing.md",
