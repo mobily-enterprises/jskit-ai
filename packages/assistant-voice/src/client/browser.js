@@ -15,15 +15,16 @@ function audioContextConstructor() {
  * Listens to an event of the page until the returned function is called.
  * @param {string} type
  * @param {EventListener} listener
+ * @param {AddEventListenerOptions} [options] Such as `{ capture: true }`, to hear the event before its target does.
  * @returns {() => void} Stops listening.
  */
-function listenToPage(type, listener) {
+function listenToPage(type, listener, options) {
   const page = globalThis.window;
   // readable-check: allow optional-call - platform object: outside a browser there is no window to listen to
-  page?.addEventListener?.(type, listener);
+  page?.addEventListener?.(type, listener, options);
   return () => {
     // readable-check: allow optional-call - platform object: outside a browser there is no window to listen to
-    page?.removeEventListener?.(type, listener);
+    page?.removeEventListener?.(type, listener, options);
   };
 }
 
