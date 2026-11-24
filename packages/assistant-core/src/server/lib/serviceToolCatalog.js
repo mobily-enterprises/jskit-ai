@@ -387,7 +387,8 @@ function createServiceToolCatalog(
     maxDirectTools: rawMaxDirectTools = DEFAULT_MAX_DIRECT_TOOLS,
     discoveryPageSize: rawDiscoveryPageSize = DEFAULT_DISCOVERY_PAGE_SIZE,
     maxToolArgumentBytes: rawMaxToolArgumentBytes = DEFAULT_MAX_TOOL_ARGUMENT_BYTES,
-    maxToolResultBytes: rawMaxToolResultBytes = DEFAULT_MAX_TOOL_RESULT_BYTES
+    maxToolResultBytes: rawMaxToolResultBytes = DEFAULT_MAX_TOOL_RESULT_BYTES,
+    includeActionsWithoutOutput = false
   } = {}
 ) {
   // readable-check: allow method-probe - input validation: the application passes its action runtime
@@ -421,7 +422,8 @@ function createServiceToolCatalog(
 
     methodEntries = resolveActionToolEntries(actions, {
       barredActionIds,
-      skipActionPrefixes: normalizedSkipPrefixes
+      skipActionPrefixes: normalizedSkipPrefixes,
+      includeActionsWithoutOutput: includeActionsWithoutOutput === true
     });
     return methodEntries;
   }
@@ -630,6 +632,11 @@ function createServiceToolCatalog(
       : rawResult;
 
     let result = transformedResult;
+    // Only a remote client's catalogue offers an action without an output schema: it answers as it ran, as its route does.
+    if (!entry.outputDefinition) {
+      ensureSerializedSize(result, maxToolResultBytes);
+      return result;
+    }
     try {
       result = validateSchemaPayload(entry.outputDefinition, transformedResult, {
         phase: "output",

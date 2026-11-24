@@ -376,6 +376,8 @@ function createCrudAssistantExtension(resource, namespace, operation) {
 
   return Object.freeze({
     description: actionLabel,
+    // A delete is the one generated operation a client asks about as destructive: a record it removes is gone.
+    destructive: operation === "delete",
     output,
     transformResult
   });

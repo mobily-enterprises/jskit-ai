@@ -14,4 +14,5 @@ export {
 } from "./lib/ndjson.js";
 export { resolveWorkspaceSlug } from "./lib/resolveWorkspaceSlug.js";
 export { createServiceToolCatalog } from "./lib/serviceToolCatalog.js";
+export { MCP_PROTOCOL_VERSIONS, MCP_TOOL_CATALOG_OPTIONS, createMcpToolServer } from "./lib/mcpToolServer.js";
 export { runBoundedAssistantToolLoop, readAssistantResponseEnvelope, readPartialAssistantReply } from "./conversation/boundedToolLoop.js";
