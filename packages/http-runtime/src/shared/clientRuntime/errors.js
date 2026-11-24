@@ -29,14 +29,26 @@ function resolveErrorStatus(error) {
 }
 
 /**
+ * True when a request was stopped by its deadline (a read's 30 seconds, or a request's own timeoutMs): the browser
+ * rejects it with a TimeoutError whose message is its own ("signal timed out"), never anything the server said.
+ */
+function isRequestTimeoutError(error) {
+  return String(error?.name || "") === "TimeoutError";
+}
+
+/**
  * True when the error carries only the transport's own wording (a network
- * failure or the status-only message buildHttpError falls back to), so a
- * caller's specific fallback copy is more useful than the message.
+ * failure, a request past its deadline, or the status-only message
+ * buildHttpError falls back to), so a caller's specific fallback copy is more
+ * useful than the message.
  */
 function isGenericHttpErrorMessage(error) {
   const normalizedMessage = String(error?.message || "").trim();
   if (!normalizedMessage) {
     return false;
+  }
+  if (isRequestTimeoutError(error)) {
+    return true;
   }
 
   const status = resolveErrorStatus(error);
@@ -101,5 +113,6 @@ function buildNetworkError(cause) {
 export {
   buildHttpError,
   buildNetworkError,
-  isGenericHttpErrorMessage
+  isGenericHttpErrorMessage,
+  isRequestTimeoutError
 };

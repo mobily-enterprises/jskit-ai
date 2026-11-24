@@ -94,6 +94,7 @@
         "requestFailed": "Request failed.",
         "saveFailed": "Unable to save.",
         "saved": "Saved.",
+        "timedOut": "The server took too long to answer. Try again.",
         "validationFailed": "Validation failed."
       },
       "list": {

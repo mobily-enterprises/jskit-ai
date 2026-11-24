@@ -1,4 +1,4 @@
-import { isGenericHttpErrorMessage, resolveFieldErrors } from "@jskit-ai/http-runtime/client";
+import { isGenericHttpErrorMessage, isRequestTimeoutError, resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { isRetryableLoadStatus, resolveLoadErrorStatus } from "./resourceLoadStateHelpers.js";
 import { useJskitText } from "../../i18n.js";
 
@@ -6,8 +6,10 @@ const { t, text, serverMessage, fieldErrorMessages } = useJskitText();
 
 // An error's message in the user's language: its code or messageCode when the
 // English it carries is JSKIT's English for that code, otherwise as sent. A
-// caller's specific fallback copy still wins over generic transport wording.
-// Fallbacks may be message keys, rendered in the language active when shown.
+// caller's specific fallback copy still wins over generic transport wording;
+// without one, a request past its deadline says so in words, never the
+// browser's own "signal timed out". Fallbacks may be message keys, rendered in
+// the language active when shown.
 function toUiErrorMessage(error, fallbackMessage = "", defaultMessage = "") {
   const normalizedFallback = text(fallbackMessage).trim();
   const normalizedMessage = String(error?.message || "").trim();
@@ -16,6 +18,9 @@ function toUiErrorMessage(error, fallbackMessage = "", defaultMessage = "") {
   }
   if (normalizedFallback) {
     return normalizedFallback;
+  }
+  if (isRequestTimeoutError(error)) {
+    return t("jskit.http.feedback.timedOut");
   }
   if (normalizedMessage) {
     return serverMessage(error).trim();
