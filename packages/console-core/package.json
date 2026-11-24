@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/console-core",
-  "version": "0.2.60",
+  "version": "0.2.61",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@jskit-ai/resource-core": "0.1.223",
-    "@jskit-ai/users-core": "0.2.60",
+    "@jskit-ai/users-core": "0.2.61",
     "json-rest-schema": "^1.0.20"
   },
   "description": "Console runtime: console settings schema, bootstrap flags, actions, and HTTP routes.",
@@ -97,7 +97,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.2.36",
+    "@jskit-ai/auth-core": "0.2.37",
     "@jskit-ai/database-runtime": "0.1.282",
     "@jskit-ai/http-runtime": "0.2.32",
     "@jskit-ai/kernel": "0.2.32",
