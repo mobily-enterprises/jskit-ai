@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import fsPromises, { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { assertCodexAuthPreflightReady } from "../src/server/conversation/codexAuthPreflight.js";
-import { codexAppServerHelperHomeDir } from "../src/server/conversation/codexProcess.js";
+import { codexAppServerHelperHomeDir, codexAppServerHelperWorkspaceDir } from "../src/server/conversation/codexProcess.js";
 import { createCodexAppServerRuntime } from "../src/server/conversation/codexRuntime.js";
 
 const ONE_MODEL = "printf '%s' '{\"models\":[{\"slug\":\"fixture-model\"}]}'";
@@ -146,6 +147,27 @@ test("a helper whose provider home cannot be copied is refused and leaves no hel
   assert.equal(request, null, "no launch without the provider home");
   assert.equal(error?.code, "codex_helper_runtime_start_failed");
   assert.equal(error?.message, "Codex isolated helper runtime could not copy the provider home.");
+  assert.deepEqual(await readdir(runtimeDir), []);
+  assert.equal(error?.cleanupRequired, false);
+});
+
+test("a helper whose workspace cannot be created is refused and leaves no helper home, workspace, log or catalogue", async (t) => {
+  const { request, error, runtimeDir } = await startRecorded(t, {}, "helper", ONE_MODEL, async (runtimeDir) => {
+    // The workspace's creation fails as a read-only or full disk fails it, once the home's has gone ahead.
+    const workspace = codexAppServerHelperWorkspaceDir(runtimeDir);
+    const { mkdir: created } = fsPromises;
+    fsPromises.mkdir = async (target, options) => {
+      if (target !== workspace) return created(target, options);
+      throw Object.assign(new Error(`EACCES: permission denied, mkdir '${target}'`), { code: "EACCES" });
+    };
+    syncBuiltinESMExports();
+    t.after(() => {
+      fsPromises.mkdir = created;
+      syncBuiltinESMExports();
+    });
+  });
+  assert.equal(request, null, "no launch without the workspace");
+  assert.equal(error?.code, "EACCES");
   assert.deepEqual(await readdir(runtimeDir), []);
   assert.equal(error?.cleanupRequired, false);
 });

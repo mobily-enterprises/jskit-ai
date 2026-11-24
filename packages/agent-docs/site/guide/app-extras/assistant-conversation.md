@@ -4246,11 +4246,12 @@ so the export reads no project's configuration from wherever the server runs,
 and refuses to start (`codex_helper_runtime_start_failed`) when that export
 fails. A Helper's files (its home, which holds the copied provider home, its
 workspace and log, `models.json` and `models.revision`) last only as long as
-its runtime. Its stop removes the runtime directory. A start whose provider
-home cannot be copied or whose export fails removes them, never the socket or
-metadata, and sets the refusal's `cleanupRequired` when it could not. A start
-that fails after its launch removes them once its process is proved gone. A
-managed runtime keeps its catalogue for its next start. Every start checks the
+its runtime. Its stop removes the runtime directory. A start whose Helper home
+or workspace cannot be created, whose provider home cannot be copied or whose
+export fails removes them, never the socket or metadata, and sets the refusal's
+`cleanupRequired` when it could not. A start that fails after its launch
+removes them once its process is proved gone. A managed runtime keeps its
+catalogue for its next start. Every start checks the
 runtime's socket before it changes anything in the runtime directory: a socket
 whose owner it has not proved gone refuses the start
 (`codex_app_server_socket_owner_unverified`) and leaves that owner's files as

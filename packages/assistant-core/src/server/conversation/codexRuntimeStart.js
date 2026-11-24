@@ -177,10 +177,13 @@ export function createCodexAppServerProcessStart({
         rm(helperHome, { force: true, recursive: true }),
         rm(helperWorkspace, { force: true, recursive: true })
       ]);
-      await Promise.all([
+      // Both settle before a refusal's cleanup, so neither creation runs on after it.
+      const created = await Promise.allSettled([
         ensureWritablePrivateDirectory(helperHome),
         ensureWritablePrivateDirectory(helperWorkspace)
       ]);
+      const failed = created.find(({ status }) => status === "rejected");
+      if (failed) throw await refusedHelperStart(runtimeDir, failed.reason);
       if (providerHome) {
         // The canonical home contains only our curated provider projection. Copy
         // it into the existing isolated helper home; never load OpenAI auth here.
