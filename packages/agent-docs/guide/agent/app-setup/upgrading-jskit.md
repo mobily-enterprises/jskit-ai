@@ -188,6 +188,15 @@ The check fails when:
   (`manifest/capabilities`, see
   [Package manifest](/guide/framework/typed-features#package-manifest)).
 
+Each refusal names its fix. A JSKIT pin that is not the installed catalog's,
+and an installed JSKIT copy newer than the lockfile at the version the catalog
+names (a JSKIT source under development in place of the published copy), name
+`npm run jskit:update`: it moves every JSKIT pin to one catalog together. Any
+other installed copy that disagrees with the lockfile names `npm ci`. Never move
+a JSKIT package with `npm install` or `npm update`, and never make the check
+pass with `npm install --no-save`: that puts the published copy back, so the
+check then passes for code the application does not run.
+
 Shared client owners such as the kernel, HTTP runtime, shell, auth web runtime,
 realtime runtime, and assistant runtime use exact peer dependencies where they
 must share application state. A partial upgrade can therefore fail during npm
