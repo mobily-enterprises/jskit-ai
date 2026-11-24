@@ -292,6 +292,11 @@ function userRecords(users, options) {
     async findByEmail(email) {
       return mapUser(await findOne(users, "email", email, options));
     },
+    // The table's unique email keeps one account per email.
+    async findAllByEmail(email) {
+      const user = mapUser(await findOne(users, "email", email, options));
+      return user ? [user] : [];
+    },
     async hasAny() {
       return (await users.query({ page: { size: 1 } }, options)).records.length > 0;
     },

@@ -41,10 +41,17 @@ Act-As-User: 42
 Content-Type: application/json
 ```
 
-`Act-As-User` names the user by id, or by email (any value with an `@`), which
-finds the account that email signs in as. The MCP endpoint answers the id it
-acted as in `Acting-As-User`, so a caller that started from an email names the
-id from then on.
+`Act-As-User` names the user by id, or by email (any value with an `@`). An
+email names a user only when exactly one enabled account has it: in an app
+whose accounts may share an email, more than one enabled account with it names
+no one, and the caller acts by the user's id instead. The MCP endpoint answers
+the id it acted as in `Acting-As-User`, so a caller that started from an email
+names the id from then on.
+
+A backend answers every account with an email through
+`users.findAllByEmail(email)`, the disabled ones too; one whose emails are
+unique answers one or none. The file and database backends do; an app's own
+backend adds it, and without it acting by email fails naming the fix.
 
 Only routes that declare `config: { credentials: "bearer" }` take a key. Every
 other route ignores `Authorization` and signs in by cookies alone, and a cookie
@@ -66,6 +73,7 @@ service user:
 | 400 | `auth.serviceKey.actAsRequired` | No `Act-As-User`. |
 | 403 | `auth.serviceKey.actAsUnknown` | No user has that id or email. |
 | 403 | `auth.serviceKey.actAsInactive` | That user is disabled. |
+| 403 | `auth.serviceKey.actAsAmbiguous` | More than one enabled account has that email. |
 | 403 | `auth.serviceKey.actAsSelf` | It names the key's own service user. |
 
 A 401 carries `WWW-Authenticate: Bearer`, with `error="invalid_token"` when a

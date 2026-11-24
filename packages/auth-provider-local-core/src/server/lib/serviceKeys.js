@@ -1,11 +1,12 @@
 import { createId, isExpiredIso, randomToken, sha256Base64url, verifySignedToken } from "./tokens.js";
 
 // A service key lets another application's server (an assistant such as Mercbot) call this app's bearer routes
-// (credentials: "bearer") as the users it names: each call names exactly one (Act-As-User: a user id, or an email) and
-// runs with that user's own rights, never with the key's. A key is one row of the sessions store, purpose
-// "service-key", of a dedicated service user whose display name names it; an administrator makes it
-// (createServiceKeyRecord, written with the backend's sessions.create) and ends it by revoking that row or disabling
-// the service user. It never signs in a browser: cookie authentication takes only normal and development sessions.
+// (credentials: "bearer") as the users it names: each call names exactly one (Act-As-User: a user id, or an email that
+// exactly one enabled account has) and runs with that user's own rights, never with the key's. A key is one row of the
+// sessions store, purpose "service-key", of a dedicated service user whose display name names it; an administrator
+// makes it (createServiceKeyRecord, written with the backend's sessions.create) and ends it by revoking that row or
+// disabling the service user. It never signs in a browser: cookie authentication takes only normal and development
+// sessions.
 
 const SERVICE_KEY_PURPOSE = "service-key";
 const ACT_AS_USER_HEADER = "act-as-user";
@@ -27,6 +28,8 @@ const REFUSALS = Object.freeze({
     () => "Name the user this call acts as in Act-As-User (a user id or email): a service key never acts as itself."],
   actAsUnknown: [403, "auth.serviceKey.actAsUnknown", (who) => `There is no user ${who} to act as.`],
   actAsInactive: [403, "auth.serviceKey.actAsInactive", (who) => `User ${who} is disabled, so nothing may act as them.`],
+  actAsAmbiguous: [403, "auth.serviceKey.actAsAmbiguous",
+    (who) => `More than one user has the email ${who}, so it names no one: pick yours and act as it by its id.`],
   actAsSelf: [403, "auth.serviceKey.actAsSelf", () => "A service key acts as other users, never as its own service user."]
 });
 
@@ -67,6 +70,23 @@ function serviceKeyRefusal(reason, actAs = "") {
 }
 
 /**
+ * The user an email names: the one enabled account with it, else a disabled one (which is refused as disabled), else
+ * none; more than one enabled account with it names no one.
+ * @param {import("../types.js").AuthLocalBackendTransaction["users"]} users
+ * @param {string} email
+ */
+async function userByEmail(users, email) {
+  // readable-check: allow method-probe - input validation: a backend from before findAllByEmail fails naming its fix
+  if (typeof users.findAllByEmail !== "function") {
+    throw new TypeError("A service key acts as a user by email through the backend's users.findAllByEmail(email), every account with that email: add it to the local auth backend.");
+  }
+  const matches = await users.findAllByEmail(email);
+  const enabled = matches.filter((match) => !match.disabled);
+  if (enabled.length > 1) return { ambiguous: true, user: null };
+  return { ambiguous: false, user: enabled[0] || matches[0] || null };
+}
+
+/**
  * Who a bearer request acts as: its service key, checked, and the active user its Act-As-User names; or the reason it
  * is refused. One read of the key and two of users, in one transaction.
  * @param {object} dependencies
@@ -90,7 +110,9 @@ async function resolveServiceKeyCall({ backend, sessionSecret }, request) {
     const keyUser = await tx.users.findById(String(key.userId));
     if (!keyUser || keyUser.disabled) return { refusal: "invalid" };
     if (!actAs) return { refusal: "actAsRequired" };
-    const user = actAs.includes("@") ? await tx.users.findByEmail(actAs.toLowerCase()) : await tx.users.findById(actAs);
+    const found = actAs.includes("@") ? await userByEmail(tx.users, actAs.toLowerCase()) : { user: await tx.users.findById(actAs) };
+    if (found.ambiguous) return { refusal: "actAsAmbiguous", actAs };
+    const { user } = found;
     if (!user) return { refusal: "actAsUnknown", actAs };
     if (String(user.id) === String(keyUser.id)) return { refusal: "actAsSelf", actAs };
     if (user.disabled) return { refusal: "actAsInactive", actAs };
