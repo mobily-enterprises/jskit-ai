@@ -1713,6 +1713,17 @@ effect. A call keeps its originating context and admission across steering;
 saved-result retry verifies that same original turn/message. Hosts retain their
 own exact resource/version fences and action policy. Bound conversations without
 this explicit facility keep their existing common-runtime behavior.
+A refusal the mapper throws with a 4xx status (an `AppError(403, ...)` when the
+person may not act, or no longer may) comes back to the model as that call's
+error, `{ ok: false, error: { code, message, status } }`: the call is recorded
+`not-executed` with it, nothing runs, and the turn goes on, so the model can say
+why or try something else. A replay of a recorded call is refused the same way
+and keeps its recorded result. A stale message
+(`conversation_application_tool_message_stale`,
+`conversation_native_completion_message_stale`), a stopped turn and any other
+failure still end the turn. Direct `createConversationTools()` callers choose
+this with `contextRefusalsAreResults: true`; without it every mapper error ends
+the turn.
 The frozen admission also exposes `nativeThreadId`, captured from the native
 owner's pre-dispatch identity when that request is accepted. It is not taken
 from authored input or application data. Check both `nativeThreadId` and
