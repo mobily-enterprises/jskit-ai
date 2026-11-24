@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, mkdtemp, open, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { once } from "node:events";
 import { request } from "node:http";
+import { connect } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -206,6 +208,31 @@ test("upstream stream failure closes native delivery and leaves the adapter usab
   await assert.rejects(async () => (await fetch(`${adapter.baseUrl}/chatgpt/responses`, { method: "POST", body: '{"input":[]}' })).text());
   assert.equal(await (await fetch(`${adapter.baseUrl}/chatgpt/models`)).text(), "next request");
   assert.equal(attempts, 2);
+});
+
+test("a WebSocket upgrade whose peer resets before the 426 leaves the adapter and its process running", { timeout: 5000 }, async (t) => {
+  const adapter = await startCodexHistoryAdapter({ token: randomUUID(), fetchImpl: async () => new Response("models") });
+  t.after(() => adapter.close());
+  // An unhandled socket 'error' would end the process that runs the adapter.
+  const uncaught = Promise.withResolvers();
+  process.on("uncaughtException", uncaught.resolve);
+  t.after(() => process.off("uncaughtException", uncaught.resolve));
+  const { pathname, port } = new URL(adapter.baseUrl);
+  const client = connect(Number(port), "127.0.0.1");
+  client.on("error", () => {});
+  const upgraded = Promise.withResolvers();
+  // The peer resets the connection once the upgrade arrives, before the adapter answers it.
+  adapter.server.prependListener("upgrade", (_request, socket) => {
+    client.resetAndDestroy();
+    upgraded.resolve(socket);
+  });
+  await once(client, "connect");
+  client.write(`GET ${pathname}/chatgpt/responses HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n`);
+  const socket = await upgraded.promise;
+  const ended = await Promise.race([once(socket, "close").then(() => "closed"), uncaught.promise]);
+  assert.equal(ended, "closed", `the reset was an unhandled ${ended?.code || ended} instead`);
+  assert.equal(socket.destroyed, true);
+  assert.equal(await (await fetch(`${adapter.baseUrl}/chatgpt/models`)).text(), "models");
 });
 
 test("native OpenAI account selects its upstream without changing provider or external model credentials", async () => {
