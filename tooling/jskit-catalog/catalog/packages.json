@@ -375,6 +375,7 @@
         "kind": "runtime",
         "capabilities": {
           "provides": [
+            "assistant.mcp",
             "assistant.runtime"
           ],
           "requires": [
@@ -393,6 +394,10 @@
               {
                 "entrypoint": "src/server/AssistantProvider.js",
                 "export": "AssistantFeature"
+              },
+              {
+                "entrypoint": "src/server/AssistantMcpFeature.js",
+                "export": "AssistantMcpFeature"
               }
             ]
           },

@@ -1989,6 +1989,9 @@ Exports
 - `writeNdjson`
 - `resolveWorkspaceSlug`
 - `createServiceToolCatalog`
+- `MCP_PROTOCOL_VERSIONS`
+- `MCP_TOOL_CATALOG_OPTIONS`
+- `createMcpToolServer`
 - `runBoundedAssistantToolLoop`
 - `readAssistantResponseEnvelope`
 - `readPartialAssistantReply`
@@ -2004,6 +2007,18 @@ Exports
 - `createAiConnectionClient(connection, { fetch, timeoutMs = 120_000, maxOutputTokens, effort, reportUnavailableToolCalls = false } = {})`
 Local functions
 - `sdkMessages(messages)`
+
+### `src/server/lib/mcpToolServer.js`
+Exports
+- `MCP_PROTOCOL_VERSIONS`
+- `MCP_TOOL_CATALOG_OPTIONS`
+- `createMcpToolServer({ catalog, serverInfo, pageSize = DEFAULT_TOOL_PAGE_SIZE })`
+Local functions
+- `rpcResult(id, result)`
+- `rpcError(id, code, message)`
+- `toMcpTool(descriptor)`
+- `encodeCursor(offset)`
+- `decodeCursor(cursor, total)`
 
 ### `src/server/lib/ndjson.js`
 Exports
@@ -2066,7 +2081,7 @@ Exports
 
 ### `src/server/lib/serviceToolCatalog.js`
 Exports
-- `createServiceToolCatalog(actions, { isActionAvailable, barredActionIds = [], skipActionPrefixes = [], maxDirectTools: rawMaxDirectTools = DEFAULT_MAX_DIRECT_TOOLS, discoveryPageSize: rawDiscoveryPageSize = DEFAULT_DISCOVERY_PAGE_SIZE, maxToolArgumentBytes: rawMaxToolArgumentBytes = DEFAULT_MAX_TOOL_ARGUMENT_BYTES, maxToolResultBytes: rawMaxToolResultBytes = DEFAULT_MAX_TOOL_RESULT_BYTES } = {})`
+- `createServiceToolCatalog(actions, { isActionAvailable, barredActionIds = [], skipActionPrefixes = [], maxDirectTools: rawMaxDirectTools = DEFAULT_MAX_DIRECT_TOOLS, discoveryPageSize: rawDiscoveryPageSize = DEFAULT_DISCOVERY_PAGE_SIZE, maxToolArgumentBytes: rawMaxToolArgumentBytes = DEFAULT_MAX_TOOL_ARGUMENT_BYTES, maxToolResultBytes: rawMaxToolResultBytes = DEFAULT_MAX_TOOL_RESULT_BYTES, includeActionsWithoutOutput = false } = {})`
 - `DEFAULT_MAX_TOOL_ARGUMENT_BYTES`
 - `DEFAULT_MAX_TOOL_RESULT_BYTES`
 - `DISCOVERY_TOOL_DESCRIPTORS`
@@ -2094,7 +2109,7 @@ Local functions
 Exports
 - `AUTOMATION_CHANNEL`
 - `normalizePermissionSpec(permission)`
-- `resolveActionToolEntries(actions, { barredActionIds = [], skipActionPrefixes = [] } = {})`
+- `resolveActionToolEntries(actions, { barredActionIds = [], skipActionPrefixes = [], includeActionsWithoutOutput = false } = {})`
 Local functions
 - `normalizeAssistantExtension(value)`
 - `normalizeAssistantActionExtension(action = {})`
@@ -2105,7 +2120,7 @@ Local functions
 - `resolveUniqueToolName(baseName, used)`
 - `hasAutomationChannel(action = {})`
 - `normalizeSurfaceList(value)`
-- `resolveActionBackedToolEntries(actions)`
+- `resolveActionBackedToolEntries(actions, { includeActionsWithoutOutput = false } = {})`
 
 ### `src/server/types.js`
 Exports

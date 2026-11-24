@@ -121,6 +121,21 @@ function buildLifecycleContext(value) {
   }, REMOVED_LIFECYCLE_PROPERTIES, "A CRUD lifecycle hook's argument"));
 }
 
+/**
+ * A custom action's extensions, its assistant description taken from its route's summary when it declares none, so a
+ * client reading the action's tools reads what its route says it does; undefined when it has neither.
+ * @param {{ extensions?: object, route?: { summary?: string } }} definition
+ */
+function withRouteSummary(definition) {
+  const summary = typeof definition.route?.summary === "string" ? definition.route.summary.trim() : "";
+  const assistant = isRecord(definition.extensions?.assistant) ? definition.extensions.assistant : null;
+  if (!summary || assistant?.description) return definition.extensions;
+  return Object.freeze({
+    ...definition.extensions,
+    assistant: Object.freeze({ ...assistant, description: summary })
+  });
+}
+
 function normalizeAdditionalActions(definitions, { namespace, surface, permissionForAction, scopeInputValidator, servedOverHttp }) {
   return Object.freeze(Object.entries(definitions).map(([name, definition]) => {
     const actionName = String(name || "").trim();
@@ -149,8 +164,10 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
 
     const kind = definition.kind || "command";
     const permission = definition.permission || permissionForAction(actionName);
+    const extensions = withRouteSummary(definition);
     return Object.freeze({
       ...definition,
+      ...(extensions ? { extensions } : {}),
       name: actionName,
       id: buildCrudCustomActionId(namespace, actionName, definition),
       version: definition.version || 1,

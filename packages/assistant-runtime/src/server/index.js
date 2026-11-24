@@ -1,5 +1,7 @@
 export { AssistantFeature } from "./AssistantProvider.js";
 export { AssistantStoreFeature } from "./AssistantStoreFeature.js";
+export { AssistantMcpFeature } from "./AssistantMcpFeature.js";
+export { ASSISTANT_MCP_ACTION_ID, createAssistantMcp, createAssistantMcpActions, registerAssistantMcpRoutes } from "./mcp.js";
 export { createAssistantActions } from "./actions.js";
 export { assistantConversationGoalBodyValidator } from "./inputSchemas.js";
 export { registerRoutes as registerAssistantRoutes } from "./registerRoutes.js";

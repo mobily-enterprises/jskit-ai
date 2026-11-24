@@ -4,6 +4,8 @@ import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/
 
 // Which application actions become assistant tools: an action on the automation channel with
 // input and output schemas, minus the barred and excluded ones, each under one unique tool name.
+// A remote client's catalogue (`includeActionsWithoutOutput`) also takes the actions without an
+// output schema, which answer as they ran, and leaves out streams, which it cannot follow.
 
 const AUTOMATION_CHANNEL = "automation";
 // What an unsaved tool's description adds for the model.
@@ -22,6 +24,10 @@ function normalizeAssistantExtension(value) {
     alwaysAvailable: source.alwaysAvailable === true,
     // Its calls and results stay in the live turn: nothing saves, sends or logs them.
     unsaved: source.unsaved === true,
+    // What a client that asks before changes reads: the action removes or overwrites what cannot be had back, or it
+    // reaches people or systems outside the application (mail, a payment, another service).
+    destructive: source.destructive === true,
+    sendsOutside: source.sendsOutside === true,
     output: Object.hasOwn(source, "output") ? source.output : null,
     transformResult: source.transformResult ?? null
   });
@@ -157,7 +163,10 @@ function normalizeSurfaceList(value) {
  * The automation actions that can become tools, by action id.
  * @param {{ listDefinitions(): object[] }} actions The action runtime the tool catalogue has validated.
  */
-function resolveActionBackedToolEntries(actions) {
+// The hints an action may declare in extensions.assistant, each true or false.
+const DECLARED_HINTS = Object.freeze(["unsaved", "destructive", "sendsOutside"]);
+
+function resolveActionBackedToolEntries(actions, { includeActionsWithoutOutput = false } = {}) {
   const entriesByActionId = new Map();
   for (const action of actions.listDefinitions()) {
     if (!action || typeof action !== "object") {
@@ -171,11 +180,13 @@ function resolveActionBackedToolEntries(actions) {
     if (!actionId) {
       continue;
     }
-    // A wrong privacy declaration stops the catalogue: leaving the action out would hide the mistake.
-    const declaredUnsaved = action.extensions?.assistant?.unsaved;
-    if (declaredUnsaved !== undefined && typeof declaredUnsaved !== "boolean") {
-      const shown = typeof declaredUnsaved === "string" ? JSON.stringify(declaredUnsaved) : String(declaredUnsaved);
-      throw new TypeError(`Action "${actionId}" sets extensions.assistant.unsaved to ${shown}: it must be true or false.`);
+    // A wrong privacy or hint declaration stops the catalogue: leaving the action out would hide the mistake.
+    for (const hint of DECLARED_HINTS) {
+      const declared = action.extensions?.assistant?.[hint];
+      if (declared !== undefined && typeof declared !== "boolean") {
+        const shown = typeof declared === "string" ? JSON.stringify(declared) : String(declared);
+        throw new TypeError(`Action "${actionId}" sets extensions.assistant.${hint} to ${shown}: it must be true or false.`);
+      }
     }
 
     let assistantExtension = null;
@@ -198,7 +209,8 @@ function resolveActionBackedToolEntries(actions) {
       context: `Action definition "${actionId}" assistant output`,
       defaultMode: "replace"
     }) || null;
-    if (!inputSchema || !outputSchema) {
+    const kind = normalizeText(action.kind).toLowerCase() || "command";
+    if (!inputSchema || (!outputSchema && !includeActionsWithoutOutput) || (includeActionsWithoutOutput && kind === "stream")) {
       continue;
     }
 
@@ -207,13 +219,18 @@ function resolveActionBackedToolEntries(actions) {
     const nextEntry = Object.freeze({
       actionId,
       actionVersion,
-      kind: normalizeText(action.kind).toLowerCase() || "command",
+      kind,
       toolBaseName: actionId,
       description: assistantExtension.description || `Run ${actionId}.`,
       alwaysAvailable: assistantExtension.alwaysAvailable,
       unsaved: assistantExtension.unsaved,
+      hints: Object.freeze({
+        readOnly: kind === "query",
+        destructive: kind !== "query" && assistantExtension.destructive,
+        sendsOutside: assistantExtension.sendsOutside
+      }),
       inputSchema,
-      outputDefinition,
+      outputDefinition: outputSchema ? outputDefinition : null,
       outputSchema,
       transformResult: assistantExtension.transformResult,
       permission: normalizePermissionSpec(action.permission),
@@ -230,9 +247,9 @@ function resolveActionBackedToolEntries(actions) {
 
 function resolveActionToolEntries(
   actions,
-  { barredActionIds = [], skipActionPrefixes = [] } = {}
+  { barredActionIds = [], skipActionPrefixes = [], includeActionsWithoutOutput = false } = {}
 ) {
-  const actionBackedEntries = resolveActionBackedToolEntries(actions);
+  const actionBackedEntries = resolveActionBackedToolEntries(actions, { includeActionsWithoutOutput });
   const barredRules = normalizeBarredActionSet(barredActionIds);
   const usedToolNames = new Set();
   const entries = [];
@@ -265,6 +282,7 @@ function resolveActionToolEntries(
           description: actionEntry.unsaved ? `${description} ${UNSAVED_TOOL_NOTE}` : description,
           alwaysAvailable: actionEntry.alwaysAvailable === true,
           unsaved: actionEntry.unsaved === true,
+          hints: actionEntry.hints,
           parameters: actionEntry.inputSchema,
           outputSchema: actionEntry.outputSchema
         }),

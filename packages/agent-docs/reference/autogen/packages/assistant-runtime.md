@@ -187,6 +187,10 @@ Local functions
 - `listConversationMessagesDocument(chatService, input, context)`
 - `createConversationActions({ conversationOperations, conversationDataSchema, conversationConfigurationSchema, conversationSelectionSchema, conversationReplacementSchema, runtimeSurfaces })`
 
+### `src/server/AssistantMcpFeature.js`
+Exports
+- `AssistantMcpFeature`
+
 ### `src/server/AssistantProvider.js`
 Exports
 - `AssistantFeature`
@@ -248,6 +252,11 @@ Exports
 Exports
 - `AssistantFeature`
 - `AssistantStoreFeature`
+- `AssistantMcpFeature`
+- `ASSISTANT_MCP_ACTION_ID`
+- `createAssistantMcp`
+- `createAssistantMcpActions`
+- `registerAssistantMcpRoutes`
 - `createAssistantActions`
 - `assistantConversationGoalBodyValidator`
 - `registerAssistantRoutes`
@@ -271,6 +280,15 @@ Exports
 - `assistantConversationGoalBodyValidator`
 - `assistantSurfaceRouteParamsValidator`
 - `assistantTargetSurfaceInputValidator`
+
+### `src/server/mcp.js`
+Exports
+- `ASSISTANT_MCP_ACTION_ID`
+- `createAssistantMcp({ actions, config, workspaceScopeSupport = null })`
+- `createAssistantMcpActions({ mcp = null } = {})`
+- `registerAssistantMcpRoutes(router, { mcp = null } = {})`
+Local functions
+- `refuseStream(_request, reply)`
 
 ### `src/server/registerConversationSubscriptions.js`
 Exports

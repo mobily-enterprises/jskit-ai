@@ -778,6 +778,27 @@ action's own logs, events and writes stay the app's; `isExecutionLogged(context)
 from `@jskit-ai/kernel/server/actions` is false during an unsaved call, so the
 action and its policy can keep their own logs quiet too.
 
+### Action hints for clients that ask first
+
+A client that asks a person before a change, such as an MCP client, reads three
+hints from each tool. A `query` action is read-only. A command is a change; it
+says more when it declares:
+
+```js
+extensions: {
+  assistant: {
+    destructive: true,   // removes or overwrites what cannot be had back
+    sendsOutside: true   // reaches people or systems outside the app: mail, a payment, another service
+  }
+}
+```
+
+Any value other than `true` or `false` stops the catalogue with an error naming
+the action. A JSON:API CRUD feature's generated delete is destructive; its list,
+view, create and update are not. Its custom actions declare hints in their own
+`extensions`, and one without an assistant description is described by its
+route's `summary`, so a client reads what its route says it does.
+
 ### Database surface conversation lifecycle
 
 The client receives answer text incrementally and shows working status before
@@ -981,3 +1002,33 @@ one provider-error conversation, and verify global or cross-workspace isolation.
 Do not add a second model client beside the runtime, copy its repositories or
 routes, infer a surface, store keys in source, or keep generator markers,
 questionnaire answers, receipts, or provenance.
+
+## MCP endpoint
+
+`AssistantMcpFeature` from `@jskit-ai/assistant-runtime/server` serves the
+actions of one surface as the tools of a remote MCP server, at `POST /api/mcp`,
+or `POST /api/w/:workspaceSlug/mcp` for a workspace surface. It is one of
+assistant-runtime's server providers and serves nothing until the app names the
+surface:
+
+```js
+config.assistantMcp = { surfaceId: "admin" };
+```
+
+Each POST carries one JSON-RPC message (`initialize`, `ping`, `tools/list`,
+`tools/call`) and gets its answer as JSON; a notification gets `202` with no
+body. The endpoint keeps no session and opens no stream: `GET` and `DELETE`
+answer `405`. Every message runs as the person signed in to the request, through
+the endpoint's own action (`assistant.mcp.request`), so a tool sees the same
+permissions, surface and workspace as that surface's HTTP routes, and a person
+lists and calls only what they may run.
+
+Every automation action of the surface is a tool of its own, named like the
+assistant's tools (`crud.ports.list` is `crud_ports_list`), with its input schema
+and its hints as MCP annotations (`readOnlyHint`, `destructiveHint`,
+`openWorldHint`). Unlike the in-app assistant, there are no discovery tools, and
+an action without an output schema is a tool too: it answers as it ran, as its
+route does. Unsaved actions and streams are never tools here. `tools/list` pages
+50 tools at a time. The surface's `assistantServer` barred ids and skipped
+prefixes apply, and a result is held to 256 KiB unless the surface sets
+`maxToolResultBytes`.

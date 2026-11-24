@@ -61,6 +61,7 @@ Local functions
 - `buildActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs)`
 - `omitInputKeys(input, keys)`
 - `buildLifecycleContext(value)`
+- `withRouteSummary(definition)`
 - `normalizeAdditionalActions(definitions, { namespace, surface, permissionForAction, scopeInputValidator, servedOverHttp })`
 
 ### `src/server/jsonApiModule/assistantExtension.js`
