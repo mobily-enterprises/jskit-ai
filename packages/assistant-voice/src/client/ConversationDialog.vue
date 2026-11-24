@@ -1,6 +1,9 @@
 <script setup>
 import { useDisplay } from "vuetify";
-import { VCard, VDialog } from "vuetify/components";
+// Each from its own entry: "vuetify/components" would load every Vuetify component wherever this file's source is
+// loaded as it is, as an app's tests do.
+import { VCard } from "vuetify/components/VCard";
+import { VDialog } from "vuetify/components/VDialog";
 import { computed } from "vue";
 import { useJskitText } from "./i18n.js";
 
