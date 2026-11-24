@@ -3,9 +3,9 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { VOICE_INPUT_SAMPLE_RATE, normalizeRecognizedText, parseVoiceClientControl, speechPauseDurationMs, speechTextFromAssistant, splitSpeechText, takeStreamingSpeech } from '../src/shared/protocol.js';
+import { VOICE_INPUT_SAMPLE_RATE, normalizeRecognizedText, parseRecognitionSpellings, parseVoiceClientControl, recognitionSpellingCount, recognitionSpellings, speechPauseDurationMs, speechTextFromAssistant, splitSpeechText, takeStreamingSpeech } from '../src/shared/protocol.js';
 import { visemeCuesFromText, visemeUnitsFromText } from '../src/shared/visemes.js';
-import { createVoiceAccessToken, verifyVoiceAccessToken, voiceTenant } from '../src/server/voiceAccessToken.js';
+import { createVoiceClientToken, isVoiceClientToken, parseVoiceCredentials, voiceTokenSha256 } from '../src/server/voiceCredentials.js';
 import { readVoiceAccessToken, resolveVoiceProxyConfig, voiceEndpoint } from '../src/server/voiceProxyConfig.js';
 
 test("voice control messages are strict, bounded, and turn scoped", () => {
@@ -109,6 +109,50 @@ test("recognition vocabulary supplies literal application spellings without chan
   assert.equal(normalizeRecognizedText("ACME LABS"), "Acme labs");
 });
 
+test("a host's spellings win over JSKIT's on a clash, longest phrase first", () => {
+  const vocabulary = recognitionSpellings({
+    "vibe sixty four": "Vibe64", vibe: "Vibe", merc: "Merc", one: "1",
+    "J  S Kit": "J.S. Kit", postgresql: "Postgres", "web socket": "web-socket"
+  });
+  assert.equal(
+    normalizeRecognizedText("MERC BUILT VIBE SIXTY FOUR ON ONE VIBE WITH J S KIT", vocabulary),
+    "Merc built Vibe64 on 1 Vibe with J.S. Kit"
+  );
+  assert.equal(normalizeRecognizedText("POSTGRESQL OVER WEB SOCKET AND SQL", vocabulary), "Postgres over web-socket and SQL",
+    "JSKIT's spellings still apply to the words a host's do not take");
+  assert.equal(normalizeRecognizedText("Vibe sixty four as typed", vocabulary), "Vibe sixty four as typed");
+  assert.equal(recognitionSpellingCount({}), 41, "JSKIT's own: six phrases and 35 words");
+  assert.equal(recognitionSpellingCount(vocabulary), 45, "four added; a clash replaces JSKIT's own");
+});
+
+test("a spellings file maps each spoken phrase to its written form, one per line", () => {
+  assert.deepEqual(parseRecognitionSpellings([
+    "# Product words",
+    "vibe sixty four => Vibe64",
+    "",
+    "  MERC   BOT =>  Mercbot  ",
+    "o'reilly => O'Reilly => Media",
+    "pay pal => PayPal\r"
+  ].join("\n")), { "vibe sixty four": "Vibe64", "merc bot": "Mercbot", "o'reilly": "O'Reilly => Media", "pay pal": "PayPal" });
+  assert.deepEqual(parseRecognitionSpellings(""), {});
+  const refusals = [
+    ["Vibe64", /line 1 must read "spoken phrase => Written form"/u],
+    ["# first\nsemi;colon => x", /line 2: Spelling "semi;colon": the spoken phrase must be 1 to 100/u],
+    [" => Vibe64", /line 1: .*spoken phrase must be/u],
+    ["vibe =>", /line 1: .*written form must be 1 to 100 characters/u],
+    ["vibe => Vi\u0007be", /line 1: .*no control characters/u],
+    [`vibe => ${"x".repeat(101)}`, /line 1: .*written form must be/u],
+    [`${"a".repeat(101)} => A`, /line 1: .*spoken phrase must be/u],
+    ["merc => Merc\n\nMERC => MERC", /line 3: "MERC" is already spelled on line 1/u],
+    [Array.from({ length: 1001 }, (_, index) => `word ${index} => W${index}`).join("\n"), /line 1001: spellings are limited to 1000 phrases/u]
+  ];
+  for (const [text, message] of refusals) assert.throws(() => parseRecognitionSpellings(text), { name: "TypeError", message });
+  for (const value of [null, [], { "a;b": "x" }, { vibe: 64 }, { vibe: " Vibe" }, { vibe: "Vibe", VIBE: "VIBE" }]) {
+    assert.throws(() => recognitionSpellings(value), TypeError);
+  }
+  assert.throws(() => recognitionSpellings(Object.fromEntries(Array.from({ length: 1001 }, (_, index) => [`w ${index}`, "W"]))), /limited to 1000/u);
+});
+
 test("speech text becomes a bounded phoneme-informed viseme timeline", () => {
   const units = visemeUnitsFromText("Merc will make a rounded voice.");
   assert.ok(units.some((unit) => unit.pose === "closed"));
@@ -122,28 +166,14 @@ test("speech text becomes a bounded phoneme-informed viseme timeline", () => {
   assert.ok(cues.at(-1).atMs <= 1_200);
 });
 
-test("tenant access tokens are scoped and authenticated", () => {
-  const key = "0123456789abcdef0123456789abcdef";
-  const token = createVoiceAccessToken({ key, tenant: "tenant-42" });
-  assert.deepEqual(verifyVoiceAccessToken(token, { key }), {
-    tenant: "tenant-42",
-    version: "v1"
-  });
-  assert.equal(verifyVoiceAccessToken(token, { key: `${key}-wrong` }), null);
-  assert.equal(verifyVoiceAccessToken(token.replace("tenant-42", "tenant-43"), { key }), null);
-});
-
-test("voice proxy configuration is explicit and reads a private credential file", async (context) => {
+test("voice proxy configuration is explicit and reads a private credential file or a token value", async (context) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-config-"));
   context.after(async () => {
     const { rm } = await import("node:fs/promises");
     await rm(root, { force: true, recursive: true });
   });
   const tokenFile = path.join(root, "token");
-  const token = createVoiceAccessToken({
-    key: "0123456789abcdef0123456789abcdef",
-    tenant: "local"
-  });
+  const token = createVoiceClientToken();
   await writeFile(tokenFile, `${token}\n`, { mode: 0o600 });
   assert.equal(readVoiceAccessToken(tokenFile), token);
   assert.equal(voiceEndpoint("ws://127.0.0.1:3092/v1/voice"), "ws://127.0.0.1:3092/v1/voice");
@@ -156,9 +186,22 @@ test("voice proxy configuration is explicit and reads a private credential file"
     endpoint: "ws://127.0.0.1:3092/v1/voice",
     token
   });
+  assert.deepEqual(resolveVoiceProxyConfig({ accessToken: ` ${token}\n`, endpoint: "wss://speech.example.test/v1/voice" }), {
+    available: true,
+    endpoint: "wss://speech.example.test/v1/voice",
+    token
+  });
   assert.throws(
     () => resolveVoiceProxyConfig({ endpoint: "ws://127.0.0.1:3092/v1/voice" }),
     /configured together/u
+  );
+  assert.throws(
+    () => resolveVoiceProxyConfig({ accessToken: token, accessTokenFile: tokenFile, endpoint: "ws://127.0.0.1:3092/v1/voice" }),
+    /not both/u
+  );
+  assert.throws(
+    () => resolveVoiceProxyConfig({ accessToken: "short", endpoint: "ws://127.0.0.1:3092/v1/voice" }),
+    /credential is malformed/u
   );
 });
 
@@ -180,54 +223,85 @@ for (const protocol of ["ws", "wss"]) {
   });
 }
 
-test("voice proxy credentials preserve generated boundary tenants and trimmed tokens", async (context) => {
+test("voice client tokens are any RFC 6750 bearer token of 32 or more characters, read trimmed", async (context) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-token-valid-"));
   context.after(async () => {
     const { rm } = await import("node:fs/promises");
     await rm(root, { force: true, recursive: true });
   });
   const tokenFile = path.join(root, "token");
-  const key = "0123456789abcdef0123456789abcdef";
-  for (const tenant of ["a", "tenant-42", `${"a".repeat(62)}9`]) {
-    assert.equal(voiceTenant(tenant), tenant);
-    const token = createVoiceAccessToken({ key, tenant });
-    assert.equal(token.split(".")[2].length, 43);
+  const generated = createVoiceClientToken();
+  assert.match(generated, /^[A-Za-z0-9_-]{43}$/u);
+  assert.notEqual(createVoiceClientToken(), generated);
+  for (const token of [generated, "a".repeat(32), "0123456789abcdef".repeat(4), `crd_${"Ab9-_.~+/".repeat(4)}==`]) {
+    assert.equal(isVoiceClientToken(token), true, token);
     await writeFile(tokenFile, ` \t${token}\r\n`, { mode: 0o600 });
-    const loaded = readVoiceAccessToken(` ${tokenFile} `);
-    assert.equal(loaded, token);
-    assert.deepEqual(verifyVoiceAccessToken(loaded, { key }), { tenant, version: "v1" });
+    assert.equal(readVoiceAccessToken(` ${tokenFile} `), token);
   }
+  assert.equal(voiceTokenSha256("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "the hash of the token's UTF-8 bytes in lowercase hex");
 });
 
-test("voice proxy credentials reject impossible signed token shapes", async (context) => {
+test("voice client tokens refuse short, spaced or non-token text", async (context) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-token-invalid-"));
   context.after(async () => {
     const { rm } = await import("node:fs/promises");
     await rm(root, { force: true, recursive: true });
   });
   const tokenFile = path.join(root, "token");
-  const key = "0123456789abcdef0123456789abcdef";
-  const token = createVoiceAccessToken({ key, tenant: "tenant-42" });
-  const [version, tenant, signature] = token.split(".");
-  assert.throws(() => voiceTenant(`${tenant}-`), { code: "voice_tenant_invalid" });
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-  const noncanonicalSignature = signature.slice(0, -1) + alphabet[alphabet.indexOf(signature.at(-1)) + 1];
-  assert.notEqual(noncanonicalSignature, signature);
-  assert.equal(noncanonicalSignature.length, 43);
-  assert.deepEqual(Buffer.from(noncanonicalSignature, "base64url"), Buffer.from(signature, "base64url"));
-
   for (const [name, malformed] of [
-    ["trailing-hyphen tenant", `${version}.${tenant}-.${signature}`],
-    ["42-character signature", `${version}.${tenant}.${signature.slice(0, -1)}`],
-    ["44-character signature", `${version}.${tenant}.${signature}A`],
-    ["noncanonical base64url signature bits", `${version}.${tenant}.${noncanonicalSignature}`]
+    ["31 characters", "a".repeat(31)],
+    ["inner space", `${"a".repeat(20)} ${"b".repeat(20)}`],
+    ["padding inside", `${"a".repeat(20)}=${"b".repeat(20)}`],
+    ["non-ASCII", `${"a".repeat(32)}é`],
+    ["over 1024 characters", "a".repeat(1025)]
   ]) {
     await context.test(name, async () => {
+      assert.equal(isVoiceClientToken(malformed), false);
       await writeFile(tokenFile, `${malformed}\n`, { mode: 0o600 });
-      assert.equal(verifyVoiceAccessToken(malformed, { key }), null);
-      assert.throws(() => readVoiceAccessToken(tokenFile), /credential is malformed/u);
+      assert.throws(() => readVoiceAccessToken(tokenFile), /credential (is malformed|file is invalid)/u);
     });
   }
+});
+
+test("voice credentials documents list each client's token hashes and optional limit", () => {
+  const [first, second] = [createVoiceClientToken(), createVoiceClientToken()];
+  const credentials = parseVoiceCredentials({
+    schema: "jskit.assistant-voice.credentials.v1",
+    clients: {
+      "mercbot-app": { tokenSha256: [voiceTokenSha256(first), voiceTokenSha256(second)], maximumConnections: 3 },
+      "ws.12": { tokenSha256: [voiceTokenSha256(createVoiceClientToken())] }
+    }
+  });
+  assert.deepEqual(credentials.get(voiceTokenSha256(first)), { client: "mercbot-app", maximumConnections: 3 });
+  assert.deepEqual(credentials.get(voiceTokenSha256(second)), { client: "mercbot-app", maximumConnections: 3 });
+  assert.equal(credentials.size, 3);
+  const valid = { tokenSha256: [voiceTokenSha256(first)] };
+  for (const [name, document] of [
+    ["an array", []],
+    ["no schema", { clients: {} }],
+    ["an extra top-level field", { schema: "jskit.assistant-voice.credentials.v1", clients: {}, keys: [] }],
+    ["clients as a list", { schema: "jskit.assistant-voice.credentials.v1", clients: [valid] }],
+    ["a client name ending in a dash", { schema: "jskit.assistant-voice.credentials.v1", clients: { "client-": valid } }],
+    ["a 65-character client name", { schema: "jskit.assistant-voice.credentials.v1", clients: { ["a".repeat(65)]: valid } }],
+    ["no token hashes", { schema: "jskit.assistant-voice.credentials.v1", clients: { client: { tokenSha256: [] } } }],
+    ["nine token hashes", { schema: "jskit.assistant-voice.credentials.v1", clients: { client: { tokenSha256: Array.from({ length: 9 }, (_, index) => voiceTokenSha256(String(index))) } } }],
+    ["an upper-case hash", { schema: "jskit.assistant-voice.credentials.v1", clients: { client: { tokenSha256: [voiceTokenSha256(first).toUpperCase()] } } }],
+    ["a zero limit", { schema: "jskit.assistant-voice.credentials.v1", clients: { client: { ...valid, maximumConnections: 0 } } }],
+    ["a fractional limit", { schema: "jskit.assistant-voice.credentials.v1", clients: { client: { ...valid, maximumConnections: 1.5 } } }]
+  ]) {
+    assert.throws(() => parseVoiceCredentials(document), { code: "voice_credentials_invalid" }, name);
+  }
+});
+
+test("voice credentials accept mobilynet's link and credential ids as client names", () => {
+  const credentials = parseVoiceCredentials({
+    schema: "jskit.assistant-voice.credentials.v1",
+    clients: {
+      lnk_abcdefghijklmnop: { tokenSha256: [voiceTokenSha256(createVoiceClientToken())] },
+      crd_abcdefghijklmnop: { tokenSha256: [voiceTokenSha256(createVoiceClientToken())] }
+    }
+  });
+  assert.deepEqual([...credentials.values()].map(entry => entry.client), ["lnk_abcdefghijklmnop", "crd_abcdefghijklmnop"]);
 });
 
 test("incremental speech holds incomplete Markdown and starts on a natural clause", () => {

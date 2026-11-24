@@ -1,16 +1,20 @@
+import { readFileSync } from "node:fs";
 import http from "node:http";
 
 import { WebSocketServer } from "ws";
 
 import {
+  VOICE_CATALOGUE_PATH,
   VOICE_DAEMON_WEBSOCKET_PATH,
   VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS,
+  VOICE_HEALTH_PATH,
   VOICE_INPUT_SAMPLE_RATE,
   VOICE_MAX_AUDIO_FRAME_BYTES,
   VOICE_MAX_CONTROL_BYTES,
   VOICE_MAX_UTTERANCE_SECONDS,
   VOICE_MAX_SYNTHESIS_TIMEOUT_MS,
   VOICE_PROTOCOL_VERSION,
+  VOICE_VOICES_PATH,
   assertVoiceAudioFrame,
   parseVoiceClientControl,
   speechPauseDurationMs,
@@ -18,12 +22,12 @@ import {
   voiceServerMessage
 } from "../shared/protocol.js";
 import { visemeCuesFromText } from "../shared/visemes.js";
-import {
-  bearerVoiceAccessToken,
-  verifyVoiceAccessToken
-} from "./voiceAccessToken.js";
+import { bearerVoiceAccessToken, createVoiceCredentialStore } from "./voiceCredentials.js";
+import { refuseUpgrade, requestPathname, writeJsonResponse } from "./voiceDaemonHttp.js";
+import { createBoundedSpeechQueue } from "./voiceSpeechQueue.js";
 
 const WEBSOCKET_OPEN = 1;
+const PACKAGE_VERSION = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
 
 function sendJson(socket, type, fields = {}) {
   if (socket.readyState !== WEBSOCKET_OPEN) {
@@ -56,96 +60,26 @@ function voiceDaemonError(error, fallback = { message: "Voice operation failed."
   };
 }
 
-function createBoundedSerialQueue({ maximumQueued = 4 } = {}) {
-  const pending = [];
-  let running = false;
-  let closed = false;
+/** A connection that has not started work has none to cancel. */
+function nothingToCancel() {}
 
-  const drain = async () => {
-    if (running || closed) {
-      return;
-    }
-    const next = pending.shift();
-    if (!next) {
-      return;
-    }
-    running = true;
-    try {
-      next.resolve(await next.operation());
-    } catch (error) {
-      next.reject(error);
-    } finally {
-      running = false;
-      void drain();
-    }
-  };
-
-  function close() {
-    closed = true;
-    const error = Object.assign(new Error("Voice speech queue is shutting down."), {
-      code: "voice_queue_closed", messageCode: "assistant.voice.daemon.queueClosing", messageParams: {}
-    });
-    for (const entry of pending.splice(0)) {
-      entry.reject(error);
-    }
-  }
-
-  function run(operation) {
-    if (closed) {
-      const error = Object.assign(new Error("Voice speech queue is unavailable."), {
-        code: "voice_queue_closed", messageCode: "assistant.voice.daemon.queueUnavailable", messageParams: {}
-      });
-      return Promise.reject(error);
-    }
-    if (typeof operation !== "function") {
-      return Promise.reject(new TypeError("Voice speech queue requires an operation."));
-    }
-    if (pending.length >= maximumQueued) {
-      const error = Object.assign(new Error("Voice speech capacity is currently busy. Try again shortly."), {
-        code: "voice_busy", messageCode: "assistant.voice.daemon.capacityBusy", messageParams: {}
-      });
-      return Promise.reject(error);
-    }
-    return new Promise((resolve, reject) => {
-      pending.push({ operation, reject, resolve });
-      void drain();
-    });
-  }
-
-  return Object.freeze({
-    close,
-    get depth() {
-      return pending.length + (running ? 1 : 0);
-    },
-    run
-  });
+function poolSize(value) {
+  return Number.isSafeInteger(value) && value > 0 ? value : 1;
 }
 
-function requestPathname(request = {}) {
-  try {
-    return new URL(String(request.url || "/"), "http://voice.local").pathname;
-  } catch {
-    return "/";
-  }
-}
-
-function writeJsonResponse(response, statusCode, payload) {
-  const body = Buffer.from(JSON.stringify(payload));
-  response.writeHead(statusCode, {
-    "cache-control": "no-store",
-    "content-length": String(body.byteLength),
-    "content-type": "application/json; charset=utf-8"
-  });
-  response.end(body);
+/** Writes each access record as one JSON line on standard output. */
+function writeAccessLine(record) {
+  process.stdout.write(`${JSON.stringify(record)}\n`);
 }
 
 /**
- * A speech engine's recognition of one recording.
+ * A speech engine's recognition of one recording. Each method may answer a
+ * promise; the host runs one at a time per recording.
  * @typedef {object} VoiceRecognizer
- * @property {(frame: Buffer) => string} acceptPcm Recognizes a slice of 16 kHz PCM and answers the words so far.
- * @property {() => string} finish Ends the recording and answers its final words.
- * @property {() => string} reset Starts the next utterance of a continuous recording and answers the last one's words.
- * @property {() => boolean} isEndpoint Whether the speaker has paused at the end of an utterance.
+ * @property {(frame: Buffer) => string | Promise<string>} acceptPcm Recognizes a slice of 16 kHz PCM and answers the words so far.
+ * @property {() => string | Promise<string>} finish Ends the recording and answers its final words.
+ * @property {() => string | Promise<string>} reset Starts the next utterance of a continuous recording and answers the last one's words.
+ * @property {() => boolean | Promise<boolean>} isEndpoint Whether the speaker has paused at the end of an utterance.
  * @property {() => void} cancel Drops the recording.
  * @property {number} acceptedSamples The samples recognized so far.
  */
@@ -160,96 +94,150 @@ function writeJsonResponse(response, statusCode, payload) {
  * @property {number} [synthesisTimeoutMs] How long one phrase's synthesis may take, when longer than the protocol's default.
  * @property {{ id: string, label: string, language?: string }[]} [voices]
  * @property {string} [defaultVoice]
+ * @property {{ id: string, language?: string, hotwords?: number, spellings?: number }[]} [recognitionModels]
+ * @property {{ recognition?: number, synthesis?: number }} [concurrency] How many recognitions and syntheses it runs at once (default one each).
+ * @property {Record<string, string>} [versions] Its packages and native runtime, by name.
  */
 
 /**
- * The principal a request's access token names. Each of its ids has its own
- * connection quota.
- * @typedef {{ tenant: string, parentTenant?: string }} VoicePrincipal
+ * What a voice host records about one connection: never its audio or words.
+ * @typedef {object} VoiceAccessRecord
+ * @property {"voice.connection"} type
+ * @property {string | null} client The credentials file's client name, or null when the token named none.
+ * @property {string} startedAt
+ * @property {string} endedAt
+ * @property {number} audioSecondsHeard Seconds of microphone audio received.
+ * @property {number} charactersSpoken Characters of reply text given to synthesis.
+ * @property {"client" | "idle" | "revoked" | "shutdown" | "protocol" | "error" | "unauthorized" | "capacity"} closed
+ * @property {number} [closeCode]
  */
 
-/** A host without extra HTTP routes answers no request itself, so it falls through to 404. */
-function answerNoHostRoute() {
-  return false;
-}
+/**
+ * What a voice host records when it loads its credentials, at start and on each
+ * change of the file; voice.credentials.refused names a file it could not use,
+ * with the credentials still in use.
+ * @typedef {object} VoiceCredentialsRecord
+ * @property {"voice.credentials" | "voice.credentials.refused"} type
+ * @property {string} at
+ * @property {string | null} credentialsSha256 The SHA-256 of the file in use, or null when it is missing.
+ * @property {number} [clients]
+ * @property {string[]} [clientsAdded]
+ * @property {string[]} [clientsRemoved]
+ * @property {string[]} [clientsChanged] Clients whose tokens or limit changed.
+ * @property {number} [sessionsEnded] Open sessions whose token the change removed.
+ * @property {string} [reason]
+ */
 
 /**
  * A voice host: an HTTP server whose WebSocket connections recognize the speaker's
- * words and speak the answer, with the health and voice-catalogue routes.
+ * words and speak the answer, with the health and catalogue routes. Clients sign
+ * in with a bearer token whose SHA-256 the host's credentials file lists.
  * @param {object} options
- * @param {Buffer | string} [options.accessKey] The key that signs voice access tokens, when authorize is the default.
- * @param {(token: string, request: import("node:http").IncomingMessage) => VoicePrincipal | null} [options.authorize]
- * @param {(request: import("node:http").IncomingMessage, response: import("node:http").ServerResponse) => boolean | Promise<boolean>} [options.handleRequest] The host's own HTTP routes; true when it answered.
+ * @param {string} options.credentialsFile
+ * @param {number} [options.credentialsPollMs] How often the credentials file is checked for changes.
+ * @param {(record: VoiceAccessRecord | VoiceCredentialsRecord) => void} [options.accessLog] Receives one record per connection and one per credentials load; by default a JSON line on standard output.
  * @param {VoiceSpeechEngine} options.engine
  * @param {string} [options.host]
  * @param {number} [options.idleTimeoutMs]
  * @param {{ warn: (fields: object, message: string) => void }} [options.logger]
- * @param {number} [options.maximumConnections]
- * @param {number} [options.maximumConnectionsPerTenant]
- * @param {number} [options.maximumQueuedSpeech]
+ * @param {number} [options.maximumConnections] Default eight per recognition worker.
+ * @param {number} [options.maximumConnectionsPerClient] Default two per recognition worker; a client's own maximumConnections replaces it.
+ * @param {number} [options.maximumQueuedSpeech] Default four per synthesis worker.
  * @param {number} [options.port]
  */
 function createVoiceDaemon({
-  accessKey,
-  authorize = token => verifyVoiceAccessToken(token, { key: accessKey }),
-  handleRequest = answerNoHostRoute,
+  credentialsFile,
+  credentialsPollMs = 1000,
+  accessLog = writeAccessLine,
   engine,
   host = "127.0.0.1",
   idleTimeoutMs = 90_000,
   logger = console,
-  maximumConnections = 8,
-  maximumConnectionsPerTenant = 2,
-  maximumQueuedSpeech = 4,
+  maximumConnections,
+  maximumConnectionsPerClient,
+  maximumQueuedSpeech,
   port = 3092
 }) {
   // readable-check: allow method-probe - input validation: an application hands over the speech engine its host runs
   if (!engine || typeof engine.createListeningSession !== "function" || typeof engine.synthesize !== "function" || typeof engine.warmup !== "function") {
     throw new TypeError("createVoiceDaemon requires a speech engine.");
   }
-  // readable-check: allow method-probe - input validation: an application hands over its own authorization and routes
-  if (typeof authorize !== "function" || typeof handleRequest !== "function") throw new TypeError("Voice host authorization and request handlers must be functions.");
-  const tenantConnections = new Map();
-  const sockets = new Set();
-  const principals = new WeakMap();
-  const speechQueue = createBoundedSerialQueue({ maximumQueued: maximumQueuedSpeech });
-  // One acceptance rule for every request: the host authorizer is synchronous
-  // and must name a tenant; anything else, including a thrown error, denies.
-  function principalFor(request) {
-    let principal;
-    try { principal = authorize(bearerVoiceAccessToken(request.headers), request); } catch { return null; }
-    return principal && typeof principal.tenant === "string" && principal.tenant ? principal : null;
-  }
+  const recognitionWorkers = poolSize(engine.concurrency?.recognition);
+  const synthesisWorkers = poolSize(engine.concurrency?.synthesis);
+  const totalLimit = maximumConnections ?? 8 * recognitionWorkers;
+  const clientLimit = maximumConnectionsPerClient ?? 2 * recognitionWorkers;
+  const clientConnections = new Map();
+  const connections = new Map();
+  const speechQueue = createBoundedSpeechQueue({
+    concurrency: synthesisWorkers,
+    maximumQueued: maximumQueuedSpeech ?? 4 * synthesisWorkers
+  });
+  const credentials = createVoiceCredentialStore({
+    file: credentialsFile,
+    pollIntervalMs: credentialsPollMs,
+    onRefused(reason) {
+      logAccess({ type: "voice.credentials.refused", at: new Date().toISOString(), reason, credentialsSha256: credentials.sha256 });
+    },
+    onChange(changes) {
+      const sessionsEnded = endRevokedConnections();
+      logAccess({ type: "voice.credentials", at: new Date().toISOString(), credentialsSha256: credentials.sha256, ...changes, sessionsEnded });
+    }
+  });
   let ready = false;
   let startedAt = "";
   let stopping = false;
+  const versions = Object.freeze({ "@jskit-ai/assistant-voice": PACKAGE_VERSION, ...engine.versions });
   const voiceCatalogue = () => ({
     voices: (engine.voices || []).map(({ id, label, language }) => ({ id, label, ...(language ? { language } : {}) })),
     defaultVoice: engine.defaultVoice || ""
   });
-  const server = http.createServer(async (request, response) => {
-    if (request.method === "GET" && requestPathname(request) === "/health") {
+  const serviceCatalogue = () => ({
+    protocolVersion: VOICE_PROTOCOL_VERSION,
+    inputSampleRate: VOICE_INPUT_SAMPLE_RATE,
+    outputSampleRate: Number(engine.sampleRate),
+    recognitionModels: (engine.recognitionModels || []).map(({ id, language, hotwords, spellings }) => ({
+      id, ...(language ? { language } : {}), ...(Number.isSafeInteger(hotwords) ? { hotwords } : {}),
+      ...(Number.isSafeInteger(spellings) ? { spellings } : {})
+    })),
+    ...voiceCatalogue()
+  });
+
+  function logAccess(record) {
+    try {
+      accessLog(Object.freeze({ type: "voice.connection", ...record }));
+    } catch (error) {
+      logger.warn({ error: String(error?.message || error) }, "Voice access log failed.");
+    }
+  }
+
+  function logRefusal(client, closed) {
+    const at = new Date().toISOString();
+    logAccess({ client, startedAt: at, endedAt: at, audioSecondsHeard: 0, charactersSpoken: 0, closed });
+  }
+
+  const authenticatedRoutes = new Map([
+    [VOICE_VOICES_PATH, voiceCatalogue],
+    [VOICE_CATALOGUE_PATH, serviceCatalogue]
+  ]);
+  const server = http.createServer((request, response) => {
+    const pathname = requestPathname(request);
+    if (request.method === "GET" && pathname === VOICE_HEALTH_PATH) {
       writeJsonResponse(response, ready && !stopping ? 200 : 503, {
-        connections: sockets.size,
+        connections: connections.size,
         ok: ready && !stopping,
         protocolVersion: VOICE_PROTOCOL_VERSION,
         queueDepth: speechQueue.depth,
-        startedAt
+        startedAt,
+        versions,
+        credentialsSha256: credentials.sha256
       });
       return;
     }
-    try {
-      if (request.method === "GET" && requestPathname(request) === "/voices") {
-        if (!principalFor(request)) { writeJsonResponse(response, 401, { ok: false }); return; }
-        if (!ready || stopping) { writeJsonResponse(response, 503, { ok: false }); return; }
-        writeJsonResponse(response, 200, voiceCatalogue());
-        return;
-      }
-      if (await handleRequest(request, response)) return;
-      writeJsonResponse(response, 404, { ok: false });
-    } catch {
-      if (!response.headersSent) writeJsonResponse(response, 500, { ok: false, error: "Voice host request failed." });
-      else response.end();
-    }
+    const route = request.method === "GET" ? authenticatedRoutes.get(pathname) : null;
+    if (!route) { writeJsonResponse(response, 404, { ok: false }); return; }
+    if (!ready || stopping) { writeJsonResponse(response, 503, { ok: false }); return; }
+    if (!credentials.principalFor(bearerVoiceAccessToken(request.headers))) { writeJsonResponse(response, 401, { ok: false }); return; }
+    writeJsonResponse(response, 200, route());
   });
   const websocketServer = new WebSocketServer({
     maxPayload: Math.max(VOICE_MAX_AUDIO_FRAME_BYTES, VOICE_MAX_CONTROL_BYTES),
@@ -257,49 +245,73 @@ function createVoiceDaemon({
     perMessageDeflate: false
   });
 
-  function quotaKeys(principal) { return [...new Set([principal.tenant, principal.parentTenant].filter(Boolean))]; }
-
   function connectionCapacityAvailable(principal) {
-    return sockets.size < maximumConnections && quotaKeys(principal).every(key =>
-      (tenantConnections.get(key) || 0) < maximumConnectionsPerTenant);
+    return connections.size < totalLimit &&
+      (clientConnections.get(principal.client) || 0) < (principal.maximumConnections ?? clientLimit);
   }
 
   function claimConnection(principal, socket) {
-    sockets.add(socket);
-    principals.set(socket, { ...principal });
-    for (const key of quotaKeys(principal)) tenantConnections.set(key, (tenantConnections.get(key) || 0) + 1);
+    connections.set(socket, {
+      client: principal.client,
+      tokenSha256: principal.tokenSha256,
+      startedAt: new Date().toISOString(),
+      heardBytes: 0,
+      charactersSpoken: 0,
+      closed: "client",
+      cancel: nothingToCancel
+    });
+    clientConnections.set(principal.client, (clientConnections.get(principal.client) || 0) + 1);
   }
 
-  function releaseConnection(socket) {
-    if (!sockets.delete(socket)) return;
-    for (const key of quotaKeys(principals.get(socket))) {
-      const next = (tenantConnections.get(key) || 1) - 1;
-      if (next) tenantConnections.set(key, next);
-      else tenantConnections.delete(key);
+  function releaseConnection(socket, closeCode) {
+    const connection = connections.get(socket);
+    if (!connection) return;
+    connections.delete(socket);
+    const next = (clientConnections.get(connection.client) || 1) - 1;
+    if (next) clientConnections.set(connection.client, next);
+    else clientConnections.delete(connection.client);
+    logAccess({
+      client: connection.client,
+      startedAt: connection.startedAt,
+      endedAt: new Date().toISOString(),
+      audioSecondsHeard: Math.round(connection.heardBytes / 2 / VOICE_INPUT_SAMPLE_RATE * 100) / 100,
+      charactersSpoken: connection.charactersSpoken,
+      closed: connection.closed,
+      ...(Number.isInteger(closeCode) ? { closeCode } : {})
+    });
+  }
+
+  function closeConnection(socket, reason, code, message) {
+    const connection = connections.get(socket);
+    if (connection && connection.closed === "client") connection.closed = reason;
+    socket.close(code, message);
+  }
+
+  // A credential the host removed ends its open sessions at once, work and all,
+  // and the connection is cut a second later if the peer does not answer the close.
+  function endRevokedConnections() {
+    let ended = 0;
+    for (const [socket, connection] of connections) {
+      if (connection.closed === "revoked" || credentials.accepts(connection.tokenSha256, connection.client)) continue;
+      ended += 1;
+      connection.cancel();
+      sendJson(socket, "error", { code: "voice_access_revoked", message: "This application's voice access was revoked." });
+      closeConnection(socket, "revoked", 1008, "Voice access was revoked");
+      setTimeout(() => socket.terminate(), 1000).unref();
     }
-    principals.delete(socket);
+    return ended;
   }
 
-  function revokeTenant(tenant) {
-    for (const socket of sockets) {
-      if (quotaKeys(principals.get(socket)).includes(tenant)) {
-        principals.get(socket).cancel();
-        sendJson(socket, "error", { code: "voice_access_revoked", message: "This application's voice access was revoked." });
-        socket.close(1008, "Voice access was revoked");
-      }
-    }
-  }
-
-  websocketServer.on("connection", (socket, request, context = {}) => {
-    const tenantId = context.tenant;
-    claimConnection(context, socket);
+  websocketServer.on("connection", (socket, request, principal) => {
+    claimConnection(principal, socket);
+    const connection = connections.get(socket);
     let listening = null;
+    let finishing = null;
     let speaking = null;
     let invalidMessages = 0;
     let lastActivity = Date.now();
 
     const cancelListening = () => {
-      clearImmediate(listening?.decodeTimer);
       if (listening) listening.recognizer.cancel();
       listening = null;
     };
@@ -314,7 +326,7 @@ function createVoiceDaemon({
       if (Date.now() - lastActivity < idleTimeoutMs || socket.readyState !== WEBSOCKET_OPEN) {
         return;
       }
-      socket.close(1000, "Voice connection idle");
+      closeConnection(socket, "idle", 1000, "Voice connection idle");
     }, Math.min(idleTimeoutMs, 15_000));
     idleTimer.unref();
 
@@ -323,11 +335,15 @@ function createVoiceDaemon({
       const publicError = voiceDaemonError(error);
       sendJson(socket, "error", publicError);
       if (invalidMessages >= 3) {
-        socket.close(1008, "Invalid voice protocol messages");
+        closeConnection(socket, "protocol", 1008, "Invalid voice protocol messages");
       }
     };
 
-    principals.get(socket).cancel = () => { cancelListening(); cancelSpeaking(); };
+    connection.cancel = () => {
+      cancelListening();
+      if (finishing) { finishing.cancelled = true; finishing.recognizer.cancel(); }
+      cancelSpeaking();
+    };
 
     const startListening = (control) => {
       cancelListening();
@@ -348,49 +364,61 @@ function createVoiceDaemon({
         }
       });
       listening = { recognizer, turnId, revision: 0, candidateRevision: 0, continuous: control.continuous === true,
-        pending: [], pendingBytes: 0, decodeTimer: null, ending: false };
+        pending: [], pendingBytes: 0, draining: false, ending: false, cancelled: false };
       sendJson(socket, "listen.started", { turnId });
     };
 
-    const drainListening = (active) => {
-      if (active.decodeTimer || listening !== active || !active.pending.length) return;
-      // Native recognition is synchronous. Yield between small audio slices so
-      // a burst of microphone frames cannot starve PCM delivery or controls.
-      active.decodeTimer = setImmediate(() => {
-        active.decodeTimer = null;
-        if (listening !== active) return;
-        const { frame, control } = active.pending.shift();
-        try {
-          if (frame) {
-            active.pendingBytes -= frame.byteLength;
-            if (active.recognizer.acceptedSamples + frame.byteLength / 2 > VOICE_INPUT_SAMPLE_RATE * VOICE_MAX_UTTERANCE_SECONDS) {
-              throw Object.assign(new Error(`Voice recordings are limited to ${VOICE_MAX_UTTERANCE_SECONDS} seconds.`), {
-                code: "voice_utterance_too_long", params: { seconds: VOICE_MAX_UTTERANCE_SECONDS }
-              });
-            }
-            active.recognizer.acceptPcm(frame);
-          } else if (control.type === "listen.stop") {
-            listening = null;
-            const text = active.recognizer.finish();
-            sendJson(socket, "transcript.final", { text, turnId: active.turnId });
-          } else if (!active.continuous || active.candidateRevision !== control.revision || !active.recognizer.isEndpoint()) {
-            sendJson(socket, "transcript.stale", { turnId: active.turnId, revision: control.revision });
-          } else {
-            const text = active.recognizer.reset();
-            active.candidateRevision = 0;
-            active.revision += 1;
-            if (control.type === "listen.commit") sendJson(socket, "transcript.final", {
-              text, turnId: active.turnId, revision: control.revision, continuous: true
-            });
-            sendJson(socket, "transcript.reset", { turnId: active.turnId, revision: active.revision });
-          }
-        } catch (error) {
-          if (listening === active) cancelListening();
-          else active.recognizer.cancel();
-          failMessage(error);
+    const recognizeNext = async (active) => {
+      const { frame, control } = active.pending.shift();
+      if (frame) {
+        active.pendingBytes -= frame.byteLength;
+        if (active.recognizer.acceptedSamples + frame.byteLength / 2 > VOICE_INPUT_SAMPLE_RATE * VOICE_MAX_UTTERANCE_SECONDS) {
+          throw Object.assign(new Error(`Voice recordings are limited to ${VOICE_MAX_UTTERANCE_SECONDS} seconds.`), {
+            code: "voice_utterance_too_long", params: { seconds: VOICE_MAX_UTTERANCE_SECONDS }
+          });
         }
-        drainListening(active);
-      });
+        await active.recognizer.acceptPcm(frame);
+      } else if (control.type === "listen.stop") {
+        listening = null;
+        finishing = active;
+        try {
+          const text = await active.recognizer.finish();
+          if (!active.cancelled) sendJson(socket, "transcript.final", { text, turnId: active.turnId });
+        } finally { if (finishing === active) finishing = null; }
+      } else if (!active.continuous || active.candidateRevision !== control.revision || !(await active.recognizer.isEndpoint())) {
+        sendJson(socket, "transcript.stale", { turnId: active.turnId, revision: control.revision });
+      } else {
+        const text = await active.recognizer.reset();
+        if (listening !== active) return;
+        active.candidateRevision = 0;
+        active.revision += 1;
+        if (control.type === "listen.commit") sendJson(socket, "transcript.final", {
+          text, turnId: active.turnId, revision: control.revision, continuous: true
+        });
+        sendJson(socket, "transcript.reset", { turnId: active.turnId, revision: active.revision });
+      }
+    };
+
+    // One recognition step at a time per recording, each after a turn of the
+    // event loop, so a burst of microphone frames cannot starve PCM delivery or
+    // controls, and a recording's steps keep their order.
+    const drainListening = async (active) => {
+      if (active.draining) return;
+      active.draining = true;
+      try {
+        while (listening === active && active.pending.length) {
+          await new Promise(resolve => setImmediate(resolve));
+          if (listening !== active) return;
+          try {
+            await recognizeNext(active);
+          } catch (error) {
+            if (listening === active) cancelListening();
+            else active.recognizer.cancel();
+            if (!active.cancelled) failMessage(error);
+            return;
+          }
+        }
+      } finally { active.draining = false; }
     };
 
     const queueListening = (active, entry) => {
@@ -405,7 +433,7 @@ function createVoiceDaemon({
       }
       active.pending.push(entry);
       active.pendingBytes += bytes;
-      drainListening(active);
+      void drainListening(active);
     };
 
     const drainSpeech = async (active) => {
@@ -415,7 +443,7 @@ function createVoiceDaemon({
       try {
         while (active.pending.length && !controller.signal.aborted) {
           const chunk = active.pending.shift();
-          // Queue each phrase separately so another tenant can get a turn.
+          // Queue each phrase separately so another client can get a turn.
           const phrases = splitSpeechText(chunk);
           for (const [position, text] of phrases.entries()) {
             if (active.segmentIndex > active.stopAfter || controller.signal.aborted) break;
@@ -432,7 +460,9 @@ function createVoiceDaemon({
                 ...(Number.isSafeInteger(synthesisTimeoutMs) && synthesisTimeoutMs > VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS &&
                     synthesisTimeoutMs <= VOICE_MAX_SYNTHESIS_TIMEOUT_MS ? { synthesisTimeoutMs } : {}) });
               let sampleCount = 0;
-              const result = text.trim() ? await engine.synthesize(text.trim(), {
+              const words = text.trim();
+              if (words) connection.charactersSpoken += [...words].length;
+              const result = words ? await engine.synthesize(words, {
                 onAudio(frame) {
                   if (controller.signal.aborted || socket.readyState !== WEBSOCKET_OPEN) return;
                   // Do not wait for the phrase's duration/visemes to start audio.
@@ -499,6 +529,7 @@ function createVoiceDaemon({
             });
           }
           const frame = assertVoiceAudioFrame(raw);
+          connection.heardBytes += frame.byteLength;
           const active = listening;
           const sliceBytes = VOICE_INPUT_SAMPLE_RATE / 10 * 2;
           for (let offset = 0; offset < frame.byteLength; offset += sliceBytes) {
@@ -554,7 +585,12 @@ function createVoiceDaemon({
           void drainSpeech(speaking);
         } else if (control.type === "cancel") {
           if (listening?.turnId === control.turnId) {
+            listening.cancelled = true;
             cancelListening();
+          }
+          if (finishing?.turnId === control.turnId) {
+            finishing.cancelled = true;
+            finishing.recognizer.cancel();
           }
           if (speaking?.turnId === control.turnId) {
             cancelSpeaking();
@@ -567,14 +603,14 @@ function createVoiceDaemon({
       }
     });
 
-    socket.once("close", () => {
+    socket.once("close", (code) => {
       clearInterval(idleTimer);
-      cancelListening();
-      cancelSpeaking();
-      releaseConnection(socket);
+      connection.cancel();
+      releaseConnection(socket, code);
     });
     socket.once("error", (error) => {
-      logger.warn({ error: String(error?.message || error), tenantId }, "Voice WebSocket failed.");
+      if (connection.closed === "client") connection.closed = "error";
+      logger.warn({ error: String(error?.message || error), client: connection.client }, "Voice WebSocket failed.");
     });
     sendJson(socket, "voice.ready", {
       inputSampleRate: VOICE_INPUT_SAMPLE_RATE,
@@ -585,23 +621,22 @@ function createVoiceDaemon({
 
   server.on("upgrade", (request, socket, head) => {
     if (stopping || !ready || requestPathname(request) !== VOICE_DAEMON_WEBSOCKET_PATH) {
-      socket.write("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
-      socket.destroy();
+      refuseUpgrade(socket, "503 Service Unavailable");
       return;
     }
-    const verified = principalFor(request);
-    if (!verified) {
-      socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
-      socket.destroy();
+    const principal = credentials.principalFor(bearerVoiceAccessToken(request.headers));
+    if (!principal) {
+      logRefusal(null, "unauthorized");
+      refuseUpgrade(socket, "401 Unauthorized");
       return;
     }
-    if (!connectionCapacityAvailable(verified)) {
-      socket.write("HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\nRetry-After: 2\r\n\r\n");
-      socket.destroy();
+    if (!connectionCapacityAvailable(principal)) {
+      logRefusal(principal.client, "capacity");
+      refuseUpgrade(socket, "429 Too Many Requests", "Retry-After: 2\r\n");
       return;
     }
     websocketServer.handleUpgrade(request, socket, head, (websocket) => {
-      websocketServer.emit("connection", websocket, request, verified);
+      websocketServer.emit("connection", websocket, request, principal);
     });
   });
 
@@ -609,20 +644,26 @@ function createVoiceDaemon({
     if (ready) {
       return address();
     }
-    await engine.warmup();
-    await new Promise((resolve, reject) => {
-      const fail = (error) => {
-        server.off("listening", listen);
-        reject(error);
-      };
-      const listen = () => {
-        server.off("error", fail);
-        resolve();
-      };
-      server.once("error", fail);
-      server.once("listening", listen);
-      server.listen(port, host);
-    });
+    credentials.start();
+    try {
+      await engine.warmup();
+      await new Promise((resolve, reject) => {
+        const fail = (error) => {
+          server.off("listening", listen);
+          reject(error);
+        };
+        const listen = () => {
+          server.off("error", fail);
+          resolve();
+        };
+        server.once("error", fail);
+        server.once("listening", listen);
+        server.listen(port, host);
+      });
+    } catch (error) {
+      credentials.stop();
+      throw error;
+    }
     ready = true;
     startedAt = new Date().toISOString();
     return address();
@@ -641,9 +682,10 @@ function createVoiceDaemon({
     }
     stopping = true;
     ready = false;
+    credentials.stop();
     speechQueue.close();
-    for (const socket of sockets) {
-      socket.close(1012, "Voice service restarting");
+    for (const socket of connections.keys()) {
+      closeConnection(socket, "shutdown", 1012, "Voice service restarting");
     }
     await new Promise((resolve, reject) => {
       websocketServer.close(() => {
@@ -658,23 +700,24 @@ function createVoiceDaemon({
 
   function metrics() {
     return Object.freeze({
-      connections: sockets.size,
-      queueDepth: speechQueue.depth,
-      tenants: tenantConnections.size
+      clients: clientConnections.size,
+      connections: connections.size,
+      queueDepth: speechQueue.depth
     });
   }
 
   return Object.freeze({
     address,
     close,
-    revokeTenant,
     metrics,
-    start
+    start,
+    /** The SHA-256 of the credentials file in use, as /health reports it. */
+    get credentialsSha256() { return credentials.sha256; }
   });
 }
 
 export {
-  createBoundedSerialQueue,
+  createBoundedSpeechQueue,
   createVoiceDaemon,
   sendJson,
   voiceDaemonError

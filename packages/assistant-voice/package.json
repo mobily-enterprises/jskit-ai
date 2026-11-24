@@ -2,13 +2,14 @@
   "name": "@jskit-ai/assistant-voice",
   "version": "0.2.87",
   "type": "module",
-  "description": "Duplex voice conversations with application-owned targets, authorization and speech services.",
+  "description": "Duplex voice conversations with application-owned targets and authorization, and the speech service engine with its client.",
   "scripts": {
     "test": "jskit test"
   },
   "exports": {
     "./client": "./src/client/index.js",
     "./server": "./src/server/index.js",
+    "./stand-in": "./src/server/standInSpeechEngine.js",
     "./shared/protocol": "./src/shared/protocol.js",
     "./shared/visemes": "./src/shared/visemes.js",
     "./locales/en.json": "./locales/en.json"
@@ -46,7 +47,11 @@
           },
           {
             "subpath": "./server",
-            "summary": "Authorized WebSocket proxy, bounded speech daemon, access tokens and service configuration."
+            "summary": "Authorized WebSocket proxy and catalogue client, the speech service daemon with its credentials file, access log and catalogue, and client tokens."
+          },
+          {
+            "subpath": "./stand-in",
+            "summary": "A speech engine with no model, for tests and catalogue proofs of a voice service."
           },
           {
             "subpath": "./shared/protocol",

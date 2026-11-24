@@ -4,9 +4,9 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { createSherpaSpeechEngine } from "./sherpaSpeechEngine.js";
-import { createVoiceAccessToken } from "@jskit-ai/assistant-voice/server";
+import { createSherpaSpeechEngine, defaultWorkerCount } from "./sherpaSpeechEngine.js";
 import { createVoiceDaemon } from "@jskit-ai/assistant-voice/server";
+import { parseRecognitionSpellings } from "@jskit-ai/assistant-voice/shared/protocol";
 import { verifyVoiceModelContract } from "./voiceModelContract.js";
 
 // Combined packs list their manifests in merge order: base, kitten, kokoro.
@@ -62,13 +62,33 @@ function requiredOption(options, key, environmentKey = "") {
   return value;
 }
 
-async function accessKeyFromFile(filePath) {
-  return Buffer.from((await readFile(path.resolve(filePath), "utf8")).trim(), "utf8");
-}
-
 function positiveInteger(value, fallback) {
   const integer = Number.parseInt(String(value || ""), 10);
   return Number.isInteger(integer) && integer > 0 ? integer : fallback;
+}
+
+function setting(options, key, environmentKey) {
+  return options[key] || process.env[environmentKey];
+}
+
+// The host's hotwords: one phrase per line; blank lines and # comments are skipped.
+async function readHotwordsFile(filePath) {
+  if (!filePath) return [];
+  return (await readFile(path.resolve(filePath), "utf8")).split("\n")
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith("#"));
+}
+
+// The host's spellings: one "spoken phrase => Written form" per line.
+async function readSpellingsFile(filePath) {
+  if (!filePath) return {};
+  const file = path.resolve(filePath);
+  try {
+    return parseRecognitionSpellings(await readFile(file, "utf8"));
+  } catch (error) {
+    if (error instanceof TypeError) throw new TypeError(`${file}: ${error.message}`);
+    throw error;
+  }
 }
 
 function usage() {
@@ -76,32 +96,36 @@ function usage() {
     "JSKIT assistant voice service",
     "",
     "Commands:",
-    "  serve --models-root PATH --key-file PATH [--host ADDRESS] [--port NUMBER] [--config FILE]",
-    `  prepare --models-root PATH [--pack ${PACK_NAMES.join("|")}] [--sources-file FILE] [--download-cache PATH] [--hotwords-file PATH]`,
-    "  verify --models-root PATH",
-    "  token --key-file PATH --tenant NAME"
+    "  serve --models-root PATH --credentials-file PATH [--hotwords-file PATH] [--spellings-file PATH] [--config FILE]",
+    "        [--host ADDRESS] [--port NUMBER] [--workers N] [--recognition-workers N] [--synthesis-workers N]",
+    "        [--max-connections N] [--max-connections-per-client N] [--max-queued-speech N]",
+    `  prepare --models-root PATH [--pack ${PACK_NAMES.join("|")}] [--sources-file FILE] [--download-cache PATH]`,
+    "  verify --models-root PATH"
   ].join("\n");
 }
 
-async function runVoiceCli(argv = process.argv.slice(2), { createDaemon = createVoiceDaemon, recognitionVocabulary = {} } = {}) {
+/**
+ * The voice service's commands. A host may run serve on another engine, such
+ * as a stand-in with no model for its tests: `createEngine` receives the
+ * options `createSherpaSpeechEngine` takes and answers an engine with close().
+ * @param {string[]} [argv]
+ * @param {{ createEngine?: typeof createSherpaSpeechEngine, recognitionVocabulary?: Record<string, string> }} [options]
+ * @returns {Promise<void | { address: object, close: () => Promise<void> }>} For serve, the running service.
+ */
+async function runVoiceCli(argv = process.argv.slice(2), { createEngine = createSherpaSpeechEngine, recognitionVocabulary = {} } = {}) {
   const { command, options } = argumentMap(argv);
   if (command === "help" || command === "--help" || command === "-h") {
     process.stdout.write(`${usage()}\n`);
     return;
   }
-  if (command === "token") {
-    const key = await accessKeyFromFile(requiredOption(options, "key-file", "JSKIT_VOICE_ACCESS_KEY_FILE"));
-    const tenant = requiredOption(options, "tenant", "JSKIT_VOICE_TENANT");
-    process.stdout.write(`${createVoiceAccessToken({ key, tenant })}\n`);
-    return;
-  }
+  if (!["prepare", "serve", "verify"].includes(command)) throw new Error(`Unknown voice command: ${command}.\n\n${usage()}`);
   const modelsRoot = path.resolve(requiredOption(options, "models-root", "JSKIT_VOICE_MODELS_ROOT"));
   if (command === "prepare") {
     const script = fileURLToPath(new URL("../tooling/prepare-models.sh", import.meta.url));
     const env = { ...process.env, JSKIT_VOICE_MODELS_ROOT: modelsRoot, JSKIT_VOICE_NODE_BIN: process.execPath };
     for (const [option, variable] of Object.entries({
       "download-cache": "DOWNLOAD_CACHE", "archive-seed-root": "ARCHIVE_SEED_ROOT",
-      "retain-downloads": "RETAIN_DOWNLOADS", "hotwords-file": "HOTWORDS_FILE"
+      "retain-downloads": "RETAIN_DOWNLOADS"
     })) if (options[option]) env[`JSKIT_VOICE_${variable}`] = options[option];
     const pack = options.pack || process.env.JSKIT_VOICE_PACK || "cori";
     if (!Object.hasOwn(PACKS, pack)) throw new Error(`Choose --pack ${PACK_NAMES.slice(0, -1).join(", ")} or ${PACK_NAMES.at(-1)}, or supply --sources-file for your own model pack.`);
@@ -131,58 +155,58 @@ async function runVoiceCli(argv = process.argv.slice(2), { createDaemon = create
     process.stdout.write(`Voice model contract verified at ${modelsRoot}.\n`);
     return;
   }
-  if (command !== "serve") {
-    throw new Error(`Unknown voice command: ${command}.\n\n${usage()}`);
-  }
   // Installation and the explicit check command verify integrity. Native model
   // loading reports missing/invalid files without rereading every byte to hash it.
+  const credentialsFile = path.resolve(requiredOption(options, "credentials-file", "JSKIT_VOICE_CREDENTIALS_FILE"));
   const configFile = options.config || process.env.JSKIT_VOICE_CONFIG;
   const configuration = await readFile(configFile ? path.resolve(configFile) : path.join(modelsRoot, "speech.json"), "utf8")
     .then(JSON.parse).catch(error => { if (!configFile && error.code === "ENOENT") return {}; throw error; });
-  const engine = await createSherpaSpeechEngine({
+  const workers = positiveInteger(setting(options, "workers", "JSKIT_VOICE_WORKERS"), defaultWorkerCount());
+  const engine = await createEngine({
     modelsRoot,
     configuration: { ...configuration, recognitionVocabulary: configuration.recognitionVocabulary ?? recognitionVocabulary },
-    recognizerActivePaths: positiveInteger(
-      options["stt-active-paths"] || process.env.JSKIT_VOICE_STT_ACTIVE_PATHS,
-      16
-    ),
-    recognizerThreads: positiveInteger(options["stt-threads"] || process.env.JSKIT_VOICE_STT_THREADS, 1),
-    synthesizerThreads: positiveInteger(options["tts-threads"] || process.env.JSKIT_VOICE_TTS_THREADS, 1)
+    hotwords: await readHotwordsFile(setting(options, "hotwords-file", "JSKIT_VOICE_HOTWORDS_FILE")),
+    spellings: await readSpellingsFile(setting(options, "spellings-file", "JSKIT_VOICE_SPELLINGS_FILE")),
+    recognitionWorkers: positiveInteger(setting(options, "recognition-workers", "JSKIT_VOICE_RECOGNITION_WORKERS"), workers),
+    synthesisWorkers: positiveInteger(setting(options, "synthesis-workers", "JSKIT_VOICE_SYNTHESIS_WORKERS"), workers),
+    recognizerActivePaths: positiveInteger(setting(options, "stt-active-paths", "JSKIT_VOICE_STT_ACTIVE_PATHS"), 16),
+    recognizerThreads: positiveInteger(setting(options, "stt-threads", "JSKIT_VOICE_STT_THREADS"), 1),
+    synthesizerThreads: positiveInteger(setting(options, "tts-threads", "JSKIT_VOICE_TTS_THREADS"), 1)
   });
   let daemon;
   let address;
   try {
-    daemon = await createDaemon({
-      accessKey: await accessKeyFromFile(requiredOption(options, "key-file", "JSKIT_VOICE_ACCESS_KEY_FILE")),
+    // Unset limits size themselves from the engine's pools.
+    daemon = createVoiceDaemon({
+      credentialsFile,
       engine,
-      host: String(options.host || process.env.JSKIT_VOICE_HOST || "127.0.0.1"),
-      maximumConnections: positiveInteger(
-        options["max-connections"] || process.env.JSKIT_VOICE_MAX_CONNECTIONS,
-        8
-      ),
-      maximumConnectionsPerTenant: positiveInteger(
-        options["max-connections-per-tenant"] || process.env.JSKIT_VOICE_MAX_CONNECTIONS_PER_TENANT,
-        2
-      ),
-      maximumQueuedSpeech: positiveInteger(
-        options["max-queued-speech"] || process.env.JSKIT_VOICE_MAX_QUEUED_SPEECH,
-        4
-      ),
-      port: positiveInteger(options.port || process.env.JSKIT_VOICE_PORT, 3092)
+      host: String(setting(options, "host", "JSKIT_VOICE_HOST") || "127.0.0.1"),
+      maximumConnections: positiveInteger(setting(options, "max-connections", "JSKIT_VOICE_MAX_CONNECTIONS"), undefined),
+      maximumConnectionsPerClient: positiveInteger(setting(options, "max-connections-per-client", "JSKIT_VOICE_MAX_CONNECTIONS_PER_CLIENT"), undefined),
+      maximumQueuedSpeech: positiveInteger(setting(options, "max-queued-speech", "JSKIT_VOICE_MAX_QUEUED_SPEECH"), undefined),
+      port: positiveInteger(setting(options, "port", "JSKIT_VOICE_PORT"), 3092)
     });
     address = await daemon.start();
-  } catch (error) { await engine.close(); throw error; }
+  } catch (error) { await daemon?.close(); await engine.close(); throw error; }
   process.stdout.write(`Assistant voice ready on ${address.address}:${address.port}.\n`);
-  let stopping = false;
-  const stop = async () => {
-    if (stopping) {
-      return;
-    }
-    stopping = true;
-    try { await daemon.close(); } finally { await engine.close(); }
+  let stopping = null;
+  const stop = () => {
+    stopping ??= (async () => {
+      try { await daemon.close(); } finally { await engine.close(); }
+    })();
+    return stopping;
   };
-  process.once("SIGINT", () => void stop().then(() => process.exit(0)));
-  process.once("SIGTERM", () => void stop().then(() => process.exit(0)));
+  const exitOnSignal = () => void stop().then(() => process.exit(0));
+  process.once("SIGINT", exitOnSignal);
+  process.once("SIGTERM", exitOnSignal);
+  return Object.freeze({
+    address,
+    async close() {
+      process.off("SIGINT", exitOnSignal);
+      process.off("SIGTERM", exitOnSignal);
+      await stop();
+    }
+  });
 }
 
 export {

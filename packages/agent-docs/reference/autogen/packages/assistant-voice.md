@@ -167,59 +167,83 @@ Exports
 - `createVoiceDaemon`
 - `registerVoiceProxyRoute`
 - `readVoiceCatalogue`
+- `readVoiceServiceCatalogue`
 - `resolveVoiceProxyConfig`
 - `readVoiceAccessToken`
 - `voiceEndpoint`
-- `createVoiceAccessToken`
-- `verifyVoiceAccessToken`
-- `bearerVoiceAccessToken`
+- `VOICE_CREDENTIALS_SCHEMA`
+- `createVoiceClientToken`
+- `parseVoiceCredentials`
+- `voiceTokenSha256`
 
-### `src/server/voiceAccessToken.js`
+### `src/server/standInSpeechEngine.js`
 Exports
-- `VOICE_ACCESS_TOKEN_VERSION`
-- `bearerVoiceAccessToken(headers = {})`
-- `createVoiceAccessToken({ key, tenant } = {})`
-- `verifyVoiceAccessToken(token = "", { key } = {})`
-- `voiceAccessKey(value = "")`
-- `voiceTenant(value = "")`
+- `createStandInSpeechEngine({ recognizedText = "Hello world", voices = [{ id: "stand-in", label: "Stand-in voice", language: "en" }], defaultVoice = voices[0]?.id || "", sampleRate = 22_050, synthesisMs = 0, hotwords = [], spellings = {}, recognitionWorkers = 1, synthesisWorkers = 1 } = {})`
 Local functions
-- `voiceAccessSignature(key, tenant)`
+- `ignoreRecognizedText()`
+
+### `src/server/voiceCredentials.js`
+Exports
+- `VOICE_CREDENTIALS_SCHEMA`
+- `bearerVoiceAccessToken(headers = {})`
+- `createVoiceClientToken()`
+- `createVoiceCredentialStore({ file, pollIntervalMs = 1000, onRefused, onChange })`
+- `isVoiceClientToken(token = "")`
+- `parseVoiceCredentials(document)`
+- `voiceTokenSha256(token = "")`
+Local functions
+- `credentialsError(message)`
+- `fileIdentity(file)`
+- `readCredentialsFile(file)`
+- `clientTerms(byHash)`
+- `credentialChanges(previous, next)`
 
 ### `src/server/voiceDaemon.js`
 Exports
-- `createBoundedSerialQueue({ maximumQueued = 4 } = {})`
-- `createVoiceDaemon({ accessKey, authorize = token => verifyVoiceAccessToken(token, { key: accessKey }), handleRequest = answerNoHostRoute, engine, host = "127.0.0.1", idleTimeoutMs = 90_000, logger = console, maximumConnections = 8, maximumConnectionsPerTenant = 2, maximumQueuedSpeech = 4, port = 3092 })`
+- `createBoundedSpeechQueue({ concurrency = 1, maximumQueued = 4 } = {})`
+- `createVoiceDaemon({ credentialsFile, credentialsPollMs = 1000, accessLog = writeAccessLine, engine, host = "127.0.0.1", idleTimeoutMs = 90_000, logger = console, maximumConnections, maximumConnectionsPerClient, maximumQueuedSpeech, port = 3092 })`
 - `sendJson(socket, type, fields = {})`
 - `voiceDaemonError(error, fallback = { message: "Voice operation failed.", messageCode: "assistant.voice.daemon.operationFailed" })`
 - `type VoiceRecognizer`
 - `type VoiceSpeechEngine`
-- `type VoicePrincipal`
+- `type VoiceAccessRecord`
+- `type VoiceCredentialsRecord`
 Local functions
 - `sendPcm(socket, audio = Buffer.alloc(0))`
 - `requestPathname(request = {})`
 - `writeJsonResponse(response, statusCode, payload)`
-- `answerNoHostRoute()`
+- `refuseUpgrade(socket, status, extraHeaders = "")`
+- `poolSize(value)`
+- `writeAccessLine(record)`
 
 ### `src/server/voiceProxy.js`
 Exports
 - `closeSocket(socket, code, reason)`
 - `readVoiceCatalogue(config, { fetchImpl = fetch } = {})`
+- `readVoiceServiceCatalogue(config, { fetchImpl = fetch } = {})`
 - `registerVoiceProxyRoute(fastify, { proxyConfig, route, authorize, WebSocketCtor = WebSocket } = {})`
 Local functions
 - `proxyCloseCode(code)`
 - `proxyCloseReason(reason)`
 - `normalizeVoiceCloseMetadata(code, reason)`
+- `serviceUrl(config, pathname)`
+- `readServiceJson(config, pathname, fetchImpl, isValid)`
+- `isVoiceList(body)`
 - `sendSocketError(socket, code, message, { params, messageCode, messageParams = {} } = {})`
 
 ### `src/server/voiceProxyConfig.js`
 Exports
 - `readVoiceAccessToken(filePath = "")`
-- `resolveVoiceProxyConfig({ endpoint: value = "", accessTokenFile = "" } = {})`
+- `resolveVoiceProxyConfig({ endpoint: value = "", accessToken = "", accessTokenFile = "" } = {})`
 - `voiceEndpoint(value = "")`
+Local functions
+- `voiceClientToken(value = "")`
 
 ### `src/shared/protocol.js`
 Exports
+- `VOICE_CATALOGUE_PATH`
 - `VOICE_DAEMON_WEBSOCKET_PATH`
+- `VOICE_HEALTH_PATH`
 - `VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS`
 - `VOICE_ID_PATTERN`
 - `VOICE_INPUT_SAMPLE_RATE`
@@ -231,11 +255,15 @@ Exports
 - `VOICE_MAX_SYNTHESIS_TIMEOUT_MS`
 - `VOICE_OUTPUT_SAMPLE_RATE`
 - `VOICE_PROTOCOL_VERSION`
+- `VOICE_VOICES_PATH`
 - `assertVoiceAudioFrame(frame = null)`
 - `float32ToPcm16Le(samples = new Float32Array())`
 - `normalizeRecognizedText(value = "", vocabulary = {})`
 - `parseVoiceClientControl(raw = "")`
+- `parseRecognitionSpellings(text = "")`
 - `pcm16LeToFloat32(frame = Buffer.alloc(0))`
+- `recognitionSpellingCount(vocabulary = {})`
+- `recognitionSpellings(value = {})`
 - `speechPauseDurationMs(value = "")`
 - `speechPhrases(value = "")`
 - `speechTextFromAssistant(value = "", maximumCharacters = VOICE_MAX_SPEECH_TEXT_CHARACTERS, wording = VOICE_SPEECH_WORDING)`
@@ -244,6 +272,11 @@ Exports
 - `voiceProtocolError(code, message, params)`
 - `voiceServerMessage(type = "", fields = {})`
 - `voiceTurnId(value = "")`
+Local functions
+- `spokenPhrase(value = "")`
+- `isBuiltInRecognitionSpelling(phrase = "")`
+- `recognitionVocabularyPattern(vocabulary)`
+- `applyBuiltInRecognitionSpellings(text)`
 
 ### `src/shared/visemes.js`
 Exports

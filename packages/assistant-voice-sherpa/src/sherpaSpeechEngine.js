@@ -1,15 +1,23 @@
-import path from "node:path";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import os from "node:os";
+import path from "node:path";
+import { createRecognitionProcess } from "./recognitionProcess.js";
 import { createSynthesisProcess, SYNTHESIS_REQUEST_TIMEOUT_MS } from "./synthesisProcess.js";
 
 import {
   VOICE_ID_PATTERN,
   VOICE_INPUT_SAMPLE_RATE,
-  normalizeRecognizedText,
-  pcm16LeToFloat32
+  recognitionSpellingCount,
+  recognitionSpellings
 } from "@jskit-ai/assistant-voice/shared/protocol";
 
 const require = createRequire(import.meta.url);
+const PACKAGE_VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+const MAXIMUM_WORKERS = 64;
+const MAXIMUM_ADDED_HOTWORDS = 1000;
+const HOTWORD_PATTERN = /^([A-Za-z0-9' ]{1,100}?)(?: +:(\d{1,2}(?:\.\d{1,3})?))?$/u;
 
 function positiveThreadCount(value, fallback = 1) {
   const count = Number.parseInt(String(value || ""), 10);
@@ -21,46 +29,129 @@ function positiveActivePathCount(value, fallback = 16) {
   return Number.isInteger(count) && count > 0 && count <= 64 ? count : fallback;
 }
 
-function runtimeValue(runtime, key) {
-  const value = runtime?.[key];
-  return String(typeof value === "function" ? value.call(runtime) : value || "");
+/** One worker per CPU the process may use, which a host can override. */
+function defaultWorkerCount() {
+  return Math.min(MAXIMUM_WORKERS, os.availableParallelism());
 }
 
-/** A listener that does not follow the recognized words ignores them. */
-function ignoreRecognizedText() {}
+function workerCount(value, name) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > MAXIMUM_WORKERS) {
+    throw new TypeError(`${name} must be a whole number from 1 to ${MAXIMUM_WORKERS}.`);
+  }
+  return value;
+}
+
+function installedVersion(packageName) {
+  try {
+    return String(require(`${packageName}/package.json`).version || "");
+  } catch {
+    return "";
+  }
+}
+
+// A hotword line's words and optional score, in the upper case the recognizer's
+// tokens use; the score keeps its spelling.
+function hotwordLine(value) {
+  const match = HOTWORD_PATTERN.exec(String(value ?? "").trim().replace(/\s+/gu, " "));
+  if (!match || !match[1].trim()) return null;
+  const words = match[1].trim().toUpperCase();
+  return { words, line: match[2] ? `${words} :${match[2]}` : words };
+}
+
+function addedHotwords(hotwords) {
+  if (!Array.isArray(hotwords) || hotwords.length > MAXIMUM_ADDED_HOTWORDS) {
+    throw new TypeError(`Hotwords must be a list of at most ${MAXIMUM_ADDED_HOTWORDS} phrases.`);
+  }
+  return hotwords.map(value => {
+    const hotword = hotwordLine(value);
+    if (!hotword) {
+      throw new TypeError(`Hotword ${JSON.stringify(String(value).slice(0, 80))} must be up to 100 letters, digits, apostrophes and spaces, with an optional " :SCORE".`);
+    }
+    return hotword;
+  });
+}
+
+// JSKIT's hotwords from the prepared pack, kept as written, then the host's,
+// each phrase once.
+async function hotwordLines(baseFile, added) {
+  const base = baseFile ? await readFile(baseFile, "utf8").catch(error => {
+    if (error.code === "ENOENT") return "";
+    throw error;
+  }) : "";
+  const prepared = base.split("\n").map(line => line.trim()).filter(Boolean)
+    .map(line => ({ words: hotwordLine(line)?.words ?? line, line }));
+  const seen = new Set();
+  const lines = [];
+  for (const hotword of [...prepared, ...added]) {
+    if (seen.has(hotword.words)) continue;
+    seen.add(hotword.words);
+    lines.push(hotword.line);
+  }
+  return lines;
+}
+
+async function recognitionModelId(root) {
+  try {
+    const sources = JSON.parse(await readFile(path.join(root, "sources.json"), "utf8"));
+    return String(sources.models?.find(model => model?.kind === "stt")?.id || "custom");
+  } catch {
+    return "custom";
+  }
+}
+
+// Closes the processes that started; a start that failed left none.
+async function closeAll(resources) {
+  await Promise.all(resources.filter(Boolean).map(resource => resource.close().catch(() => null)));
+}
 
 /**
- * The native Sherpa speech engine of a voice host: streaming recognition, and
- * synthesis in a worker process per voice model.
+ * The native Sherpa speech engine of a voice host: streaming recognition in a
+ * pool of recognition processes, and synthesis in a pool of processes that each
+ * keep one voice model loaded.
  * @param {object} [options]
  * @param {string} [options.modelsRoot]
  * @param {Record<string, any>} [options.configuration]
+ * @param {string[]} [options.hotwords] The host's phrases, added to the prepared pack's hotwords.
+ * @param {Record<string, string>} [options.spellings] The host's spellings, spoken phrase to written form,
+ *   added to JSKIT's and the configuration's `recognitionVocabulary`; a host's wins on a clash.
+ * @param {number} [options.recognitionWorkers] Recognition processes; default one per CPU.
+ * @param {number} [options.synthesisWorkers] Synthesis processes; default one per CPU.
  * @param {number} [options.recognizerActivePaths]
  * @param {number} [options.recognizerThreads]
- * @param {any} [options.sherpa] The sherpa-onnx-node module, when not the installed one.
+ * @param {typeof createRecognitionProcess} [options.createRecognizer]
  * @param {typeof createSynthesisProcess} [options.createSynthesizer]
  * @param {number} [options.synthesizerThreads]
  */
 async function createSherpaSpeechEngine({
   modelsRoot = "",
   configuration = {},
+  hotwords = [],
+  spellings = {},
+  recognitionWorkers = defaultWorkerCount(),
+  synthesisWorkers = defaultWorkerCount(),
   recognizerActivePaths = 16,
   recognizerThreads = 1,
-  sherpa = null,
+  createRecognizer = createRecognitionProcess,
   createSynthesizer = createSynthesisProcess,
   synthesizerThreads = 1
 } = {}) {
   if (!configuration || typeof configuration !== "object" || Array.isArray(configuration)) throw new TypeError("Speech configuration must be an object.");
-  const recognitionVocabulary = configuration.recognitionVocabulary ?? {};
-  if (!recognitionVocabulary || typeof recognitionVocabulary !== "object" || Array.isArray(recognitionVocabulary) ||
-      Object.entries(recognitionVocabulary).some(([phrase, spelling]) => !phrase.trim() || typeof spelling !== "string" || !spelling.trim())) {
+  workerCount(recognitionWorkers, "Recognition workers");
+  workerCount(synthesisWorkers, "Synthesis workers");
+  const configuredVocabulary = configuration.recognitionVocabulary ?? {};
+  if (!configuredVocabulary || typeof configuredVocabulary !== "object" || Array.isArray(configuredVocabulary) ||
+      Object.entries(configuredVocabulary).some(([phrase, spelling]) => !phrase.trim() || typeof spelling !== "string" || !spelling.trim())) {
     throw new TypeError("Recognition vocabulary must map nonempty phrases to their written spellings.");
   }
+  const recognitionVocabulary = Object.freeze({
+    ...Object.fromEntries(Object.entries(configuredVocabulary).map(([phrase, spelling]) => [phrase.trim().replace(/\s+/gu, " ").toLowerCase(), spelling])),
+    ...recognitionSpellings(spellings)
+  });
+  const added = addedHotwords(hotwords);
   const outputSampleRate = configuration.outputSampleRate;
   if (outputSampleRate !== undefined && (!Number.isInteger(outputSampleRate) || outputSampleRate < 8000 || outputSampleRate > 48000)) {
     throw new TypeError("Output sample rate must be an integer between 8000 and 48000 Hz.");
   }
-  const runtime = sherpa || require("sherpa-onnx-node");
   const root = path.resolve(String(modelsRoot || ""));
   function modelPaths(value) {
     if (typeof value === "string") return value.replaceAll("${MODELS_ROOT}", root);
@@ -77,7 +168,7 @@ async function createSherpaSpeechEngine({
   if (!Number.isFinite(minimumRms) || minimumRms < 0 || minimumRms > 0.1) {
     throw new TypeError("Recognizer minimum RMS must be between zero and 0.1.");
   }
-  const recognizer = new runtime.OnlineRecognizer(configuration.recognizer || {
+  const recognizerConfiguration = configuration.recognizer || {
     decodingMethod: "modified_beam_search",
     enableEndpoint: 1,
     rule1MinTrailingSilence: 2.4,
@@ -103,7 +194,7 @@ async function createSherpaSpeechEngine({
         joiner: path.join(root, "stt", "joiner.int8.onnx")
       }
     }
-  });
+  };
   const defaultSynthesizer = configuration.synthesizer || {
     maxNumSentences: 1,
     model: {
@@ -136,137 +227,203 @@ async function createSherpaSpeechEngine({
       voices.some(voice => !Object.hasOwn(modelConfigurations, voice.modelId || "default"))) {
     throw new TypeError("Each voice must select a configured synthesizer model.");
   }
-  let synthesizer = null;
-  let selectedModel = "";
-  let sampleRate;
-  let busy = false;
+
   let closed = false;
-  let replacement = null;
-  async function selectModel(modelId, signal = null) {
-    if (closed) throw new Error("Speech engine is closed.");
+  let sampleRate;
+  let hotwordsFolder = "";
+  const recognitionSlots = [];
+  const synthesisSlots = Array.from({ length: synthesisWorkers }, () => ({ model: null, modelId: "", busy: false, used: 0, loading: null }));
+  const synthesisWaiters = [];
+  let useClock = 0;
+
+  const closedError = () => new Error("Speech engine is closed.");
+
+  // A slot keeps one model; changing it closes the old process before the next loads.
+  async function selectModel(slot, modelId, signal = null) {
+    if (closed) throw closedError();
     signal?.throwIfAborted();
-    if (selectedModel === modelId && synthesizer?.running) return synthesizer;
-    await synthesizer?.close();
-    synthesizer = null;
-    if (closed) throw new Error("Speech engine is closed.");
+    if (slot.modelId === modelId && slot.model?.running) return slot.model;
+    await slot.model?.close();
+    slot.model = null;
+    slot.modelId = "";
+    if (closed) throw closedError();
     signal?.throwIfAborted();
-    replacement = createSynthesizer(modelConfigurations[modelId], { outputSampleRate, ...(signal ? { signal } : {}) });
+    slot.loading = createSynthesizer(modelConfigurations[modelId], { outputSampleRate, ...(signal ? { signal } : {}) });
     let model;
     try {
-      model = await replacement;
+      model = await slot.loading;
       signal?.throwIfAborted();
-      if (closed) throw new Error("Speech engine is closed.");
+      if (closed) throw closedError();
       if (voices.some(voice => (voice.modelId || "default") === modelId && voice.speakerId >= model.numSpeakers)) {
         throw new TypeError("Configure unique voice IDs, names and valid model speaker IDs.");
       }
       sampleRate ??= Number(model.sampleRate);
       if (Number(model.sampleRate) !== sampleRate) throw new TypeError("All voice models must use the same output sample rate.");
     } catch (error) { await model?.close(); throw error; }
-    finally { replacement = null; }
-    selectedModel = modelId;
-    synthesizer = model;
+    finally { slot.loading = null; }
+    slot.modelId = modelId;
+    slot.model = model;
     return model;
   }
-  // Validate every configured voice without retaining its native allocations.
-  // Finish with the default so ordinary startup needs no subsequent model swap.
-  const defaultModel = voices.find(voice => voice.id === defaultVoice).modelId || "default";
-  const modelIds = new Set(voices.map(voice => voice.modelId || "default"));
-  modelIds.delete(defaultModel);
-  for (const modelId of [...modelIds, defaultModel]) await selectModel(modelId);
 
-  function decodeAvailable(stream) {
-    while (recognizer.isReady(stream)) {
-      recognizer.decode(stream);
+  // An idle slot that already has the model, else an empty one, else the one
+  // used longest ago; with none idle, the request waits its turn.
+  function idleSlotFor(modelId) {
+    const idle = synthesisSlots.filter(slot => !slot.busy);
+    return idle.find(slot => slot.modelId === modelId && slot.model?.running) ||
+      idle.find(slot => !slot.model?.running) ||
+      idle.sort((left, right) => left.used - right.used)[0];
+  }
+
+  function acquireSynthesisSlot(modelId, signal) {
+    return new Promise((resolve, reject) => {
+      const abandon = () => {
+        const index = synthesisWaiters.indexOf(waiter);
+        if (index >= 0) synthesisWaiters.splice(index, 1);
+        attempt();
+      };
+      const settle = (error, slot) => {
+        signal?.removeEventListener("abort", abandon);
+        if (error) reject(error);
+        else resolve(slot);
+        return true;
+      };
+      const attempt = () => {
+        if (closed) return settle(closedError());
+        if (signal?.aborted) return settle(signal.reason);
+        const slot = idleSlotFor(modelId);
+        if (!slot) return false;
+        slot.busy = true;
+        return settle(null, slot);
+      };
+      const waiter = { attempt };
+      if (attempt()) return;
+      signal?.addEventListener("abort", abandon, { once: true });
+      synthesisWaiters.push(waiter);
+    });
+  }
+
+  function releaseSynthesisSlot(slot) {
+    slot.busy = false;
+    slot.used = ++useClock;
+    while (synthesisWaiters.length) {
+      const waiter = synthesisWaiters.shift();
+      if (waiter.attempt()) return;
     }
-    return normalizeRecognizedText(recognizer.getResult(stream)?.text, recognitionVocabulary);
+  }
+
+  async function startRecognizers(configurationForWorkers) {
+    const started = await Promise.allSettled(Array.from({ length: recognitionWorkers }, () => createRecognizer(configurationForWorkers, {
+      options: { vocabulary: recognitionVocabulary, minimumRms, tailPaddingSeconds }
+    })));
+    const failed = started.find(result => result.status === "rejected");
+    if (failed) {
+      await closeAll(started.map(result => result.value));
+      throw failed.reason;
+    }
+    for (const { value } of started) recognitionSlots.push({ process: value, recordings: 0, replacing: null });
+  }
+
+  // The slot's process, or its replacement when the process ended.
+  function recognizerFor(slot) {
+    if (slot.process?.running) return Promise.resolve(slot.process);
+    slot.replacing ??= createRecognizer(workerRecognizerConfiguration, {
+      options: { vocabulary: recognitionVocabulary, minimumRms, tailPaddingSeconds }
+    }).then(process => {
+      if (closed) { void process.close(); throw closedError(); }
+      slot.process = process;
+      return process;
+    }).finally(() => { slot.replacing = null; });
+    return slot.replacing;
+  }
+
+  let workerRecognizerConfiguration = recognizerConfiguration;
+  let hotwordCount;
+  try {
+    if (added.length || recognizerConfiguration.hotwordsFile) {
+      const lines = await hotwordLines(recognizerConfiguration.hotwordsFile, added);
+      hotwordCount = lines.length;
+      if (added.length) {
+        hotwordsFolder = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-hotwords-"));
+        const file = path.join(hotwordsFolder, "hotwords.txt");
+        await writeFile(file, `${lines.join("\n")}\n`, { mode: 0o600 });
+        workerRecognizerConfiguration = { ...recognizerConfiguration, hotwordsFile: file };
+      }
+    }
+    // Validate every configured voice in one slot without retaining its native
+    // allocations, finishing with the default; the other slots load the default.
+    const defaultModel = voices.find(voice => voice.id === defaultVoice).modelId || "default";
+    const modelIds = new Set(voices.map(voice => voice.modelId || "default"));
+    modelIds.delete(defaultModel);
+    const validating = (async () => {
+      for (const modelId of [...modelIds, defaultModel]) await selectModel(synthesisSlots[0], modelId);
+      await Promise.all(synthesisSlots.slice(1).map(slot => selectModel(slot, defaultModel)));
+    })();
+    const [recognizers, synthesizers] = await Promise.allSettled([startRecognizers(workerRecognizerConfiguration), validating]);
+    if (recognizers.status === "rejected" || synthesizers.status === "rejected") {
+      throw recognizers.reason || synthesizers.reason;
+    }
+  } catch (error) {
+    await close();
+    throw error;
   }
 
   /**
-   * One recording's recognition.
+   * One recording's recognition, on the recognition process with the fewest
+   * recordings. Its steps answer promises and run in the order called.
    * @param {object} [options]
    * @param {(text: string) => void} [options.onPartial] Called with the words so far whenever they change.
    * @param {(text: string) => void} [options.onEndpoint] Called when a continuous recording's speaker pauses after words.
    * @param {boolean} [options.continuous]
    */
-  function createListeningSession({ onPartial = ignoreRecognizedText, onEndpoint = ignoreRecognizedText, continuous = false } = {}) {
-    const stream = recognizer.createStream();
+  function createListeningSession(options = {}) {
+    if (closed) throw closedError();
+    // A process that ended is replaced at once; recordings go to live ones meanwhile.
+    for (const candidate of recognitionSlots) {
+      if (!candidate.process?.running) recognizerFor(candidate).catch(() => null);
+    }
+    const live = recognitionSlots.filter(candidate => candidate.process?.running);
+    const slot = (live.length ? live : recognitionSlots)
+      .reduce((best, candidate) => candidate.recordings < best.recordings ? candidate : best);
+    slot.recordings += 1;
+    let released = false;
+    let cancelled = false;
     let acceptedSamples = 0;
-    let closed = false;
-    let latestText = "";
-    let endpointText = "";
-
+    const release = () => {
+      if (released) return;
+      released = true;
+      slot.recordings -= 1;
+    };
+    const recording = recognizerFor(slot).then(process => process.openRecording(options));
+    recording.catch(release);
+    async function step(operation) {
+      const current = await recording;
+      try { return await operation(current); } finally { acceptedSamples = current.acceptedSamples; }
+    }
     function acceptPcm(frame) {
-      if (closed) {
-        return latestText;
-      }
-      const samples = pcm16LeToFloat32(frame);
-      // An explicit RMS floor gates onset only; after onset, retain every frame
-      // for pauses and native endpoints. The default retains all input.
-      if (minimumRms > 0 && !acceptedSamples) {
-        let energy = 0;
-        for (const sample of samples) energy += sample * sample;
-        if (!samples.length || Math.sqrt(energy / samples.length) < minimumRms) return "";
-      }
-      acceptedSamples += samples.length;
-      stream.acceptWaveform({
-        sampleRate: VOICE_INPUT_SAMPLE_RATE,
-        samples
-      });
-      const text = decodeAvailable(stream);
-      if (text && text !== latestText) {
-        latestText = text;
-        endpointText = "";
-        onPartial(text);
-      }
-      if (continuous && recognizer.isEndpoint(stream)) {
-        if (!latestText) reset();
-        else if (endpointText !== latestText) { endpointText = latestText; onEndpoint(latestText); }
-      }
-      return latestText;
+      return step(current => current.acceptPcm(frame));
     }
-
     function reset() {
-      const text = latestText;
-      recognizer.reset(stream);
-      acceptedSamples = 0;
-      latestText = "";
-      endpointText = "";
-      return text;
+      return step(current => current.reset());
     }
-
-    function finish() {
-      if (closed) {
-        return latestText;
-      }
-      closed = true;
-      if (minimumRms > 0 && !acceptedSamples) return "";
-      stream.acceptWaveform({
-        sampleRate: VOICE_INPUT_SAMPLE_RATE,
-        // Supply the model's lookahead when push-to-talk ends on the final word.
-        samples: new Float32Array(Math.floor(VOICE_INPUT_SAMPLE_RATE * tailPaddingSeconds))
-      });
-      stream.inputFinished();
-      const finalText = decodeAvailable(stream);
-      if (finalText) {
-        latestText = finalText;
-      }
-      return latestText;
-    }
-
     function isEndpoint() {
-      return !closed && recognizer.isEndpoint(stream);
+      return step(current => current.isEndpoint());
     }
-
+    async function finish() {
+      try { return await step(current => current.finish()); } finally { release(); }
+    }
     function cancel() {
-      closed = true;
+      if (cancelled) return;
+      cancelled = true;
+      release();
+      recording.then(current => current.cancel(), () => null);
     }
-
     return Object.freeze({
       acceptPcm,
-      reset,
-      isEndpoint,
       cancel,
       finish,
+      isEndpoint,
+      reset,
       get acceptedSamples() {
         return acceptedSamples;
       }
@@ -276,58 +433,81 @@ async function createSherpaSpeechEngine({
   async function synthesize(text, { onAudio = () => null, signal = null, voiceId = defaultVoice } = {}) {
     const voice = voices.find(voice => voice.id === voiceId);
     if (!voice) throw new Error("The selected voice is not available.");
-    if (closed) throw new Error("Speech engine is closed.");
-    if (busy) throw new Error("Speech synthesis is already running.");
+    if (closed) throw closedError();
     if (signal?.aborted) return { cancelled: true, sampleRate, samples: 0 };
-    busy = true;
+    let slot;
+    try {
+      slot = await acquireSynthesisSlot(voice.modelId || "default", signal);
+    } catch (error) {
+      if (!signal?.aborted) throw error;
+      return { cancelled: true, sampleRate, samples: 0 };
+    }
     try {
       let model;
       try {
-        model = await selectModel(voice.modelId || "default", signal);
+        model = await selectModel(slot, voice.modelId || "default", signal);
       } catch (error) {
         if (!signal?.aborted) throw error;
         return { cancelled: true, sampleRate, samples: 0 };
       }
       return await model.synthesize(String(text || ""), { speakerId: voice.speakerId, speed: voice.speed ?? 1, onAudio, signal });
-    } finally { busy = false; }
+    } finally { releaseSynthesisSlot(slot); }
   }
 
+  // Each process's first work loads its model's arenas; do it before the host accepts anyone.
   async function warmup() {
-    const stream = recognizer.createStream();
-    stream.acceptWaveform({ sampleRate: VOICE_INPUT_SAMPLE_RATE, samples: new Float32Array(VOICE_INPUT_SAMPLE_RATE) });
-    stream.inputFinished();
-    decodeAvailable(stream);
-    await synthesize("Ready.");
+    const voice = voices.find(entry => entry.id === defaultVoice);
+    await Promise.all([
+      ...recognitionSlots.map(slot => slot.process.warmup()),
+      ...synthesisSlots.map(slot => slot.model.synthesize("Ready.", { speakerId: voice.speakerId, speed: voice.speed ?? 1 }))
+    ]);
     return true;
   }
 
   async function close() {
     closed = true;
-    const loading = replacement;
-    await synthesizer?.close();
-    if (loading) await (await loading.catch(() => null))?.close();
+    for (const waiter of synthesisWaiters.splice(0)) waiter.attempt();
+    await Promise.all([
+      ...recognitionSlots.map(async slot => {
+        await slot.process?.close();
+        if (slot.replacing) await slot.replacing.then(process => process.close(), () => null);
+      }),
+      ...synthesisSlots.map(async slot => {
+        const loading = slot.loading;
+        await slot.model?.close();
+        if (loading) await (await loading.catch(() => null))?.close();
+      })
+    ]);
+    if (hotwordsFolder) await rm(hotwordsFolder, { recursive: true, force: true });
   }
 
+  const runtime = recognitionSlots[0].process.runtime;
   return Object.freeze({
-    createListeningSession,
     close,
+    concurrency: Object.freeze({ recognition: recognitionWorkers, synthesis: synthesisWorkers }),
+    createListeningSession,
     defaultVoice,
-    voices: Object.freeze(voices.map(voice => Object.freeze({ ...voice }))),
-    runtime: Object.freeze({
-      gitSha1: runtimeValue(runtime, "gitSha1"),
-      onnxruntimeVersion: runtimeValue(runtime, "onnxruntimeVersion"),
-      version: runtimeValue(runtime, "version")
-    }),
+    recognitionModels: Object.freeze([Object.freeze({
+      id: await recognitionModelId(root),
+      ...(Number.isSafeInteger(hotwordCount) ? { hotwords: hotwordCount } : {}),
+      spellings: recognitionSpellingCount(recognitionVocabulary)
+    })]),
+    runtime,
     sampleRate,
     synthesisTimeoutMs: 2 * SYNTHESIS_REQUEST_TIMEOUT_MS,
     synthesize,
+    versions: Object.freeze({
+      "@jskit-ai/assistant-voice-sherpa": PACKAGE_VERSION,
+      ...(installedVersion("sherpa-onnx-node") ? { "sherpa-onnx-node": installedVersion("sherpa-onnx-node") } : {})
+    }),
+    voices: Object.freeze(voices.map(voice => Object.freeze({ ...voice }))),
     warmup
   });
 }
 
 export {
   createSherpaSpeechEngine,
+  defaultWorkerCount,
   positiveActivePathCount,
-  positiveThreadCount,
-  runtimeValue
+  positiveThreadCount
 };

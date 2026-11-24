@@ -179,19 +179,98 @@ registerVoiceProxyRoute(fastify, {
 ```
 
 The route's authorization is mandatory and runs before upstream connection.
-Keep endpoint and token file server-side. The token grants speech-service use,
-not access to a conversation or permission to run an agent. Browsers need a secure
-origin (HTTPS or a browser-recognized localhost origin) and microphone permission.
+Keep the endpoint and token server-side: `resolveVoiceProxyConfig` takes the
+token as `accessTokenFile` (a protected file) or as `accessToken` (its value, for
+example from a secret environment variable), one or the other. The token grants
+speech-service use, not access to a conversation or permission to run an agent.
+Browsers need a secure origin (HTTPS or a browser-recognized localhost origin)
+and microphone permission.
 
-`createVoiceDaemon({ engine, accessKey, ... })` runs the bounded protocol service.
-The engine supplies a recognizer, asynchronous synthesis and optionally a public
-voice catalogue. A host may supply synchronous `authorize(token)` and
-`handleRequest(request, response)` for its own grant policy. An authorized
-principal has `tenant` and optional `parentTenant`; both connection quotas apply.
-The catalogue and the WebSocket apply the same rule: any other result, a
-Promise or a thrown error denies.
-`revokeTenant(id)` ends current child or parent sessions as well as pending work.
-The host must reject future requests for revoked grants in its authorizer.
+## Speech service
+
+The speech service is a service like a database: its host runs it, and each
+application is a client of it with its own token. `createVoiceDaemon({ engine,
+credentialsFile, ... })` runs the bounded protocol service on a speech engine
+(`@jskit-ai/assistant-voice-sherpa`'s, or a stand-in). Its routes:
+
+| Route | Token | Answers |
+| --- | --- | --- |
+| `GET /health` | none | `ok`, `connections`, `queueDepth`, `startedAt`, `protocolVersion`, `versions` (package and native runtime versions by name) and `credentialsSha256` |
+| `GET /v1/catalogue` | yes | `protocolVersion`, `inputSampleRate`, `outputSampleRate`, `recognitionModels` (`id`, `hotwords`), `voices` and `defaultVoice` |
+| `GET /voices` | yes | `voices` and `defaultVoice` |
+| `/v1/voice` WebSocket | yes | the voice protocol; the voice is chosen per reply |
+
+A client sends `Authorization: Bearer <token>`. The protocol only gains fields;
+a change that breaks a client would be `/v2`. `readVoiceServiceCatalogue(config)`
+and `readVoiceCatalogue(config)` read the two catalogues with a client's
+`resolveVoiceProxyConfig` result.
+
+### Credentials file
+
+The host writes the clients it admits to a JSON file; the service holds only
+each token's SHA-256 and never sees a token it did not receive:
+
+```json
+{
+  "schema": "jskit.assistant-voice.credentials.v1",
+  "clients": {
+    "crd_mercbot": { "tokenSha256": ["<64 lowercase hex>"] },
+    "lnk_ws-12": { "tokenSha256": ["<hex>", "<hex>"], "maximumConnections": 6 }
+  }
+}
+```
+
+- A client name is 1 to 64 lowercase letters, digits, dots, dashes or
+  underscores, starting and ending with a letter or digit.
+- `tokenSha256` lists 1 to 8 hashes, so a token can be rotated: add the new
+  hash, move the client, then remove the old one. A hash is the lowercase hex
+  SHA-256 of the token's UTF-8 bytes (`voiceTokenSha256(token)`), and appears
+  once in the file. A token is an RFC 6750 bearer token of 32 to 1024
+  characters; `createVoiceClientToken()` makes one of 32 random bytes.
+- `maximumConnections` replaces the service's per-client limit for that client.
+  A client's tokens share one limit.
+- Unknown fields are refused (`parseVoiceCredentials(document)` checks a
+  document), as are more than 10,000 clients or 4 MiB.
+
+The service checks the file every second (`credentialsPollMs`). Write it
+atomically, to a temporary file renamed over it. A change takes effect at once:
+a removed token's open sessions are cancelled and closed with
+`voice_access_revoked` (1008), and an added client connects without a restart.
+`/health`'s `credentialsSha256` is the SHA-256 of the file bytes in use, and
+changes only after the revoked sessions have ended, so a host knows the service
+runs exactly what it wrote. A rewrite that is not a valid file leaves the last
+valid credentials in use; a missing file admits no one (`credentialsSha256` is
+`null`). The service does not start without a valid file.
+
+### Access log
+
+`accessLog(record)` receives, by default as one JSON line on standard output:
+
+- one `voice.connection` record per connection: `client`, `startedAt`,
+  `endedAt`, `audioSecondsHeard`, `charactersSpoken`, `closed` (`client`,
+  `idle`, `revoked`, `shutdown`, `protocol` or `error`) and `closeCode`. A
+  refused connection has its record at once, with `closed` `unauthorized`
+  (`client` `null`) or `capacity` and nothing heard or spoken. It never holds
+  audio or words;
+- one `voice.credentials` record when the credentials load, at start and at each
+  change: `credentialsSha256`, `clients` and the `clientsAdded`,
+  `clientsRemoved` and `clientsChanged` (tokens or limit), and `sessionsEnded`;
+- a `voice.credentials.refused` record with the `reason` when a changed file
+  cannot be used, and the `credentialsSha256` still in use.
+
+### Capacity
+
+An engine says how many recognitions and syntheses it runs at once
+(`engine.concurrency`, default one each). The service synthesizes that many
+phrases at once, one per connection at a time, and sizes its limits from it:
+`maximumConnections` 8 per recognition worker, `maximumConnectionsPerClient` 2
+per recognition worker and `maximumQueuedSpeech` 4 per synthesis worker, each
+replaceable. Past them a connection gets 429 and a phrase `busy`.
+
+`@jskit-ai/assistant-voice/stand-in`'s `createStandInSpeechEngine()` is an
+engine with no model for tests and catalogue proofs: it hears any audio as
+`recognizedText` and speaks silence. Its `versions` name it, so `/health`
+shows a stand-in runs.
 
 ## Example and testing
 

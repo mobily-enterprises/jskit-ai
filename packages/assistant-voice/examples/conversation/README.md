@@ -21,8 +21,8 @@ dependency scanning and shared client dependencies.
    in the server environment using your secret manager or protected shell session.
    Keep the key out of JSON configuration and browser environment variables.
 3. For voice, prepare a speech service using the assistant-voice-sherpa README,
-   or obtain a speech endpoint and application token from its operator. Supply
-   its endpoint and protected tenant token file to this example's server.
+   or obtain a speech endpoint and client token from its operator. Supply its
+   endpoint and protected token file to this example's server.
 4. Start the server with your protected configuration paths:
 
 ```sh

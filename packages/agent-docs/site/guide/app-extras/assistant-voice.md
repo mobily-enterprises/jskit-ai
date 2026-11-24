@@ -344,7 +344,8 @@ registerVoiceProxyRoute(fastify, {
 ```
 
 Import `registerVoiceProxyRoute` and `resolveVoiceProxyConfig` from that server
-entrypoint. The endpoint and protected token file are operator inputs. The
+entrypoint. The endpoint and token are operator inputs: a protected
+`accessTokenFile`, or the value as `accessToken`, never both. The
 application supplies the illustrated origin and conversation checks; authorization
 runs before connecting upstream. No service key or token belongs in browser code.
 A speech grant does not authorize access to a conversation or execution of tools.
@@ -355,12 +356,19 @@ Socket.IO, so Fastify does not close that connection as an unknown speech route.
 Other upgrades remain with their application routes and authorization. The
 application does not need a separate upgrade handler.
 
-`createVoiceDaemon({ engine, accessKey, ... })` supplies the bounded service.
-The engine owns recognition and asynchronous synthesis. A host may supply its
-own `authorize(token)` and `handleRequest(request, response)` grant policy.
-Principals contain `tenant` and optional `parentTenant`; connection limits apply
-to both. `revokeTenant(id)` terminates existing sessions and queued work. The
-host's authorizer must also reject subsequent use of a revoked grant.
+`createVoiceDaemon({ engine, credentialsFile, ... })` supplies the bounded
+service; the engine owns recognition and asynchronous synthesis. The speech
+service is run by its host like a database, and each application is a client
+of it with its own token. The host's credentials file lists the clients by name
+with the SHA-256 of each token (`jskit.assistant-voice.credentials.v1`; the
+package README has the format), and the service checks it every second: a
+removed token's sessions end with `voice_access_revoked`, an added client
+connects without a restart, and `/health` reports the `credentialsSha256` in use
+once revoked sessions have ended. `GET /v1/catalogue` (with a token) lists the
+recognition models and voices; `/health` stays open and names the protocol and
+package versions. One JSON line per connection (client, start, end, audio
+seconds heard, characters spoken, how it closed; never audio or words) and per
+credentials change is written to standard output.
 
 ## Native service and configurable voices
 
@@ -372,23 +380,31 @@ in npm. Preparation verifies pinned archives and installed files.
 ```sh
 npx jskit-assistant-voice prepare --models-root /srv/speech/models --pack cori
 npx jskit-assistant-voice verify --models-root /srv/speech/models
-npx jskit-assistant-voice serve --models-root /srv/speech/models --key-file /run/secrets/speech-key
+npx jskit-assistant-voice serve --models-root /srv/speech/models --credentials-file /srv/speech/credentials.json
 ```
 
-The signing key is an operator-created random secret of at least 32 bytes in a
-protected file. `jskit-assistant-voice token --key-file PATH --tenant NAME` emits
-an application token; redirect it into a separate protected file. The standalone
-token command does not implement a revocation store. Service defaults are
-`127.0.0.1:3092`, `/v1/voice` and readiness at `/health`.
+`createVoiceClientToken()` and `voiceTokenSha256(token)` from
+`@jskit-ai/assistant-voice/server` make a client's token and the hash its
+credentials entry holds; the client's server keeps the token in a protected
+file. Service defaults are `127.0.0.1:3092`, `/v1/voice`, `/v1/catalogue`,
+`/voices` and readiness at `/health`. Recognition and synthesis each run in a
+pool of processes, one per CPU unless `--workers`, `--recognition-workers` or
+`--synthesis-workers` says otherwise, and the connection limits are sized from
+the pools. `--hotwords-file` adds a host's words to JSKIT's 48 recognizer
+hotwords; `--spellings-file` (one `spoken phrase => Written form` per line) adds
+a host's spellings to JSKIT's, a host's winning on a clash. A host's tests run the
+real service with no model through `runVoiceCli(argv, { createEngine })` and
+`createStandInSpeechEngine` from `@jskit-ai/assistant-voice/stand-in`.
 
 The `cori` preparation preset supplies one English voice. `piper` adds Alba
 (female, Scottish English), Joe and Bryce (male, American English) and
 Northern English (male, British English), retaining
 Cori (female, British English) as the default. These are separate Piper medium
-models; one synthesis worker retains only the selected model. Changing models
-releases the previous worker and its native caches before loading the next, while
-recognition and the connection stay running. The first reply after a change
-includes loading time. Extra choices require disk space, not resident model RAM.
+models; each synthesis worker retains one model, and a reply prefers an idle
+worker that already has its model. Changing a worker's model releases its
+previous process and native caches before loading the next, while recognition
+and the connection stay running. The first reply after a change includes loading
+time. Resident model RAM grows with the synthesis worker count, not the choices.
 The native engine advertises a bounded 120-second first-audio allowance at each
 new phrase's acquired queue slot: its unchanged load and generation requests each
 have a 60-second deadline. The browser returns to its original 20-second progress
@@ -407,7 +423,7 @@ the same Sherpa worker and 24,000 Hz output; benchmark CPU latency before choosi
 it as a default. The original full-size `kokoro` preset remains available.
 `piper-kitten-kokoro-q8f16` retains Piper's five voices/default Cori and Kitten's
 eight unchanged IDs/speeds, adding the 28 Kokoro choices (41 total). Kokoro files
-are namespaced separately. Existing single-worker model switching releases the
+are namespaced separately. Each worker's model switching releases its
 previous native model, and the original combined-pack resampler keeps 22,050 Hz
 output. Saved Piper/Kitten voice choices remain valid.
 All presets use the English streaming
@@ -417,7 +433,8 @@ for native recognition/synthesis settings, voice IDs, labels and speaker IDs.
 `recognitionVocabulary` maps literal phrases to application spellings, for example
 `{ "acme labs": "Acme Labs" }`. It applies when normalizing uppercase recognition;
 mixed-case input remains intact. CLI hosts can supply the same option as a
-default, overridden by an explicit speech configuration vocabulary.
+default, overridden by an explicit speech configuration vocabulary; a
+`--spellings-file` adds to either.
 A voice's optional `speed` sets its synthesis pace from `0.5` to `2`, default `1`.
 Multiple native models use a `synthesizers` map and a `modelId` on each voice;
 their output sample rates must match unless `outputSampleRate` configures a shared
@@ -427,8 +444,8 @@ Jasper, Bruno, Hugo and Leo (male). All eight share one model. Bella uses
 `speed: 1.15`; the others use normal speed. Their upstream catalogue does not
 identify British or Australian accents.
 `piper-kitten` lists Kitten before the five Piper voices, defaults to Cori and
-normalizes output to 22,050 Hz. One synthesis model remains resident across
-engine changes. The settings cog lists installed voices.
+normalizes output to 22,050 Hz. Each synthesis worker keeps one model resident
+across engine changes. The settings cog lists installed voices.
 The package README documents the exact source manifest and configuration fields.
 Stop the service before replacing its prepared pack, verify it, then restart.
 

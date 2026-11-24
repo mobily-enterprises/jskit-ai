@@ -488,7 +488,7 @@
     {
       "packageId": "@jskit-ai/assistant-voice",
       "version": "0.2.87",
-      "description": "Duplex voice conversations with application-owned targets, authorization and speech services.",
+      "description": "Duplex voice conversations with application-owned targets and authorization, and the speech service engine with its client.",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -512,7 +512,11 @@
               },
               {
                 "subpath": "./server",
-                "summary": "Authorized WebSocket proxy, bounded speech daemon, access tokens and service configuration."
+                "summary": "Authorized WebSocket proxy and catalogue client, the speech service daemon with its credentials file, access log and catalogue, and client tokens."
+              },
+              {
+                "subpath": "./stand-in",
+                "summary": "A speech engine with no model, for tests and catalogue proofs of a voice service."
               },
               {
                 "subpath": "./shared/protocol",
@@ -562,7 +566,7 @@
             "surfaces": [
               {
                 "subpath": ".",
-                "summary": "Native Sherpa recognition and synthesis with operator configuration and a named voice catalogue."
+                "summary": "Native Sherpa recognition and synthesis in pools of worker processes, with operator configuration, a host's hotwords and spellings, and a named voice catalogue."
               },
               {
                 "subpath": "./models",
@@ -570,7 +574,7 @@
               },
               {
                 "subpath": "./cli",
-                "summary": "Portable prepare, verify, token and serve commands with an optional host-owned daemon factory."
+                "summary": "Portable prepare, verify and serve commands; serve takes a credentials file, hotwords, spellings and worker counts, and a host may supply its own engine."
               }
             ],
             "capabilities": []
