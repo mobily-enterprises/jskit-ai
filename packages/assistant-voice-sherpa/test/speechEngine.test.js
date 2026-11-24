@@ -5,6 +5,41 @@ import path from 'node:path';
 import test from 'node:test';
 import { sha256File, verifyVoiceModelContract } from '../src/voiceModelContract.js';
 import { createSherpaSpeechEngine, positiveActivePathCount } from '../src/sherpaSpeechEngine.js';
+import { createRecognitionSession, warmRecognizer } from '../src/recognitionSession.js';
+
+// The recognition process interface, run in this process on a stand-in native
+// recognizer, so a test sees the configuration and recordings the engine gives it.
+function inProcessRecognizer(recognizer, options = {}) {
+  let running = true;
+  return {
+    get running() { return running; },
+    runtime: { version: "test" },
+    openRecording(callbacks) {
+      const session = createRecognitionSession(recognizer, { ...options, ...callbacks });
+      return {
+        acceptPcm: async frame => session.acceptPcm(frame),
+        finish: async () => session.finish(),
+        reset: async () => session.reset(),
+        isEndpoint: async () => session.isEndpoint(),
+        cancel: () => session.cancel(),
+        get acceptedSamples() { return session.acceptedSamples; }
+      };
+    },
+    async warmup() { warmRecognizer(recognizer); },
+    async close() { running = false; }
+  };
+}
+
+function recognizerFrom(OnlineRecognizer, seen = () => null) {
+  return async (config, { options }) => {
+    seen(config, options);
+    return inProcessRecognizer(new OnlineRecognizer(config), options);
+  };
+}
+
+class SilentRecognizer {}
+
+const singleWorkers = { recognitionWorkers: 1, synthesisWorkers: 1 };
 
 test("streaming recognition uses bounded beam search and its installed technical vocabulary", async () => {
   let recognizerConfig = null;
@@ -25,6 +60,7 @@ test("streaming recognition uses bounded beam search and its installed technical
   }
   const modelsRoot = path.resolve("/tmp/jskit-voice-models");
   const engine = await createSherpaSpeechEngine({
+    ...singleWorkers,
     modelsRoot,
     configuration: { recognitionVocabulary: { "acme labs": "Acme Labs" } },
     recognizerActivePaths: 16,
@@ -33,12 +69,7 @@ test("streaming recognition uses bounded beam search and its installed technical
       synthesizerConfig = config;
       return { sampleRate: 22050, numSpeakers: 1, running: true, async close() {} };
     },
-    sherpa: {
-      OnlineRecognizer,
-      gitSha1: "test",
-      onnxruntimeVersion: "test",
-      version: "test"
-    }
+    createRecognizer: recognizerFrom(OnlineRecognizer)
   });
 
   assert.equal(recognizerConfig.decodingMethod, "modified_beam_search");
@@ -55,27 +86,27 @@ test("streaming recognition uses bounded beam search and its installed technical
   assert.equal(recognizerConfig.enableEndpoint, 1);
   const endpoints = [];
   const listening = engine.createListeningSession({ continuous: true, onEndpoint: text => endpoints.push(text) });
-  listening.acceptPcm(Buffer.alloc(320));
+  await listening.acceptPcm(Buffer.alloc(320));
   assert.equal(resets, 1, "silence resets the recording budget without becoming a turn");
   result = "I MEANT SUGAR";
-  listening.acceptPcm(Buffer.alloc(320));
-  listening.acceptPcm(Buffer.alloc(320));
+  await listening.acceptPcm(Buffer.alloc(320));
+  await listening.acceptPcm(Buffer.alloc(320));
   assert.deepEqual(endpoints, ["I meant sugar"], "one stable endpoint is offered once");
-  assert.equal(listening.reset(), "I meant sugar");
+  assert.equal(await listening.reset(), "I meant sugar");
   assert.equal(listening.acceptedSamples, 0);
   result = "A SECOND TURN";
-  listening.acceptPcm(Buffer.alloc(320));
+  await listening.acceptPcm(Buffer.alloc(320));
   assert.deepEqual(endpoints, ["I meant sugar", "A second turn"]);
-  listening.reset();
+  await listening.reset();
   result = "ACME LABS USES SQL";
-  listening.acceptPcm(Buffer.alloc(320));
+  await listening.acceptPcm(Buffer.alloc(320));
   assert.equal(endpoints.at(-1), "Acme Labs uses SQL");
-  assert.equal(listening.finish(), "Acme Labs uses SQL");
+  assert.equal(await listening.finish(), "Acme Labs uses SQL");
   assert.equal(waveforms.at(-1).samples.length, 7200, "default finalization preserves the original 0.45-second lookahead");
   listening.cancel();
-  assert.equal(listening.isEndpoint(), false);
+  assert.equal(await listening.isEndpoint(), false);
   result = "";
-  assert.equal(engine.createListeningSession().finish(), "");
+  assert.equal(await engine.createListeningSession().finish(), "");
   assert.equal(waveforms.at(-1).samples.length, 7200, "default empty finalization still feeds native lookahead");
   assert.equal(finishes, 2);
 });
@@ -93,10 +124,11 @@ test("an explicit RMS floor gates only onset and retains configured final lookah
     reset() { resets += 1; result = ""; }
   }
   const engine = await createSherpaSpeechEngine({
+    ...singleWorkers,
     modelsRoot: path.resolve("/tmp/jskit-voice-models"),
     configuration: { recognizerMinimumRms: 0.001, recognizerTailPaddingSeconds: 1 },
     createSynthesizer: async () => ({ sampleRate: 22050, numSpeakers: 1, running: true, async close() {} }),
-    sherpa: { OnlineRecognizer }
+    createRecognizer: recognizerFrom(OnlineRecognizer)
   });
   const endpoints = [];
   const listening = engine.createListeningSession({ continuous: true, onEndpoint: text => endpoints.push(text) });
@@ -104,28 +136,28 @@ test("an explicit RMS floor gates only onset and retains configured final lookah
   for (let i = 0; i < speechFrame.length; i += 2) speechFrame.writeInt16LE(1000, i);
   const quietFrame = Buffer.alloc(320);
   for (let i = 0; i < quietFrame.length; i += 2) quietFrame.writeInt16LE(20, i);
-  listening.acceptPcm(Buffer.alloc(320));
-  listening.acceptPcm(quietFrame);
+  await listening.acceptPcm(Buffer.alloc(320));
+  await listening.acceptPcm(quietFrame);
   assert.equal(resets, 0, "silence cannot start a native utterance with an explicit floor");
   assert.equal(listening.acceptedSamples, 0);
   assert.equal(waveforms.length, 0);
   result = "I MEANT SUGAR";
-  listening.acceptPcm(speechFrame);
-  listening.acceptPcm(Buffer.alloc(320));
-  listening.acceptPcm(quietFrame);
+  await listening.acceptPcm(speechFrame);
+  await listening.acceptPcm(Buffer.alloc(320));
+  await listening.acceptPcm(quietFrame);
   assert.equal(listening.acceptedSamples, 480, "all silence and quiet frames are retained after onset");
   assert.deepEqual(endpoints, ["I meant sugar"], "one stable endpoint is offered once");
-  assert.equal(listening.reset(), "I meant sugar");
+  assert.equal(await listening.reset(), "I meant sugar");
   assert.equal(listening.acceptedSamples, 0);
   result = "A SECOND TURN";
-  listening.acceptPcm(Buffer.alloc(320));
+  await listening.acceptPcm(Buffer.alloc(320));
   assert.deepEqual(endpoints, ["I meant sugar"], "a native hallucination from silence is not a new utterance");
-  listening.acceptPcm(speechFrame);
+  await listening.acceptPcm(speechFrame);
   assert.deepEqual(endpoints, ["I meant sugar", "A second turn"]);
-  assert.equal(listening.finish(), "A second turn");
+  assert.equal(await listening.finish(), "A second turn");
   assert.equal(waveforms.at(-1).samples.length, 16000, "explicit one-second lookahead remains supported");
   const framesBeforeEmptyFinish = waveforms.length;
-  assert.equal(engine.createListeningSession().finish(), "");
+  assert.equal(await engine.createListeningSession().finish(), "");
   assert.equal(waveforms.length, framesBeforeEmptyFinish, "an explicit floor suppresses empty native finalization");
   assert.equal(finishes, 1);
 });
@@ -160,13 +192,11 @@ test("operator model configuration and named voices reach native synthesis witho
   let recognizer;
   let synthesizer;
   const speakers = [];
-  const engine = await createSherpaSpeechEngine({ modelsRoot: "/tmp/custom-speech", configuration: {
+  const engine = await createSherpaSpeechEngine({ ...singleWorkers, modelsRoot: "/tmp/custom-speech", configuration: {
     recognizer: { modelConfig: { tokens: "${MODELS_ROOT}/different/tokens.txt" } },
     synthesizer: { model: { kokoro: { model: "${MODELS_ROOT}/tts/model.onnx", voices: "${MODELS_ROOT}/tts/voices.bin" } } },
     voices: [{ id: "male", label: "Male", speakerId: 1 }, { id: "female", label: "Female", speakerId: 0, speed: 1.15 }], defaultVoice: "female"
-  }, sherpa: {
-    OnlineRecognizer: class { constructor(config) { recognizer = config; } }
-  }, createSynthesizer: async config => {
+  }, createRecognizer: recognizerFrom(SilentRecognizer, config => { recognizer = config; }), createSynthesizer: async config => {
     synthesizer = config;
     return { sampleRate: 24000, numSpeakers: 2, running: true, async close() {},
       async synthesize(text, { speakerId, speed, onAudio = () => null }) { speakers.push({ speakerId, speed }); onAudio(Buffer.alloc(4)); }
@@ -191,10 +221,10 @@ test("Piper retains one model, releases it before switching and reuses an unchan
   const spoken = [];
   const ids = ["cori", "alba", "joe", "bryce"];
   let resident = 0;
-  const engine = await createSherpaSpeechEngine({ modelsRoot: "/tmp/piper", configuration: {
+  const engine = await createSherpaSpeechEngine({ ...singleWorkers, modelsRoot: "/tmp/piper", configuration: {
     synthesizers: Object.fromEntries(ids.map(id => [id, { model: { vits: { model: `\${MODELS_ROOT}/tts/${id}.onnx` } } }])),
     voices: ids.map(id => ({ id, label: id, modelId: id, speakerId: 0 })), defaultVoice: "cori"
-  }, sherpa: { OnlineRecognizer: class {} }, createSynthesizer: async config => {
+  }, createRecognizer: recognizerFrom(SilentRecognizer), createSynthesizer: async config => {
     assert.equal(resident, 0, "the previous model must have exited before loading its replacement");
     resident += 1;
     const model = config.model.vits.model;
@@ -229,7 +259,7 @@ test("voice model validation releases incompatible models and rejects invalid sp
     { id: "male", label: "Male", modelId: "male", speakerId: 0 }
   ] };
   let resident = 0;
-  const options = { configuration, sherpa: { OnlineRecognizer: class {} }, createSynthesizer: async (config, { outputSampleRate }) => {
+  const options = { ...singleWorkers, configuration, createRecognizer: recognizerFrom(SilentRecognizer), createSynthesizer: async (config, { outputSampleRate }) => {
     resident += 1;
     return { sampleRate: outputSampleRate || config.sampleRate, numSpeakers: 1, running: true, async close() { resident -= 1; } };
   } };
@@ -258,31 +288,37 @@ test("voice model validation releases incompatible models and rejects invalid sp
   assert.equal(resident, 0);
 });
 
-test("a model change cannot replace a worker still synthesizing", async t => {
-  let finish;
+test("a request waits for a busy synthesis worker instead of replacing it", async t => {
+  const finishes = [];
   let closed = false;
-  const engine = await createSherpaSpeechEngine({ sherpa: { OnlineRecognizer: class {} }, createSynthesizer: async () => ({
+  const engine = await createSherpaSpeechEngine({ ...singleWorkers, createRecognizer: recognizerFrom(SilentRecognizer), createSynthesizer: async () => ({
     running: true, sampleRate: 22050, numSpeakers: 1,
     async close() { closed = true; },
-    synthesize() { return new Promise(resolve => { finish = resolve; }); }
+    synthesize(text) { return new Promise(resolve => { finishes.push(() => resolve({ text, sampleRate: 22050 })); }); }
   }) });
   t.after(() => engine.close());
   const first = engine.synthesize("First.");
   await new Promise(resolve => setImmediate(resolve));
-  await assert.rejects(engine.synthesize("Second."), /already running/u);
+  const second = engine.synthesize("Second.");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(finishes.length, 1, "the second request waits for the only worker");
   assert.equal(closed, false);
-  finish({ sampleRate: 22050 });
-  await first;
+  finishes[0]();
+  assert.equal((await first).text, "First.");
+  await new Promise(resolve => setImmediate(resolve));
+  finishes[1]();
+  assert.equal((await second).text, "Second.");
+  assert.equal(closed, false);
 });
 
 test("closing while a replacement loads waits for its native owner to exit", async () => {
   let resumeLoad;
   let block = false;
   let resident = 0;
-  const engine = await createSherpaSpeechEngine({ configuration: {
+  const engine = await createSherpaSpeechEngine({ ...singleWorkers, configuration: {
     synthesizers: { a: {}, b: {} },
     voices: ["a", "b"].map(id => ({ id, label: id, modelId: id, speakerId: 0 }))
-  }, sherpa: { OnlineRecognizer: class {} }, createSynthesizer: async () => {
+  }, createRecognizer: recognizerFrom(SilentRecognizer), createSynthesizer: async () => {
     if (block) await new Promise(resolve => { resumeLoad = resolve; });
     let running = true;
     resident += 1;
@@ -303,11 +339,11 @@ test("closing while a replacement loads waits for its native owner to exit", asy
 test("aborting replacement loading releases its native worker and the existing shared queue", { timeout: 5_000 }, async t => {
   const { readFile, rm } = await import("node:fs/promises");
   const { createSynthesisProcess } = await import("../src/synthesisProcess.js");
-  const { createBoundedSerialQueue } = await import("../../assistant-voice/src/server/voiceDaemon.js");
+  const { createBoundedSpeechQueue } = await import("../../assistant-voice/src/server/voiceDaemon.js");
   const root = await mkdtemp(path.join(os.tmpdir(), "speech-load-abort-"));
   const pidFile = path.join(root, "loading.pid");
   const controller = new AbortController();
-  const queue = createBoundedSerialQueue({ maximumQueued: 1 });
+  const queue = createBoundedSpeechQueue({ maximumQueued: 1 });
   let holdNext = false;
   let heldSignal;
   let engine;
@@ -321,11 +357,11 @@ test("aborting replacement loading releases its native worker and the existing s
     await engine?.close();
     await rm(root, { recursive: true, force: true });
   });
-  engine = await createSherpaSpeechEngine({ configuration: {
+  engine = await createSherpaSpeechEngine({ ...singleWorkers, configuration: {
     synthesizers: { a: { id: "a" }, b: { id: "b" } },
     voices: ["a", "b"].map(id => ({ id, label: id, modelId: id, speakerId: 0 })),
     defaultVoice: "a"
-  }, sherpa: { OnlineRecognizer: class {} }, createSynthesizer: (config, options) => {
+  }, createRecognizer: recognizerFrom(SilentRecognizer), createSynthesizer: (config, options) => {
     if (holdNext && config.id === "b") {
       holdNext = false;
       heldSignal = options.signal;
@@ -360,4 +396,106 @@ test("aborting replacement loading releases its native worker and the existing s
   assert.deepEqual(nextAudio, [Buffer.from([1, 0, 2, 0])]);
   assert.equal(queue.depth, 0);
   assert.equal((await engine.synthesize("Reuse the next owner's warm worker.", { voiceId: "a" })).cancelled, false);
+});
+
+test("a host's hotwords are added to the prepared pack's, each phrase once, and the catalogue counts them", async t => {
+  const modelsRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-hotwords-root-"));
+  t.after(async () => {
+    const { rm } = await import("node:fs/promises");
+    await rm(modelsRoot, { force: true, recursive: true });
+  });
+  const { readFile } = await import("node:fs/promises");
+  const prepared = await readFile(new URL("../models/voice-hotwords.txt", import.meta.url), "utf8");
+  await mkdir(path.join(modelsRoot, "stt"));
+  await writeFile(path.join(modelsRoot, "stt", "hotwords.txt"), prepared);
+  await writeFile(path.join(modelsRoot, "sources.json"), await readFile(new URL("../models/voice-models.json", import.meta.url)));
+  const configurations = [];
+  const options = {
+    ...singleWorkers,
+    modelsRoot,
+    createSynthesizer: async () => ({ sampleRate: 22050, numSpeakers: 1, running: true, async close() {} }),
+    createRecognizer: recognizerFrom(SilentRecognizer, config => configurations.push(config))
+  };
+  const plain = await createSherpaSpeechEngine(options);
+  await plain.close();
+  const preparedLines = prepared.trim().split("\n");
+  assert.equal(preparedLines.length, 48);
+  assert.equal(configurations[0].hotwordsFile, path.join(modelsRoot, "stt", "hotwords.txt"), "without additions the pack's file is used as it is");
+  assert.deepEqual(plain.recognitionModels, [{ id: "streaming-zipformer-en-2023-06-26", hotwords: 48, spellings: 41 }]);
+
+  const engine = await createSherpaSpeechEngine({ ...options, hotwords: ["Mercbot", "  vibe   sixty four :2.5 ", "jskit", "MERCBOT"] });
+  const file = configurations[1].hotwordsFile;
+  assert.notEqual(path.dirname(file), path.join(modelsRoot, "stt"), "the pack is never written");
+  assert.deepEqual((await readFile(file, "utf8")).trim().split("\n"), [...preparedLines, "MERCBOT", "VIBE SIXTY FOUR :2.5"]);
+  assert.equal(await readFile(path.join(modelsRoot, "stt", "hotwords.txt"), "utf8"), prepared);
+  assert.deepEqual(engine.recognitionModels, [{ id: "streaming-zipformer-en-2023-06-26", hotwords: 50, spellings: 41 }]);
+  await engine.close();
+  await assert.rejects(readFile(file), { code: "ENOENT" }, "closing removes the merged hotwords");
+
+  for (const hotwords of [["semi;colon"], ["a".repeat(101)], [""], "MERCBOT", Array.from({ length: 1001 }, (_, index) => `WORD ${index}`)]) {
+    await assert.rejects(createSherpaSpeechEngine({ ...options, hotwords }), /Hotword/u);
+  }
+});
+
+test("each synthesis worker keeps its model, and replies for different models run at once", async t => {
+  const loads = [];
+  const running = [];
+  const finishes = [];
+  const engine = await createSherpaSpeechEngine({
+    recognitionWorkers: 1,
+    synthesisWorkers: 2,
+    configuration: {
+      synthesizers: { a: { id: "a" }, b: { id: "b" } },
+      voices: [{ id: "a", label: "A", modelId: "a", speakerId: 0 }, { id: "b", label: "B", modelId: "b", speakerId: 0 }]
+    },
+    createRecognizer: recognizerFrom(SilentRecognizer),
+    createSynthesizer: async config => {
+      loads.push(config.id);
+      let alive = true;
+      return { sampleRate: 22050, numSpeakers: 1, get running() { return alive; }, async close() { alive = false; },
+        synthesize(text) { running.push(`${config.id}:${text}`); return new Promise(resolve => finishes.push(() => resolve({ sampleRate: 22050 }))); } };
+    }
+  });
+  t.after(() => engine.close());
+  assert.deepEqual(loads, ["b", "a", "a"], "one worker checks every model, finishing with the default; the other loads the default");
+  const both = [engine.synthesize("one", { voiceId: "b" }), engine.synthesize("two", { voiceId: "a" })];
+  for (let tries = 0; tries < 20 && running.length < 2; tries += 1) await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(running.sort(), ["a:two", "b:one"], "two workers synthesize at once");
+  for (const finish of finishes.splice(0)) finish();
+  await Promise.all(both);
+  const loadsAfterBoth = loads.length;
+  const again = [engine.synthesize("three", { voiceId: "a" }), engine.synthesize("four", { voiceId: "b" })];
+  for (let tries = 0; tries < 20 && running.length < 4; tries += 1) await new Promise(resolve => setImmediate(resolve));
+  for (const finish of finishes.splice(0)) finish();
+  await Promise.all(again);
+  assert.equal(loads.length, loadsAfterBoth, "a reply goes to the worker that already has its model");
+  assert.deepEqual(engine.concurrency, { recognition: 1, synthesis: 2 });
+});
+
+test("a host's spellings join the configuration's and JSKIT's, and every recording writes with them", async () => {
+  const seen = [];
+  let result = "";
+  class OnlineRecognizer {
+    createStream() { return { acceptWaveform() {}, inputFinished() {} }; }
+    isReady() { return false; }
+    getResult() { return { text: result }; }
+    isEndpoint() { return false; }
+    reset() {}
+  }
+  const options = {
+    ...singleWorkers,
+    configuration: { recognitionVocabulary: { "Acme  Labs": "Acme Labs", merc: "MERC" } },
+    createSynthesizer: async () => ({ sampleRate: 22050, numSpeakers: 1, running: true, async close() {} }),
+    createRecognizer: recognizerFrom(OnlineRecognizer, (_config, recordingOptions) => seen.push(recordingOptions))
+  };
+  const engine = await createSherpaSpeechEngine({ ...options, spellings: { Merc: "Merc", "vibe sixty four": "Vibe64", "j s kit": "J.S. Kit" } });
+  assert.deepEqual(seen[0].vocabulary, { "acme labs": "Acme Labs", merc: "Merc", "vibe sixty four": "Vibe64", "j s kit": "J.S. Kit" },
+    "a host's spelling replaces the configuration's");
+  assert.equal(engine.recognitionModels[0].spellings, 41 + 3, "acme labs, merc and vibe sixty four are added; j s kit replaces JSKIT's");
+  result = "MERC AND ACME LABS SHIP VIBE SIXTY FOUR WITH J S KIT";
+  const listening = engine.createListeningSession();
+  await listening.acceptPcm(Buffer.alloc(320, 1));
+  assert.equal(await listening.finish(), "Merc and Acme Labs ship Vibe64 with J.S. Kit");
+  await engine.close();
+  await assert.rejects(createSherpaSpeechEngine({ ...options, spellings: { "semi;colon": "x" } }), /Spelling "semi;colon"/u);
 });

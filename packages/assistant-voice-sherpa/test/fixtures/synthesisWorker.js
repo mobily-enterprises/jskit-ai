@@ -1,8 +1,10 @@
 import { writeFileSync } from "node:fs";
 
+let synthesisMs = 0;
 process.once("disconnect", () => process.exit(0));
 process.on("message", message => {
   if (message.type === "load") {
+    synthesisMs = Number(message.configuration.standInSynthesisMs) || 0;
     if (message.configuration.holdLoadPidFile) {
       writeFileSync(message.configuration.holdLoadPidFile, String(process.pid));
       return;
@@ -13,6 +15,7 @@ process.on("message", message => {
   else {
     process.send({ type: "audio", pcm: Buffer.from([1, 0, 2, 0]) });
     if (message.text === "wait") setTimeout(() => process.send({ type: "result" }), 10000);
+    else if (synthesisMs) setTimeout(() => process.send({ type: "result" }), synthesisMs);
     else process.send({ type: "result" });
   }
 });

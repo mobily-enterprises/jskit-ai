@@ -9,7 +9,8 @@ source_manifest="${JSKIT_VOICE_SOURCES_FILE:-$package_root/models/voice-models.j
 model_contract_builder="$script_dir/build-voice-model-contract.mjs"
 model_contract_verifier="$script_dir/verify-voice-models.mjs"
 bpe_vocab_source="$package_root/models/streaming-zipformer-en-2023-06-26.bpe.vocab"
-hotwords_source="${JSKIT_VOICE_HOTWORDS_FILE:-$package_root/models/voice-hotwords.txt}"
+# JSKIT's own hotwords; a host adds its words when serving (serve --hotwords-file).
+hotwords_source="$package_root/models/voice-hotwords.txt"
 node_bin="${JSKIT_VOICE_NODE_BIN:-node}"
 archive_seed_root="${JSKIT_VOICE_ARCHIVE_SEED_ROOT:-}"
 retain_downloads="${JSKIT_VOICE_RETAIN_DOWNLOADS:-0}"

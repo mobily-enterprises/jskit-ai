@@ -1,5 +1,5 @@
 import { readFileSync, statSync } from "node:fs";
-import { VOICE_ACCESS_TOKEN_VERSION, voiceTenant } from "./voiceAccessToken.js";
+import { isVoiceClientToken } from "./voiceCredentials.js";
 
 function voiceEndpoint(value = "") {
   const endpoint = String(value || "").trim();
@@ -18,52 +18,54 @@ function voiceEndpoint(value = "") {
   return parsed.toString();
 }
 
+function voiceClientToken(value = "") {
+  const token = String(value || "").trim();
+  if (!isVoiceClientToken(token)) {
+    throw new Error("The voice credential is malformed: a token is 32 to 1024 base64url, base64 or hex characters.");
+  }
+  return token;
+}
+
 function readVoiceAccessToken(filePath = "") {
   const pathname = String(filePath || "").trim();
   if (!pathname) {
     return "";
   }
   const metadata = statSync(pathname);
-  if (!metadata.isFile() || metadata.size < 16 || metadata.size > 4_096) {
+  if (!metadata.isFile() || metadata.size < 32 || metadata.size > 4_096) {
     throw new Error("The voice credential file is invalid.");
   }
-  const token = readFileSync(pathname, "utf8").trim();
-  let valid;
-  try {
-    const [version, tenant = "", signature = "", ...extra] = token.split(".");
-    valid = version === VOICE_ACCESS_TOKEN_VERSION &&
-      extra.length === 0 &&
-      voiceTenant(tenant) === tenant &&
-      /^[A-Za-z0-9_-]{43}$/u.test(signature) &&
-      Buffer.from(signature, "base64url").toString("base64url") === signature;
-  } catch {
-    valid = false;
-  }
-  if (!valid) {
-    throw new Error("The voice credential is malformed.");
-  }
-  return token;
+  return voiceClientToken(readFileSync(pathname, "utf8"));
 }
 
-function resolveVoiceProxyConfig({ endpoint: value = "", accessTokenFile = "" } = {}) {
+/**
+ * A voice client's connection to its speech service: the service's /v1/voice
+ * address and the client's token, given as its value or a protected file.
+ * @param {{ endpoint?: string, accessToken?: string, accessTokenFile?: string }} [options]
+ */
+function resolveVoiceProxyConfig({ endpoint: value = "", accessToken = "", accessTokenFile = "" } = {}) {
   const endpoint = voiceEndpoint(value);
+  const tokenValue = String(accessToken || "").trim();
   const tokenFile = String(accessTokenFile || "").trim();
-  if (!endpoint && !tokenFile) {
+  if (!endpoint && !tokenValue && !tokenFile) {
     return Object.freeze({
       available: false,
       endpoint: "",
       token: ""
     });
   }
-  if (!endpoint || !tokenFile) {
+  if (tokenValue && tokenFile) {
+    throw new Error("Give the voice service accessToken or accessTokenFile, not both.");
+  }
+  if (!endpoint || (!tokenValue && !tokenFile)) {
     throw new Error(
-      "Voice endpoint and accessTokenFile must be configured together."
+      "Voice endpoint and its accessToken or accessTokenFile must be configured together."
     );
   }
   return Object.freeze({
     available: true,
     endpoint,
-    token: readVoiceAccessToken(tokenFile)
+    token: tokenValue ? voiceClientToken(tokenValue) : readVoiceAccessToken(tokenFile)
   });
 }
 

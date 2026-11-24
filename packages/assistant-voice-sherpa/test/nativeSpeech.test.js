@@ -8,7 +8,7 @@ const modelsRoot = process.env.JSKIT_VOICE_TEST_MODELS;
 test("real installed models synthesize configured voices, retain the last spoken word and cancel output", { skip: !modelsRoot, timeout: 120000 }, async t => {
   const configuration = JSON.parse(await readFile(path.join(modelsRoot, "speech.json"), "utf8"));
   const loadStarted = performance.now();
-  const engine = await createSherpaSpeechEngine({ modelsRoot, configuration });
+  const engine = await createSherpaSpeechEngine({ modelsRoot, configuration, recognitionWorkers: 1, synthesisWorkers: 1 });
   t.after(() => engine.close());
   t.diagnostic(JSON.stringify({ modelLoadMs: Math.round(performance.now() - loadStarted), parentRss: process.memoryUsage().rss }));
   const choices = process.env.JSKIT_VOICE_TEST_VOICES?.split(",") || [engine.voices[0].id, engine.voices.at(-1).id];
@@ -27,9 +27,9 @@ test("real installed models synthesize configured voices, retain the last spoken
       mono16k.writeInt16LE(Math.round(pcm.readInt16LE(left * 2) * (1 - position + left) + pcm.readInt16LE(right * 2) * (position - left)), i * 2);
     }
     const recognition = engine.createListeningSession();
-    for (let i = 0; i < mono16k.length; i += 3200) recognition.acceptPcm(mono16k.subarray(i, i + 3200));
+    for (let i = 0; i < mono16k.length; i += 3200) await recognition.acceptPcm(mono16k.subarray(i, i + 3200));
     // No extra input silence: finish() must flush the model's last word itself.
-    const transcript = recognition.finish();
+    const transcript = await recognition.finish();
     assert.match(transcript, /project.*ready/iu); assert.match(transcript, /latest version/iu);
     lastRecording = mono16k;
     t.diagnostic(JSON.stringify({ voiceId, firstAudioMs, speechMs, parentCpuMs: Math.round((cpu.user + cpu.system) / 1000),
@@ -48,13 +48,13 @@ test("real installed models synthesize configured voices, retain the last spoken
   const continuous = engine.createListeningSession({ continuous: true, onEndpoint: text => endpoints.push(text) });
   // A continuously open microphone must not turn silence into new requests,
   // either before speech or after committing the previous utterance.
-  for (let i = 0; i < 100; i++) continuous.acceptPcm(Buffer.alloc(3200));
+  for (let i = 0; i < 100; i++) await continuous.acceptPcm(Buffer.alloc(3200));
   assert.deepEqual(endpoints, [], "initial silence must not produce words");
-  for (let i = 0; i < lastRecording.length; i += 3200) continuous.acceptPcm(lastRecording.subarray(i, i + 3200));
-  for (let i = 0; i < 40 && endpoints.length === 0; i++) continuous.acceptPcm(Buffer.alloc(3200));
+  for (let i = 0; i < lastRecording.length; i += 3200) await continuous.acceptPcm(lastRecording.subarray(i, i + 3200));
+  for (let i = 0; i < 40 && endpoints.length === 0; i++) await continuous.acceptPcm(Buffer.alloc(3200));
   assert.equal(endpoints.length, 1);
-  continuous.reset();
-  for (let i = 0; i < 100; i++) continuous.acceptPcm(Buffer.alloc(3200));
+  await continuous.reset();
+  for (let i = 0; i < 100; i++) await continuous.acceptPcm(Buffer.alloc(3200));
   assert.equal(endpoints.length, 1, "silence after a committed utterance must not produce another request");
-  assert.equal(continuous.finish(), "");
+  assert.equal(await continuous.finish(), "");
 });

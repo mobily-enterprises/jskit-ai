@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import { WebSocket } from "ws";
@@ -9,34 +13,325 @@ import {
   takeStreamingSpeech
 } from "../src/shared/protocol.js";
 import {
-  createVoiceAccessToken
-} from "../src/server/voiceAccessToken.js";
+  VOICE_CREDENTIALS_SCHEMA,
+  createVoiceClientToken,
+  voiceTokenSha256
+} from "../src/server/voiceCredentials.js";
 import {
-  createBoundedSerialQueue,
+  createBoundedSpeechQueue,
   createVoiceDaemon
 } from "../src/server/voiceDaemon.js";
-import { readVoiceCatalogue } from "../src/server/voiceProxy.js";
+import { readVoiceCatalogue, readVoiceServiceCatalogue } from "../src/server/voiceProxy.js";
 
-const ACCESS_KEY = "0123456789abcdef0123456789abcdef";
+const TOKEN = createVoiceClientToken();
 
-test("voice choices require authorization and consume no audio connection", async t => {
+/**
+ * A credentials file in its own temporary folder, accepting each client's
+ * tokens; write() replaces it atomically, as a host does.
+ */
+async function writeCredentials(t, clients = { "test-client": [TOKEN] }, limits = {}) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-credentials-"));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const file = path.join(root, "credentials.json");
+  let writes = 0;
+  async function write(nextClients, nextLimits = {}) {
+    const document = typeof nextClients === "string" ? nextClients : JSON.stringify({
+      schema: VOICE_CREDENTIALS_SCHEMA,
+      clients: Object.fromEntries(Object.entries(nextClients).map(([client, tokens]) => [client, {
+        tokenSha256: tokens.map(voiceTokenSha256),
+        ...(nextLimits[client] ? { maximumConnections: nextLimits[client] } : {})
+      }]))
+    });
+    const temporary = `${file}.${writes += 1}`;
+    await writeFile(temporary, document);
+    await rename(temporary, file);
+    return createHash("sha256").update(document).digest("hex");
+  }
+  const sha256 = await write(clients, limits);
+  return { file, sha256, write };
+}
+
+/** A started daemon on a free port with a stand-in engine, recording its access log. */
+async function startDaemon(t, { clients, limits, ...options } = {}) {
+  const credentials = await writeCredentials(t, clients, limits);
+  const records = [];
+  const daemon = createVoiceDaemon({
+    credentialsFile: credentials.file,
+    accessLog: record => records.push(record),
+    engine: fakeSpeechEngine(),
+    host: "127.0.0.1",
+    port: 0,
+    ...options
+  });
+  const address = await daemon.start();
+  t.after(() => daemon.close());
+  return {
+    address,
+    credentials,
+    daemon,
+    httpUrl: `http://127.0.0.1:${address.port}`,
+    records,
+    socketUrl: `ws://127.0.0.1:${address.port}/v1/voice`
+  };
+}
+
+function waitFor(condition, timeoutMs = 3_000) {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const check = () => {
+      if (condition()) { resolve(); return; }
+      if (Date.now() - started > timeoutMs) { reject(new Error("Timed out waiting for the voice service.")); return; }
+      setTimeout(check, 10);
+    };
+    check();
+  });
+}
+
+test("voice choices and the catalogue require a listed token and consume no audio connection", async t => {
   const engine = fakeSpeechEngine();
   engine.voices = [{ id: "kitten_bella", label: "Bella", language: "en", modelPath: "/private/model" }];
   engine.defaultVoice = "kitten_bella";
+  engine.recognitionModels = [{ id: "streaming-zipformer-en-2023-06-26", hotwords: 52, spellings: 43, modelPath: "/private/stt" }];
   engine.createListeningSession = () => assert.fail("Listing voices must not acquire recognition resources.");
   engine.synthesize = () => assert.fail("Listing voices must not generate speech.");
-  const daemon = createVoiceDaemon({ engine, accessKey: ACCESS_KEY, port: 0 });
-  const address = await daemon.start();
-  t.after(() => daemon.close());
-  const endpoint = `ws://127.0.0.1:${address.port}/v1/voice`;
-  const token = createVoiceAccessToken({ key: ACCESS_KEY, tenant: "voice-settings" });
-  const catalogue = await readVoiceCatalogue({ available: true, endpoint, token });
+  const { httpUrl, socketUrl: endpoint } = await startDaemon(t, { engine });
+  const catalogue = await readVoiceCatalogue({ available: true, endpoint, token: TOKEN });
   assert.deepEqual(catalogue, { voices: [{ id: "kitten_bella", label: "Bella", language: "en" }], defaultVoice: "kitten_bella" });
-  assert.equal((await fetch(`http://127.0.0.1:${address.port}/health`).then(response => response.json())).connections, 0);
-  assert.equal((await fetch(`http://127.0.0.1:${address.port}/voices`)).status, 401);
+  assert.deepEqual(await readVoiceServiceCatalogue({ available: true, endpoint, token: TOKEN }), {
+    protocolVersion: 1,
+    inputSampleRate: VOICE_INPUT_SAMPLE_RATE,
+    outputSampleRate: 22_050,
+    recognitionModels: [{ id: "streaming-zipformer-en-2023-06-26", hotwords: 52, spellings: 43 }],
+    voices: [{ id: "kitten_bella", label: "Bella", language: "en" }],
+    defaultVoice: "kitten_bella"
+  });
+  assert.equal((await fetch(`${httpUrl}/health`).then(response => response.json())).connections, 0);
+  for (const pathname of ["/voices", "/v1/catalogue"]) {
+    assert.equal((await fetch(`${httpUrl}${pathname}`)).status, 401);
+    assert.equal((await fetch(`${httpUrl}${pathname}`, { headers: { authorization: `Bearer ${createVoiceClientToken()}` } })).status, 401);
+  }
   await assert.rejects(readVoiceCatalogue({ available: true, endpoint, token: "wrong" }), { statusCode: 503 });
+  await assert.rejects(readVoiceServiceCatalogue({ available: true, endpoint, token: createVoiceClientToken() }), { statusCode: 503 });
   await assert.rejects(readVoiceCatalogue({ available: false }), { statusCode: 503 });
 });
+
+test("/health is open and names the protocol, the packages and the credentials file in use", async t => {
+  const engine = fakeSpeechEngine();
+  engine.versions = { "@jskit-ai/assistant-voice-sherpa": "9.9.9", "sherpa-onnx-node": "1.13.6" };
+  const { httpUrl, credentials } = await startDaemon(t, { engine, credentialsPollMs: 20 });
+  const { version } = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  const health = await fetch(`${httpUrl}/health`).then(response => response.json());
+  assert.deepEqual(Object.keys(health).sort(), ["connections", "credentialsSha256", "ok", "protocolVersion", "queueDepth", "startedAt", "versions"]);
+  assert.equal(health.ok, true);
+  assert.equal(health.protocolVersion, 1);
+  assert.deepEqual(health.versions, { "@jskit-ai/assistant-voice": version, "@jskit-ai/assistant-voice-sherpa": "9.9.9", "sherpa-onnx-node": "1.13.6" });
+  assert.equal(health.credentialsSha256, credentials.sha256);
+  const rewritten = await credentials.write({ "test-client": [TOKEN], "another-client": [createVoiceClientToken()] });
+  assert.notEqual(rewritten, credentials.sha256);
+  let reported;
+  for (let tries = 0; tries < 150 && reported !== rewritten; tries += 1) {
+    reported = (await fetch(`${httpUrl}/health`).then(response => response.json())).credentialsSha256;
+    if (reported !== rewritten) await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.equal(reported, rewritten, "health reports the hash of the file the engine now runs");
+});
+
+test("a removed token ends its open sessions within a few seconds; the client's other tokens and other clients stay", async t => {
+  let cancelled = 0;
+  const engine = fakeSpeechEngine();
+  engine.createListeningSession = () => ({ acceptedSamples: 0, acceptPcm() {}, finish() { return ""; }, cancel() { cancelled += 1; } });
+  const [oldToken, newToken, otherToken] = [createVoiceClientToken(), createVoiceClientToken(), createVoiceClientToken()];
+  const service = await startDaemon(t, { engine, credentialsPollMs: 50,
+    clients: { rotating: [oldToken, newToken], other: [otherToken] } });
+  async function open(token) {
+    const socket = new WebSocket(service.socketUrl, { headers: { authorization: `Bearer ${token}` } });
+    t.after(() => socket.terminate());
+    const messages = createSocketMessageCollector(socket);
+    await messages.next(value => value?.type === "voice.ready");
+    return { socket, messages };
+  }
+  const old = await open(oldToken);
+  const rotated = await open(newToken);
+  const other = await open(otherToken);
+  old.socket.send(JSON.stringify({ type: "listen.start", sampleRate: 16000, turnId: "recording" }));
+  await old.messages.next(value => value?.type === "listen.started");
+  const closed = new Promise(resolve => old.socket.once("close", code => resolve(code)));
+  const started = Date.now();
+  const sha256 = await service.credentials.write({ rotating: [newToken], other: [otherToken] });
+  const revoked = await old.messages.next(value => value?.code === "voice_access_revoked", 5_000);
+  assert.equal(revoked.value.type, "error");
+  assert.equal(await closed, 1008);
+  assert.ok(Date.now() - started < 3_000, "the removed token's session ended within a few seconds");
+  assert.equal(cancelled, 1, "its recording was cancelled");
+  assert.equal(rotated.socket.readyState, WebSocket.OPEN, "the client's remaining token keeps its session");
+  assert.equal(other.socket.readyState, WebSocket.OPEN);
+  const status = await upgradeStatus(t, service.socketUrl, oldToken);
+  assert.equal(status, 401, "the removed token cannot reconnect");
+  await waitFor(() => service.records.some(record => record.type === "voice.connection" && record.closed === "revoked"));
+  const reload = service.records.find(record => record.type === "voice.credentials" && record.credentialsSha256 === sha256);
+  assert.deepEqual({ ...reload, at: undefined }, {
+    type: "voice.credentials", at: undefined, credentialsSha256: sha256, clients: 2,
+    clientsAdded: [], clientsRemoved: [], clientsChanged: ["rotating"], sessionsEnded: 1
+  });
+  await service.credentials.write({ rotating: [newToken] });
+  await other.messages.next(value => value?.code === "voice_access_revoked", 5_000);
+  assert.equal(rotated.socket.readyState, WebSocket.OPEN);
+  await waitFor(() => service.records.some(record => record.type === "voice.credentials" && record.clientsRemoved?.includes("other")));
+  assert.equal(service.records.findLast(record => record.type === "voice.credentials").sessionsEnded, 1);
+});
+
+test("a client's tokens share its connection limit; the credentials file can set a client's own limit", async t => {
+  const [first, second, limited] = [createVoiceClientToken(), createVoiceClientToken(), createVoiceClientToken()];
+  const service = await startDaemon(t, { maximumConnectionsPerClient: 2,
+    clients: { shared: [first, second], small: [limited] }, limits: { small: 1 } });
+  const sockets = [];
+  for (const token of [first, second, limited]) {
+    const socket = new WebSocket(service.socketUrl, { headers: { authorization: `Bearer ${token}` } });
+    t.after(() => socket.terminate());
+    await createSocketMessageCollector(socket).next(value => value?.type === "voice.ready");
+    sockets.push(socket);
+  }
+  assert.equal(await upgradeStatus(t, service.socketUrl, first), 429);
+  assert.equal(await upgradeStatus(t, service.socketUrl, second), 429, "both of a client's tokens count against one limit");
+  assert.equal(await upgradeStatus(t, service.socketUrl, limited), 429, "the file's own limit for a client replaces the default");
+  assert.deepEqual(service.records.filter(record => record.closed === "capacity").map(record => record.client), ["shared", "shared", "small"]);
+});
+
+test("a daemon refuses to start without a valid credentials file, and a bad rewrite keeps the last valid one", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-credentials-start-"));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const missing = createVoiceDaemon({ credentialsFile: path.join(root, "missing.json"), engine: fakeSpeechEngine(), port: 0 });
+  await assert.rejects(missing.start(), { code: "ENOENT" });
+  assert.throws(() => createVoiceDaemon({ engine: fakeSpeechEngine(), port: 0 }), /credentials file/u);
+  for (const [name, document] of [
+    ["not JSON", "{"],
+    ["wrong schema", JSON.stringify({ schema: "other", clients: {} })],
+    ["upper-case client", JSON.stringify({ schema: VOICE_CREDENTIALS_SCHEMA, clients: { Client: { tokenSha256: [voiceTokenSha256(TOKEN)] } } })],
+    ["short hash", JSON.stringify({ schema: VOICE_CREDENTIALS_SCHEMA, clients: { client: { tokenSha256: ["abc"] } } })],
+    ["unknown field", JSON.stringify({ schema: VOICE_CREDENTIALS_SCHEMA, clients: { client: { tokenSha256: [voiceTokenSha256(TOKEN)], maxConnections: 2 } } })],
+    ["hash listed twice", JSON.stringify({ schema: VOICE_CREDENTIALS_SCHEMA, clients: {
+      one: { tokenSha256: [voiceTokenSha256(TOKEN)] }, two: { tokenSha256: [voiceTokenSha256(TOKEN)] } } })]
+  ]) {
+    const file = path.join(root, `${name.replaceAll(" ", "-")}.json`);
+    await writeFile(file, document);
+    const daemon = createVoiceDaemon({ credentialsFile: file, engine: fakeSpeechEngine(), port: 0 });
+    await assert.rejects(daemon.start(), { code: "voice_credentials_invalid" }, name);
+    await daemon.close();
+  }
+
+  const service = await startDaemon(t, { credentialsPollMs: 20 });
+  const socket = new WebSocket(service.socketUrl, { headers: { authorization: `Bearer ${TOKEN}` } });
+  t.after(() => socket.terminate());
+  await createSocketMessageCollector(socket).next(value => value?.type === "voice.ready");
+  await service.credentials.write('{"schema": "jskit.assistant-voice.credentials.v1", "clients": ');
+  await waitFor(() => service.records.some(record => record.type === "voice.credentials.refused"));
+  const refused = service.records.find(record => record.type === "voice.credentials.refused");
+  assert.equal(refused.credentialsSha256, service.credentials.sha256, "the refusal names the credentials still in use");
+  assert.match(refused.reason, /JSON/u);
+  assert.equal(socket.readyState, WebSocket.OPEN, "an invalid rewrite ends no session");
+  assert.equal(await upgradeStatus(t, service.socketUrl, TOKEN), 101, "the last valid credentials still admit their client");
+  const added = createVoiceClientToken();
+  assert.equal(await upgradeStatus(t, service.socketUrl, added), 401);
+  const sha256 = await service.credentials.write({ "test-client": [TOKEN], added: [added] });
+  await waitFor(() => service.records.some(record => record.type === "voice.credentials" && record.credentialsSha256 === sha256));
+  assert.deepEqual(service.records.findLast(record => record.type === "voice.credentials").clientsAdded, ["added"]);
+  assert.equal(await upgradeStatus(t, service.socketUrl, added), 101, "an added client connects without a restart");
+  await rm(service.credentials.file);
+  await waitFor(() => socket.readyState === WebSocket.CLOSED);
+  assert.equal(await upgradeStatus(t, service.socketUrl, TOKEN), 401, "a missing file accepts no one");
+  const health = await fetch(`${service.httpUrl}/health`).then(response => response.json());
+  assert.equal(health.credentialsSha256, null);
+  assert.deepEqual(service.records.findLast(record => record.type === "voice.credentials").clientsRemoved, ["added", "test-client"]);
+});
+
+test("the access log has one line per connection, with its client, times, audio heard, characters spoken and close, never its audio or words", async t => {
+  const engine = fakeSpeechEngine();
+  const service = await startDaemon(t, { engine, idleTimeoutMs: 400 });
+  const socket = new WebSocket(service.socketUrl, { headers: { authorization: `Bearer ${TOKEN}` } });
+  t.after(() => socket.terminate());
+  const messages = createSocketMessageCollector(socket);
+  await messages.next(value => value?.type === "voice.ready");
+  socket.send(JSON.stringify({ type: "listen.start", sampleRate: VOICE_INPUT_SAMPLE_RATE, turnId: "heard" }));
+  await messages.next(value => value?.type === "listen.started");
+  socket.send(Buffer.alloc(3_200));
+  socket.send(Buffer.alloc(1_600));
+  socket.send(JSON.stringify({ type: "listen.stop", turnId: "heard" }));
+  await messages.next(value => value?.type === "transcript.final");
+  socket.send(JSON.stringify({ type: "speak.start", text: "A concise answer.", turnId: "spoken" }));
+  await messages.next(value => value?.type === "speech.end");
+  const closed = new Promise(resolve => socket.once("close", resolve));
+  socket.close(1000, "Done");
+  await closed;
+  const idle = new WebSocket(service.socketUrl, { headers: { authorization: `Bearer ${TOKEN}` } });
+  t.after(() => idle.terminate());
+  await createSocketMessageCollector(idle).next(value => value?.type === "voice.ready");
+  await new Promise(resolve => idle.once("close", resolve));
+  assert.equal(await upgradeStatus(t, service.socketUrl, createVoiceClientToken()), 401);
+  await waitFor(() => service.records.filter(record => record.type === "voice.connection").length === 3);
+  const [spoken, idleRecord, unauthorized] = service.records.filter(record => record.type === "voice.connection");
+  assert.deepEqual(Object.keys(spoken).sort(), ["audioSecondsHeard", "charactersSpoken", "client", "closeCode", "closed", "endedAt", "startedAt", "type"]);
+  assert.equal(spoken.client, "test-client");
+  assert.equal(spoken.audioSecondsHeard, 0.15);
+  assert.equal(spoken.charactersSpoken, "A concise answer.".length);
+  assert.equal(spoken.closed, "client");
+  assert.equal(spoken.closeCode, 1000);
+  assert.ok(Date.parse(spoken.startedAt) <= Date.parse(spoken.endedAt));
+  assert.deepEqual({ ...unauthorized, startedAt: undefined, endedAt: undefined }, {
+    type: "voice.connection", client: null, startedAt: undefined, endedAt: undefined, audioSecondsHeard: 0, charactersSpoken: 0, closed: "unauthorized"
+  });
+  assert.equal(idleRecord.closed, "idle");
+  const written = JSON.stringify(service.records);
+  for (const words of ["Hello", "concise", "answer"]) assert.equal(written.includes(words), false, `the log never holds ${words}`);
+});
+
+test("connection and speech limits default to the engine's pool", async t => {
+  const engine = fakeSpeechEngine();
+  engine.concurrency = { recognition: 2, synthesis: 1 };
+  const service = await startDaemon(t, { engine });
+  for (let index = 0; index < 4; index += 1) assert.equal(await upgradeStatus(t, service.socketUrl, TOKEN), 101);
+  assert.equal(await upgradeStatus(t, service.socketUrl, TOKEN), 429, "two connections per client for each recognition worker");
+});
+
+test("replies to four clients synthesize at once on an engine with four synthesis workers", async t => {
+  const engine = fakeSpeechEngine();
+  engine.synthesize = async (_text, { onAudio, signal }) => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    if (!signal.aborted) onAudio(Buffer.from([1, 0, 2, 0]));
+    return { cancelled: signal.aborted, sampleRate: 22_050, samples: 2 };
+  };
+  engine.concurrency = { recognition: 4, synthesis: 4 };
+  const tokens = [0, 1, 2, 3].map(() => createVoiceClientToken());
+  const service = await startDaemon(t, { engine, clients: Object.fromEntries(tokens.map((token, index) => [`client-${index}`, [token]])) });
+  const clients = await Promise.all(tokens.map(async token => {
+    const socket = new WebSocket(service.socketUrl, { headers: { authorization: `Bearer ${token}` } });
+    t.after(() => socket.terminate());
+    const messages = createSocketMessageCollector(socket);
+    await messages.next(value => value?.type === "voice.ready");
+    return { socket, messages };
+  }));
+  const speak = async ({ socket, messages }, turnId) => {
+    socket.send(JSON.stringify({ type: "speak.start", text: "Hello there.", turnId }));
+    await messages.next(value => value?.type === "speech.end" && value.turnId === turnId, 5_000);
+  };
+  let started = performance.now();
+  await speak(clients[0], "one");
+  const oneMs = performance.now() - started;
+  started = performance.now();
+  await Promise.all(clients.map((client, index) => speak(client, `four-${index}`)));
+  const fourMs = performance.now() - started;
+  t.diagnostic(JSON.stringify({ oneMs: Math.round(oneMs), fourMs: Math.round(fourMs) }));
+  assert.ok(fourMs < 2 * oneMs, `four replies took ${Math.round(fourMs)} ms, one took ${Math.round(oneMs)} ms`);
+});
+
+async function upgradeStatus(t, url, token) {
+  const socket = new WebSocket(url, { headers: { authorization: `Bearer ${token}` } });
+  socket.on("error", () => {});
+  t.after(() => socket.terminate());
+  return await new Promise(resolve => {
+    socket.once("open", () => resolve(101));
+    socket.once("unexpected-response", (_request, response) => { resolve(response.statusCode); response.destroy(); socket.terminate(); });
+  });
+}
 
 function createSocketMessageCollector(socket) {
   const messages = [];
@@ -118,18 +413,10 @@ function fakeSpeechEngine() {
   };
 }
 
-test("voice daemon streams tenant-authenticated transcription and speech", async (context) => {
-  const daemon = createVoiceDaemon({
-    accessKey: ACCESS_KEY,
-    engine: fakeSpeechEngine(),
-    host: "127.0.0.1",
-    port: 0
-  });
-  const address = await daemon.start();
-  context.after(() => daemon.close());
-  const token = createVoiceAccessToken({ key: ACCESS_KEY, tenant: "tenant-a" });
+test("voice daemon streams client-authenticated transcription and speech", async (context) => {
+  const { address } = await startDaemon(context);
   const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, {
-    headers: { authorization: `Bearer ${token}` }
+    headers: { authorization: `Bearer ${TOKEN}` }
   });
   context.after(() => socket.close());
   const messages = createSocketMessageCollector(socket);
@@ -237,12 +524,9 @@ test("recording and speech retain independent lifecycles until explicitly cancel
     if (!signal.aborted) onAudio(Buffer.from([1, 0, 2, 0]));
     return { cancelled: signal.aborted, sampleRate: 22_050, samples: 2 };
   };
-  const daemon = createVoiceDaemon({ accessKey: ACCESS_KEY, engine, host: "127.0.0.1", port: 0 });
-  const address = await daemon.start();
-  context.after(() => daemon.close());
-  const token = createVoiceAccessToken({ key: ACCESS_KEY, tenant: "tenant-a" });
+  const { address } = await startDaemon(context, { engine });
   const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, {
-    headers: { authorization: `Bearer ${token}` }
+    headers: { authorization: `Bearer ${TOKEN}` }
   });
   context.after(() => socket.close());
   const messages = createSocketMessageCollector(socket);
@@ -283,15 +567,8 @@ test("recording and speech retain independent lifecycles until explicitly cancel
   assert.equal((await messages.next((value) => value?.type === "transcript.final")).value.text, "Hello world");
 });
 
-test("voice daemon rejects unauthenticated metal connections", async (context) => {
-  const daemon = createVoiceDaemon({
-    accessKey: ACCESS_KEY,
-    engine: fakeSpeechEngine(),
-    host: "127.0.0.1",
-    port: 0
-  });
-  const address = await daemon.start();
-  context.after(() => daemon.close());
+test("voice daemon rejects unauthenticated connections", async (context) => {
+  const { address } = await startDaemon(context);
   const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`);
   const statusCode = await new Promise((resolve, reject) => {
     socket.once("unexpected-response", (_request, response) => resolve(response.statusCode));
@@ -301,18 +578,9 @@ test("voice daemon rejects unauthenticated metal connections", async (context) =
 });
 
 test("voice daemon closes an idle connection without reporting a command error", async (context) => {
-  const daemon = createVoiceDaemon({
-    accessKey: ACCESS_KEY,
-    engine: fakeSpeechEngine(),
-    host: "127.0.0.1",
-    idleTimeoutMs: 80,
-    port: 0
-  });
-  const address = await daemon.start();
-  context.after(() => daemon.close());
-  const token = createVoiceAccessToken({ key: ACCESS_KEY, tenant: "tenant-a" });
+  const { address } = await startDaemon(context, { idleTimeoutMs: 80 });
   const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, {
-    headers: { authorization: `Bearer ${token}` }
+    headers: { authorization: `Bearer ${TOKEN}` }
   });
   const controls = [];
   socket.on("message", (raw, isBinary) => {
@@ -352,18 +620,9 @@ test("outgoing speech activity keeps its voice connection alive", async (context
     }
     return { cancelled: signal.aborted, sampleRate: 22_050, samples };
   };
-  const daemon = createVoiceDaemon({
-    accessKey: ACCESS_KEY,
-    engine,
-    host: "127.0.0.1",
-    idleTimeoutMs: 80,
-    port: 0
-  });
-  const address = await daemon.start();
-  context.after(() => daemon.close());
-  const token = createVoiceAccessToken({ key: ACCESS_KEY, tenant: "tenant-a" });
+  const { address } = await startDaemon(context, { engine, idleTimeoutMs: 80 });
   const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, {
-    headers: { authorization: `Bearer ${token}` }
+    headers: { authorization: `Bearer ${TOKEN}` }
   });
   context.after(() => socket.close());
   const messages = createSocketMessageCollector(socket);
@@ -375,7 +634,7 @@ test("outgoing speech activity keeps its voice connection alive", async (context
 });
 
 test("speech queue is bounded and remains serial", async () => {
-  const queue = createBoundedSerialQueue({ maximumQueued: 1 });
+  const queue = createBoundedSpeechQueue({ maximumQueued: 1 });
   let releaseFirst;
   const order = [];
   const first = queue.run(async () => {
@@ -398,6 +657,25 @@ test("speech queue is bounded and remains serial", async () => {
   queue.close();
 });
 
+test("speech queue runs up to its concurrency at once and holds the rest in order", async () => {
+  const queue = createBoundedSpeechQueue({ concurrency: 2, maximumQueued: 1 });
+  const releases = [];
+  const started = [];
+  const hold = name => queue.run(() => new Promise(resolve => { started.push(name); releases.push(resolve); }));
+  const runs = [hold("a"), hold("b"), hold("c")];
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(started, ["a", "b"]);
+  assert.equal(queue.depth, 3);
+  await assert.rejects(queue.run(async () => null), { code: "voice_busy" });
+  releases[0]();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(started, ["a", "b", "c"]);
+  for (const release of releases.slice(1)) release();
+  await Promise.all(runs);
+  assert.equal(queue.depth, 0);
+  queue.close();
+});
+
 
 test("audio reaches the client before synthesis finishes; streamed text appends without restarting playback", async (t) => {
   const finishing = [];
@@ -409,11 +687,9 @@ test("audio reaches the client before synthesis finishes; streamed text appends 
     await new Promise(resolve => { finishing.push(resolve); signal.addEventListener("abort", resolve, { once: true }); });
     return { sampleRate: 22050, samples: 2 };
   };
-  const daemon = createVoiceDaemon({ accessKey: ACCESS_KEY, engine, host: "127.0.0.1", port: 0 });
-  const address = await daemon.start();
-  t.after(() => daemon.close());
+  const { address } = await startDaemon(t, { engine });
   const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, {
-    headers: { authorization: `Bearer ${createVoiceAccessToken({ key: ACCESS_KEY, tenant: "streaming" })}` }
+    headers: { authorization: `Bearer ${TOKEN}` }
   });
   t.after(() => socket.close());
   const messages = createSocketMessageCollector(socket);
@@ -446,11 +722,8 @@ test("continuous listening commits only a current endpoint, discards noise, and 
     return { acceptedSamples: 0, acceptPcm() {}, cancel() {}, isEndpoint: () => endpoint,
       reset() { resets += 1; const result = text; text = ""; return result; } };
   };
-  const daemon = createVoiceDaemon({ accessKey: ACCESS_KEY, engine, host: "127.0.0.1", port: 0 });
-  const address = await daemon.start();
-  t.after(() => daemon.close());
-  const token = createVoiceAccessToken({ key: ACCESS_KEY, tenant: "tenant-a" });
-  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${token}` } });
+  const { address } = await startDaemon(t, { engine });
+  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${TOKEN}` } });
   t.after(() => socket.close());
   const messages = createSocketMessageCollector(socket);
   const send = control => socket.send(JSON.stringify({ turnId: "live", ...control }));
@@ -497,11 +770,8 @@ test("microphone bursts yield to controls and finish only after preceding audio"
     finish: () => accepted.join(","),
     cancel() {}
   });
-  const daemon = createVoiceDaemon({ accessKey: ACCESS_KEY, engine, host: "127.0.0.1", port: 0 });
-  const address = await daemon.start();
-  t.after(() => daemon.close());
-  const token = createVoiceAccessToken({ key: ACCESS_KEY, tenant: "tenant-a" });
-  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${token}` } });
+  const { address } = await startDaemon(t, { engine });
+  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${TOKEN}` } });
   t.after(() => socket.close());
   const messages = createSocketMessageCollector(socket);
   const send = control => socket.send(JSON.stringify({ turnId: "listen", ...control }));
@@ -528,11 +798,8 @@ test("queued resumed speech invalidates a commit and cancellation drops queued a
     reset() { resets++; return accepted.at(-1); },
     cancel() {}
   });
-  const daemon = createVoiceDaemon({ accessKey: ACCESS_KEY, engine, host: "127.0.0.1", port: 0 });
-  const address = await daemon.start();
-  t.after(() => daemon.close());
-  const token = createVoiceAccessToken({ key: ACCESS_KEY, tenant: "tenant-a" });
-  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${token}` } });
+  const { address } = await startDaemon(t, { engine });
+  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${TOKEN}` } });
   t.after(() => socket.close());
   const messages = createSocketMessageCollector(socket);
   const send = control => socket.send(JSON.stringify({ turnId: "listen", ...control }));
@@ -562,11 +829,8 @@ test("recognition overload rejects the recording instead of accepting clipped wo
   let finalized = false;
   engine.createListeningSession = () => ({ acceptedSamples: 0, acceptPcm() {},
     finish() { finalized = true; return "clipped instruction"; }, cancel() { cancelled = true; } });
-  const daemon = createVoiceDaemon({ accessKey: ACCESS_KEY, engine, host: "127.0.0.1", port: 0 });
-  const address = await daemon.start();
-  t.after(() => daemon.close());
-  const token = createVoiceAccessToken({ key: ACCESS_KEY, tenant: "tenant-a" });
-  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${token}` } });
+  const { address } = await startDaemon(t, { engine });
+  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${TOKEN}` } });
   t.after(() => socket.close());
   const messages = createSocketMessageCollector(socket);
   const send = control => socket.send(JSON.stringify({ turnId: "listen", ...control }));
@@ -587,11 +851,9 @@ test("streaming list and paragraph breaks produce real PCM silence after synthes
   const engine = fakeSpeechEngine();
   const synthesize = engine.synthesize;
   engine.synthesize = (text, options) => { generated.push(text); return synthesize(text, options); };
-  const daemon = createVoiceDaemon({ accessKey: ACCESS_KEY, engine, host: "127.0.0.1", port: 0 });
-  const address = await daemon.start();
-  t.after(() => daemon.close());
+  const { address } = await startDaemon(t, { engine });
   const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, {
-    headers: { authorization: `Bearer ${createVoiceAccessToken({ key: ACCESS_KEY, tenant: "pauses" })}` }
+    headers: { authorization: `Bearer ${TOKEN}` }
   });
   t.after(() => socket.close());
   const messages = createSocketMessageCollector(socket);
@@ -636,60 +898,24 @@ test("streaming list and paragraph breaks produce real PCM silence after synthes
   await messages.next(value => value.type === "speech.end" && value.turnId === "standalone-paragraph");
 });
 
-test("host app grants share their workspace connection limit and revocation cancels active audio", async t => {
-  let cancelled = 0;
-  const engine = fakeSpeechEngine();
-  engine.createListeningSession = () => ({ acceptPcm() {}, finish() { return ""; }, cancel() { cancelled += 1; } });
-  const daemon = createVoiceDaemon({ engine, host: "127.0.0.1", port: 0, maximumConnectionsPerTenant: 2,
-    authorize: token => ({ tenant: token, parentTenant: token.startsWith("app-") ? "workspace" : undefined }) });
-  const address = await daemon.start(); t.after(() => daemon.close());
-  async function open(tenant) {
-    const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${tenant}` } });
-    t.after(() => socket.terminate());
-    const messages = createSocketMessageCollector(socket);
-    await messages.next(value => value?.type === "voice.ready");
-    return { socket, messages };
-  }
-  const first = await open("app-one");
-  const second = await open("app-two");
-  const refused = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: "Bearer workspace" } });
-  refused.on("error", () => {}); t.after(() => refused.terminate());
-  const status = await new Promise(resolve => refused.once("unexpected-response", (_request, response) => { resolve(response.statusCode); response.destroy(); refused.terminate(); }));
-  assert.equal(status, 429);
-  first.socket.send(JSON.stringify({ type: "listen.start", sampleRate: 16000, turnId: "recording" }));
-  await first.messages.next(value => value?.type === "listen.started");
-  const closed = new Promise(resolve => first.socket.once("close", code => resolve(code)));
-  daemon.revokeTenant("app-one");
-  assert.equal(cancelled, 1, "revocation cancels immediately, before the peer close handshake");
-  assert.equal(await closed, 1008);
-  assert.equal(second.socket.readyState, WebSocket.OPEN);
-  const replacement = await open("workspace");
-  daemon.revokeTenant("workspace");
-  await second.messages.next(value => value?.code === "voice_access_revoked");
-  await replacement.messages.next(value => value?.code === "voice_access_revoked");
-});
-
-test("the catalogue and the WebSocket accept exactly the same host principals", async t => {
-  const results = { good: { tenant: "good" }, tenantless: { ok: true }, pending: Promise.resolve({ tenant: "pending" }) };
-  const engine = fakeSpeechEngine();
-  const daemon = createVoiceDaemon({ engine, host: "127.0.0.1", port: 0, authorize: token => {
-    if (token === "throws") throw new Error("bad grant");
-    return results[token];
-  } });
-  const address = await daemon.start(); t.after(() => daemon.close());
-  async function socketStatus(token) {
-    const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${token}` } });
-    socket.on("error", () => {}); t.after(() => socket.terminate());
-    return await new Promise(resolve => {
-      socket.once("open", () => resolve(101));
-      socket.once("unexpected-response", (_request, response) => { resolve(response.statusCode); response.destroy(); });
-    });
-  }
-  for (const token of ["good", "tenantless", "pending", "throws", "missing"]) {
-    const catalogue = await fetch(`http://127.0.0.1:${address.port}/voices`, { headers: { authorization: `Bearer ${token}` } });
-    const expected = token === "good";
-    assert.equal(catalogue.status, expected ? 200 : 401, `catalogue for ${token}`);
-    assert.equal(await socketStatus(token), expected ? 101 : 401, `socket for ${token}`);
+test("the catalogues and the WebSocket accept exactly the tokens the credentials file lists", async t => {
+  const removed = createVoiceClientToken();
+  const service = await startDaemon(t, { clients: { listed: [TOKEN], removed: [removed] }, credentialsPollMs: 20 });
+  const sha256 = await service.credentials.write({ listed: [TOKEN] });
+  await waitFor(() => service.records.some(record => record.credentialsSha256 === sha256));
+  for (const [name, token, expected] of [
+    ["listed", TOKEN, true],
+    ["removed", removed, false],
+    ["unlisted", createVoiceClientToken(), false],
+    ["too short", "a".repeat(31), false],
+    ["its hash", voiceTokenSha256(TOKEN), false],
+    ["empty", "", false]
+  ]) {
+    const headers = token ? { authorization: `Bearer ${token}` } : {};
+    for (const pathname of ["/voices", "/v1/catalogue"]) {
+      assert.equal((await fetch(`${service.httpUrl}${pathname}`, { headers })).status, expected ? 200 : 401, `${pathname} for ${name}`);
+    }
+    assert.equal(await upgradeStatus(t, service.socketUrl, token), expected ? 101 : 401, `socket for ${name}`);
   }
 });
 
@@ -700,9 +926,8 @@ test("voice selection is advertised, validated and retained for every streamed p
   engine.defaultVoice = "female";
   const synthesize = engine.synthesize;
   engine.synthesize = (text, options) => { selected.push(options.voiceId); return synthesize(text, options); };
-  const daemon = createVoiceDaemon({ accessKey: ACCESS_KEY, engine, host: "127.0.0.1", port: 0 });
-  const address = await daemon.start(); t.after(() => daemon.close());
-  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${createVoiceAccessToken({ key: ACCESS_KEY, tenant: "voice-choice" })}` } });
+  const { address } = await startDaemon(t, { engine });
+  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${TOKEN}` } });
   t.after(() => socket.terminate());
   const messages = createSocketMessageCollector(socket);
   const ready = (await messages.next(value => value?.type === "voice.ready")).value;
@@ -728,11 +953,9 @@ test("only acquired native segments advertise a bounded synthesis allowance; voi
     engine.synthesisTimeoutMs = budget;
     engine.voices = [{ id: "test", label: "Test" }];
     engine.defaultVoice = "test";
-    const daemon = createVoiceDaemon({ accessKey: ACCESS_KEY, engine, host: "127.0.0.1", port: 0 });
-    const address = await daemon.start();
-    child.after(() => daemon.close());
+    const { address } = await startDaemon(child, { engine });
     const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, {
-      headers: { authorization: `Bearer ${createVoiceAccessToken({ key: ACCESS_KEY, tenant: "native-budget" })}` }
+      headers: { authorization: `Bearer ${TOKEN}` }
     });
     child.after(() => socket.close());
     const messages = createSocketMessageCollector(socket);

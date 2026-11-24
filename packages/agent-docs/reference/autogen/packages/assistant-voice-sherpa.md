@@ -17,12 +17,14 @@ Use this on demand; do not load the full index at startup.
 ### `src/cli.js`
 Exports
 - `argumentMap(values = [])`
-- `runVoiceCli(argv = process.argv.slice(2), { createDaemon = createVoiceDaemon, recognitionVocabulary = {} } = {})`
+- `runVoiceCli(argv = process.argv.slice(2), { createEngine = createSherpaSpeechEngine, recognitionVocabulary = {} } = {})`
 Local functions
 - `mergeVoiceModelSources([base, kitten, kokoro])`
 - `requiredOption(options, key, environmentKey = "")`
-- `accessKeyFromFile(filePath)`
 - `positiveInteger(value, fallback)`
+- `setting(options, key, environmentKey)`
+- `readHotwordsFile(filePath)`
+- `readSpellingsFile(filePath)`
 - `usage()`
 
 ### `src/index.js`
@@ -31,14 +33,44 @@ Exports
 - `verifyVoiceModelContract`
 - `readVoiceModelContract`
 
-### `src/sherpaSpeechEngine.js`
+### `src/recognitionProcess.js`
 Exports
-- `createSherpaSpeechEngine({ modelsRoot = "", configuration = {}, recognizerActivePaths = 16, recognizerThreads = 1, sherpa = null, createSynthesizer = createSynthesisProcess, synthesizerThreads = 1 } = {})`
-- `positiveActivePathCount(value, fallback = 16)`
-- `positiveThreadCount(value, fallback = 1)`
-- `runtimeValue(runtime, key)`
+- `createRecognitionProcess(configuration, { options = {}, runtimeModule = "", workerUrl = new URL("./recognitionWorker.js", import.meta.url) } = {})`
+- `RECOGNITION_LOAD_TIMEOUT_MS`
+- `RECOGNITION_REQUEST_TIMEOUT_MS`
 Local functions
 - `ignoreRecognizedText()`
+
+### `src/recognitionSession.js`
+Exports
+- `createRecognitionSession(recognizer, { vocabulary = {}, minimumRms = 0, tailPaddingSeconds = 0.45, onPartial = ignoreRecognizedText, onEndpoint = ignoreRecognizedText, continuous = false } = {})`
+- `warmRecognizer(recognizer)`
+Local functions
+- `ignoreRecognizedText()`
+- `decodeAvailable(recognizer, stream, vocabulary)`
+
+### `src/recognitionWorker.js`
+Exports
+- None
+Local functions
+- `runtimeValue(runtime, key)`
+- `session(id)`
+- `step(id, operation)`
+
+### `src/sherpaSpeechEngine.js`
+Exports
+- `createSherpaSpeechEngine({ modelsRoot = "", configuration = {}, hotwords = [], spellings = {}, recognitionWorkers = defaultWorkerCount(), synthesisWorkers = defaultWorkerCount(), recognizerActivePaths = 16, recognizerThreads = 1, createRecognizer = createRecognitionProcess, createSynthesizer = createSynthesisProcess, synthesizerThreads = 1 } = {})`
+- `defaultWorkerCount()`
+- `positiveActivePathCount(value, fallback = 16)`
+- `positiveThreadCount(value, fallback = 1)`
+Local functions
+- `workerCount(value, name)`
+- `installedVersion(packageName)`
+- `hotwordLine(value)`
+- `addedHotwords(hotwords)`
+- `hotwordLines(baseFile, added)`
+- `recognitionModelId(root)`
+- `closeAll(resources)`
 
 ### `src/synthesisProcess.js`
 Exports

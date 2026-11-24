@@ -41,7 +41,7 @@
         "surfaces": [
           {
             "subpath": ".",
-            "summary": "Native Sherpa recognition and synthesis with operator configuration and a named voice catalogue."
+            "summary": "Native Sherpa recognition and synthesis in pools of worker processes, with operator configuration, a host's hotwords and spellings, and a named voice catalogue."
           },
           {
             "subpath": "./models",
@@ -49,7 +49,7 @@
           },
           {
             "subpath": "./cli",
-            "summary": "Portable prepare, verify, token and serve commands with an optional host-owned daemon factory."
+            "summary": "Portable prepare, verify and serve commands; serve takes a credentials file, hotwords, spellings and worker counts, and a host may supply its own engine."
           }
         ],
         "capabilities": []

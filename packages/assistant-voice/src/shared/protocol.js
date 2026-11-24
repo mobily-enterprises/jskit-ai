@@ -3,6 +3,9 @@ import en from "../../locales/en.json" with { type: "json" };
 
 const VOICE_PROTOCOL_VERSION = 1;
 const VOICE_DAEMON_WEBSOCKET_PATH = "/v1/voice";
+const VOICE_CATALOGUE_PATH = "/v1/catalogue";
+const VOICE_VOICES_PATH = "/voices";
+const VOICE_HEALTH_PATH = "/health";
 const VOICE_INPUT_SAMPLE_RATE = 16_000;
 const VOICE_OUTPUT_SAMPLE_RATE = 22_050;
 const VOICE_MAX_CONTROL_BYTES = 16 * 1024;
@@ -245,26 +248,142 @@ const BUILT_IN_RECOGNITION_WORD_PATTERN = new RegExp(
   "giu"
 );
 
+const MAXIMUM_RECOGNITION_SPELLINGS = 1000;
+const MAXIMUM_SPELLING_CHARACTERS = 100;
+const SPOKEN_PHRASE_PATTERN = /^[a-z0-9'](?:[a-z0-9' ]{0,98}[a-z0-9'])?$/u;
+const recognitionVocabularyPatterns = new WeakMap();
+
+function spokenPhrase(value = "") {
+  return String(value).trim().replace(/\s+/gu, " ").toLowerCase();
+}
+
+function isBuiltInRecognitionSpelling(phrase = "") {
+  const spoken = spokenPhrase(phrase);
+  return Object.hasOwn(BUILT_IN_RECOGNITION_SPELLINGS, spoken) ||
+    BUILT_IN_RECOGNITION_PHRASES.some(([pattern]) => new RegExp(`^(?:${pattern.source})$`, "iu").test(spoken));
+}
+
+/** How many spellings recognition applies: JSKIT's own and a host's, a host's replacing JSKIT's on a clash. */
+function recognitionSpellingCount(vocabulary = {}) {
+  return BUILT_IN_RECOGNITION_PHRASES.length + Object.keys(BUILT_IN_RECOGNITION_SPELLINGS).length +
+    Object.keys(vocabulary).filter(phrase => !isBuiltInRecognitionSpelling(phrase)).length;
+}
+
+/**
+ * A host's spellings checked: each spoken phrase (1 to 100 letters, digits,
+ * apostrophes and single spaces, in any case) to the form it is written in (1
+ * to 100 characters, no control characters or surrounding spaces), at most
+ * 1000. Keyed by the phrase in lower case.
+ * @param {Record<string, string>} value
+ * @returns {Readonly<Record<string, string>>}
+ */
+function recognitionSpellings(value = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Spellings must map spoken phrases to their written forms.");
+  }
+  const entries = Object.entries(value);
+  if (entries.length > MAXIMUM_RECOGNITION_SPELLINGS) {
+    throw new TypeError(`Spellings are limited to ${MAXIMUM_RECOGNITION_SPELLINGS} phrases.`);
+  }
+  const spellings = {};
+  for (const [phrase, written] of entries) {
+    const spoken = spokenPhrase(phrase);
+    if (!SPOKEN_PHRASE_PATTERN.test(spoken)) {
+      throw new TypeError(`Spelling "${phrase}": the spoken phrase must be 1 to 100 letters, digits, apostrophes and spaces.`);
+    }
+    if (typeof written !== "string" || !written || written !== written.trim() ||
+        written.length > MAXIMUM_SPELLING_CHARACTERS || /\p{Cc}/u.test(written)) {
+      throw new TypeError(`Spelling "${phrase}": the written form must be 1 to 100 characters, with no control characters or surrounding spaces.`);
+    }
+    if (Object.hasOwn(spellings, spoken)) throw new TypeError(`Spelling "${phrase}" is given twice.`);
+    spellings[spoken] = written;
+  }
+  return Object.freeze(spellings);
+}
+
+/**
+ * Reads a spellings file: one `spoken phrase => Written form` per line; blank
+ * lines and lines starting with # are skipped. A refusal names its line.
+ * @param {string} text
+ * @returns {Readonly<Record<string, string>>}
+ */
+function parseRecognitionSpellings(text = "") {
+  const spellings = {};
+  const lines = new Map();
+  for (const [index, raw] of String(text).split("\n").entries()) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const number = index + 1;
+    const arrow = line.indexOf("=>");
+    if (arrow < 0) throw new TypeError(`Spellings line ${number} must read "spoken phrase => Written form".`);
+    const phrase = line.slice(0, arrow).trim();
+    const written = line.slice(arrow + 2).trim();
+    const spoken = spokenPhrase(phrase);
+    if (lines.has(spoken)) throw new TypeError(`Spellings line ${number}: "${phrase}" is already spelled on line ${lines.get(spoken)}.`);
+    try {
+      recognitionSpellings({ [phrase]: written });
+    } catch (error) {
+      throw new TypeError(`Spellings line ${number}: ${error.message}`);
+    }
+    lines.set(spoken, number);
+    spellings[spoken] = written;
+    if (lines.size > MAXIMUM_RECOGNITION_SPELLINGS) {
+      throw new TypeError(`Spellings line ${number}: spellings are limited to ${MAXIMUM_RECOGNITION_SPELLINGS} phrases.`);
+    }
+  }
+  return Object.freeze(spellings);
+}
+
+// One pattern for a vocabulary's phrases, longest first, made once per vocabulary.
+function recognitionVocabularyPattern(vocabulary) {
+  let compiled = recognitionVocabularyPatterns.get(vocabulary);
+  if (!compiled) {
+    const spellings = new Map(Object.entries(vocabulary).map(([phrase, written]) => [spokenPhrase(phrase), written]));
+    const phrases = [...spellings.keys()].filter(Boolean).sort((left, right) => right.length - left.length);
+    compiled = {
+      pattern: phrases.length ? new RegExp(`\\b(?:${phrases.map(phrase => (
+        phrase.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&").replace(/ /gu, "\\s+")
+      )).join("|")})\\b`, "giu") : null,
+      spellings
+    };
+    recognitionVocabularyPatterns.set(vocabulary, compiled);
+  }
+  return compiled;
+}
+
+function applyBuiltInRecognitionSpellings(text) {
+  let result = text;
+  for (const [pattern, spelling] of BUILT_IN_RECOGNITION_PHRASES) {
+    result = result.replace(pattern, spelling);
+  }
+  return result.replace(BUILT_IN_RECOGNITION_WORD_PATTERN, (word) => (
+    BUILT_IN_RECOGNITION_SPELLINGS[word.toLowerCase()] || word
+  ));
+}
+
+/**
+ * Makes an all-uppercase recognition readable: sentence case, JSKIT's spellings
+ * and a host's `vocabulary` (spoken phrase to written form). A host's phrases,
+ * longest first, take the words they match before JSKIT's spellings apply to the
+ * rest, so a host's spelling wins on a clash. Mixed-case text is left intact.
+ */
 function normalizeRecognizedText(value = "", vocabulary = {}) {
   const text = String(value || "").replace(/\s+/gu, " ").trim();
   if (!text || text !== text.toUpperCase() || !/[A-Z]/u.test(text)) {
     return text;
   }
-  const normalized = text.toLowerCase().replace(/(^|[.!?]\s+)([a-z])/gu, (_match, prefix, letter) => (
+  const sentenceCase = text.toLowerCase().replace(/(^|[.!?]\s+)([a-z])/gu, (_match, prefix, letter) => (
     `${prefix}${letter.toUpperCase()}`
   ));
-  let result = normalized;
-  for (const [pattern, spelling] of BUILT_IN_RECOGNITION_PHRASES) {
-    result = result.replace(pattern, spelling);
+  const { pattern, spellings } = recognitionVocabularyPattern(vocabulary);
+  if (!pattern) return applyBuiltInRecognitionSpellings(sentenceCase);
+  let result = "";
+  let start = 0;
+  for (const match of sentenceCase.matchAll(pattern)) {
+    result += applyBuiltInRecognitionSpellings(sentenceCase.slice(start, match.index)) + spellings.get(spokenPhrase(match[0]));
+    start = match.index + match[0].length;
   }
-  result = result.replace(BUILT_IN_RECOGNITION_WORD_PATTERN, (word) => (
-    BUILT_IN_RECOGNITION_SPELLINGS[word.toLowerCase()] || word
-  ));
-  for (const [phrase, spelling] of Object.entries(vocabulary)) {
-    const literal = phrase.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-    result = result.replace(new RegExp(`\\b${literal}\\b`, "giu"), () => spelling);
-  }
-  return result;
+  return result + applyBuiltInRecognitionSpellings(sentenceCase.slice(start));
 }
 
 function speechTextFromAssistant(value = "", maximumCharacters = VOICE_MAX_SPEECH_TEXT_CHARACTERS, wording = VOICE_SPEECH_WORDING) {
@@ -473,7 +592,9 @@ function voiceServerMessage(type = "", fields = {}) {
 }
 
 export {
+  VOICE_CATALOGUE_PATH,
   VOICE_DAEMON_WEBSOCKET_PATH,
+  VOICE_HEALTH_PATH,
   VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS,
   VOICE_ID_PATTERN,
   VOICE_INPUT_SAMPLE_RATE,
@@ -485,11 +606,15 @@ export {
   VOICE_MAX_SYNTHESIS_TIMEOUT_MS,
   VOICE_OUTPUT_SAMPLE_RATE,
   VOICE_PROTOCOL_VERSION,
+  VOICE_VOICES_PATH,
   assertVoiceAudioFrame,
   float32ToPcm16Le,
   normalizeRecognizedText,
   parseVoiceClientControl,
+  parseRecognitionSpellings,
   pcm16LeToFloat32,
+  recognitionSpellingCount,
+  recognitionSpellings,
   speechPauseDurationMs,
   speechPhrases,
   speechTextFromAssistant,

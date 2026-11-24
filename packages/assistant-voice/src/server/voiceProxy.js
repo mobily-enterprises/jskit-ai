@@ -1,8 +1,10 @@
 import { WebSocket } from "ws";
 
 import {
+  VOICE_CATALOGUE_PATH,
   VOICE_MAX_AUDIO_FRAME_BYTES,
   VOICE_MAX_CONTROL_BYTES,
+  VOICE_VOICES_PATH,
   assertVoiceAudioFrame,
   parseVoiceClientControl,
   voiceServerMessage
@@ -39,18 +41,23 @@ function normalizeVoiceCloseMetadata(code, reason) {
   });
 }
 
-async function readVoiceCatalogue(config, { fetchImpl = fetch } = {}) {
+// The service's HTTP address for a path beside its /v1/voice WebSocket.
+function serviceUrl(config, pathname) {
+  const url = new URL(pathname, config.endpoint);
+  url.protocol = url.protocol === "wss:" ? "https:" : "http:";
+  return url;
+}
+
+async function readServiceJson(config, pathname, fetchImpl, isValid) {
   try {
     if (!config?.available) throw new Error("Voice is not configured.");
-    const url = new URL("/voices", config.endpoint);
-    url.protocol = url.protocol === "wss:" ? "https:" : "http:";
-    const response = await fetchImpl(url, {
+    const response = await fetchImpl(serviceUrl(config, pathname), {
       headers: { authorization: `Bearer ${config.token}` }, signal: AbortSignal.timeout(5000)
     });
     if (!response.ok) throw new Error("Voice service refused the catalogue request.");
-    const catalogue = await response.json();
-    if (!Array.isArray(catalogue.voices) || typeof catalogue.defaultVoice !== "string") throw new Error("Invalid voice catalogue.");
-    return catalogue;
+    const body = await response.json();
+    if (!isValid(body)) throw new Error("Invalid voice catalogue.");
+    return body;
   } catch (cause) {
     // readable-check: allow patched-error - safety invariant: a speech-service failure is a plain 503 error, which the HTTP error handler answers without its text, like every server failure
     throw Object.assign(new Error("Speaking voices could not load. Check the speech service and retry."), {
@@ -58,6 +65,22 @@ async function readVoiceCatalogue(config, { fetchImpl = fetch } = {}) {
       messageCode: "assistant.voice.proxy.voicesUnavailable", messageParams: {}
     });
   }
+}
+
+const isVoiceList = body => Array.isArray(body?.voices) && typeof body.defaultVoice === "string";
+
+/** The service's voices and default voice (GET /voices), without opening an audio connection. */
+function readVoiceCatalogue(config, { fetchImpl = fetch } = {}) {
+  return readServiceJson(config, VOICE_VOICES_PATH, fetchImpl, isVoiceList);
+}
+
+/**
+ * The service's whole catalogue (GET /v1/catalogue): protocol version, sample
+ * rates, recognition models, voices and default voice.
+ */
+function readVoiceServiceCatalogue(config, { fetchImpl = fetch } = {}) {
+  return readServiceJson(config, VOICE_CATALOGUE_PATH, fetchImpl,
+    body => isVoiceList(body) && Number.isSafeInteger(body.protocolVersion) && Array.isArray(body.recognitionModels));
 }
 
 function closeSocket(socket, code, reason) {
@@ -235,5 +258,6 @@ function registerVoiceProxyRoute(fastify, {
 export {
   closeSocket,
   readVoiceCatalogue,
+  readVoiceServiceCatalogue,
   registerVoiceProxyRoute
 };

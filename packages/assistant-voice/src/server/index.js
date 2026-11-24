@@ -1,4 +1,9 @@
 export { createVoiceDaemon } from "./voiceDaemon.js";
-export { registerVoiceProxyRoute, readVoiceCatalogue } from "./voiceProxy.js";
+export { registerVoiceProxyRoute, readVoiceCatalogue, readVoiceServiceCatalogue } from "./voiceProxy.js";
 export { resolveVoiceProxyConfig, readVoiceAccessToken, voiceEndpoint } from "./voiceProxyConfig.js";
-export { createVoiceAccessToken, verifyVoiceAccessToken, bearerVoiceAccessToken } from "./voiceAccessToken.js";
+export {
+  VOICE_CREDENTIALS_SCHEMA,
+  createVoiceClientToken,
+  parseVoiceCredentials,
+  voiceTokenSha256
+} from "./voiceCredentials.js";
