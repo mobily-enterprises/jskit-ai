@@ -191,9 +191,34 @@ such as a single-file release bundle with no `node_modules` to read, starts
 of `createInstalledRuntime`, with the build's registry as
 `installed: { providers, packageOrder, providerPackageOrder, globalUiPaths }`.
 It is the same runtime: the same APP_ENV check, security headers, environment
-page tag, startup line and health runtime. A server composed without either
-calls `registerSecurityHeaders(fastify, { config, env })` from
+page tag, other names (below), startup line and health runtime. A server
+composed without either calls `registerSecurityHeaders(fastify, { config, env
+})` and `registerRedirectHosts(fastify, { env })` from
 `@jskit-ai/kernel/server/http` before it registers any plugin.
+
+## Other names
+
+An application may answer at more than one name, such as `www.example.com`
+beside `example.com`. `APP_REDIRECT_HOSTS` lists its other names,
+comma-separated, and `createInstalledRuntime` sends a request for one of them
+on to the same path and query at `APP_PUBLIC_URL` with a 301, before any route
+answers it, so people, links and search engines end up at one address:
+
+```sh
+APP_PUBLIC_URL=https://example.com APP_REDIRECT_HOSTS=www.example.com,example.net npm start
+```
+
+The name is the request's Host, or the `X-Forwarded-Host` of a proxy that
+`TRUSTED_PROXIES` names (see [Authentication](/guide/app-setup/authentication));
+a client's own `X-Forwarded-Host` changes nothing. `APP_PUBLIC_URL`'s own name
+and every name the setting doesn't list, such as the instance's own name or
+address a load balancer's health check uses, are served as before. Each name
+still needs its own DNS record and certificate where the application is
+hosted; the host that routes the names to the application usually sets both
+settings. The server refuses to start when `APP_REDIRECT_HOSTS` is set without
+an http or https `APP_PUBLIC_URL`, when an entry is not a host name (a scheme,
+port, path or wildcard), and when it lists `APP_PUBLIC_URL`'s own name. Without
+the setting, nothing changes.
 
 ## Verification
 

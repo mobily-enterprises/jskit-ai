@@ -3,6 +3,7 @@ import { createCapabilityRuntime } from "../../shared/capabilities/runtime.js";
 import { HttpProvider } from "../http/HttpProvider.js";
 import { registerSecurityHeaders } from "../http/securityHeaders.js";
 import { registerAppEnvironmentPage } from "../http/appEnvironmentPage.js";
+import { registerRedirectHosts } from "../http/redirectHosts.js";
 import { assertAppEnvironment, logAppEnvironment } from "../runtime/appEnvironment.js";
 import { BootstrapProvider } from "../runtime/BootstrapProvider.js";
 import { EventProvider } from "../runtime/EventProvider.js";
@@ -122,6 +123,7 @@ async function startInstalledRuntime(name, {
     // Before any provider registers a plugin, so every route and plugin inherits the hooks.
     registerSecurityHeaders(httpServer, { config, env });
     registerAppEnvironmentPage(httpServer, { env });
+    registerRedirectHosts(httpServer, { env });
   }
   logAppEnvironment(logger, env);
   const health = createHealthRuntime({ logger });
@@ -184,8 +186,9 @@ async function startInstalledRuntime(name, {
  * The application's capability runtime: the kernel's providers, then each
  * installed package's, then the application's own. It refuses to start unless `env` names a
  * known APP_ENV (`assertAppEnvironment`). A Fastify instance adds HTTP, the security headers
- * `config.securityHeaders` describes on every response it sends, and the APP_ENV in every page it
- * sends, for the shell's environment banner. It logs once where the application runs. The result's
+ * `config.securityHeaders` describes on every response it sends, the APP_ENV in every page it
+ * sends, for the shell's environment banner, and a 301 to APP_PUBLIC_URL for a request sent to one
+ * of the application's other names (APP_REDIRECT_HOSTS, `registerRedirectHosts`). It logs once where the application runs. The result's
  * `health` runs the health checks providers register (`runtime.health`), for the application's
  * health route.
  * @param {InstalledRuntimeOptions} options
@@ -219,7 +222,7 @@ async function createInstalledRuntime(options) {
 /**
  * `createInstalledRuntime` for an application whose installed packages' providers were collected when it was
  * built, such as a single-file release bundle that has no node_modules to read: the same runtime, the same
- * APP_ENV check, security headers, environment page tag, startup line and health runtime, with the build's
+ * APP_ENV check, security headers, environment page tag, other names' redirect, startup line and health runtime, with the build's
  * provider registry in place of reading the installed packages.
  * @param {InstalledRuntimeOptions & { installed: InstalledPackages & { providers: ReadonlyArray<object> } }} options
  *   `installed` is the build's registry: every installed package's providers in load order, and the package order,

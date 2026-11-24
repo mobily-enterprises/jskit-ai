@@ -111,9 +111,9 @@ test("without APP_REDIRECT_HOSTS, or with it empty, every name is served as befo
 });
 
 test("APP_REDIRECT_HOSTS works in development too, sending to APP_PUBLIC_URL's own scheme and port", async (context) => {
-  const env = { APP_ENV: "development", APP_PUBLIC_URL: "http://localhost:3000/", APP_REDIRECT_HOSTS: "127.0.0.1" };
+  const env = { APP_ENV: "development", APP_PUBLIC_URL: "http://localhost:3000/", APP_REDIRECT_HOSTS: "dev.example.test" };
   const app = await createAppServer(context, { env });
-  const response = await app.inject({ method: "GET", url: "/page?a=1", headers: { host: "127.0.0.1:3000" } });
+  const response = await app.inject({ method: "GET", url: "/page?a=1", headers: { host: "dev.example.test:3000" } });
   assert.equal(response.statusCode, 301);
   assert.equal(response.headers.location, "http://localhost:3000/page?a=1");
 });
@@ -127,6 +127,8 @@ test("a server refuses to start with APP_REDIRECT_HOSTS it cannot follow, naming
     [{ APP_REDIRECT_HOSTS: "www.example.com/shop" }, /APP_REDIRECT_HOSTS has "www\.example\.com\/shop", which is not a host name/u],
     [{ APP_REDIRECT_HOSTS: "www.example.com:8443" }, /APP_REDIRECT_HOSTS has "www\.example\.com:8443", which is not a host name/u],
     [{ APP_REDIRECT_HOSTS: "*.example.com" }, /APP_REDIRECT_HOSTS has "\*\.example\.com", which is not a host name/u],
+    // An address is no name: a load balancer's health check may use the instance's own.
+    [{ APP_REDIRECT_HOSTS: "10.0.4.17" }, /APP_REDIRECT_HOSTS has "10\.0\.4\.17", which is not a host name/u],
     [{ APP_REDIRECT_HOSTS: "www.example.com,Example.com" }, /APP_REDIRECT_HOSTS has example\.com, APP_PUBLIC_URL's own name/u]
   ];
   for (const [change, message] of refusals) {

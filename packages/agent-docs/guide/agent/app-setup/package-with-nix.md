@@ -120,7 +120,10 @@ environment's. The option is not called `--env-file` because Node reads an
   programs default `NODE_ENV` to `production`, the build the package holds.
 - Behind a load balancer or proxy, `TRUSTED_PROXIES` names its addresses, as
   the [authentication](/guide/app-setup/authentication) guide says, and
-  `APP_PUBLIC_URL` is the address people use.
+  `APP_PUBLIC_URL` is the address people use. `APP_REDIRECT_HOSTS` lists the
+  app's other names, such as `www.example.com`, which the server sends on to
+  `APP_PUBLIC_URL` with a 301
+  ([Other names](/guide/app-setup/initial-scaffolding#other-names)).
 
 Several instances of one app behind a load balancer need the same settings
 on every instance and nothing kept on one server's disk: files in S3,

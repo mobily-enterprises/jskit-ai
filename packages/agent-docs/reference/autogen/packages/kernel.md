@@ -840,6 +840,7 @@ Exports
 - `attachDirectRequestActionExecutor`
 - `createCachedResponseSerializerFactory`
 - `createActionRouteScope`
+- `registerRedirectHosts`
 - `registerSecurityHeaders`
 - `resolveTrustedProxies`
 
@@ -930,6 +931,13 @@ Local functions
 - `normalizeRouteValidatorMeta(value, { context = "route validator" } = {})`
 - `normalizeRouteValidatorDefinition(sourceDefinition, { context = "route validator" } = {})`
 - `createRequestBodyInputTransform(validateBody)`
+
+### `server/http/redirectHosts.js`
+Exports
+- `registerRedirectHosts(fastify, { env })`
+- `resolveRedirectHosts(env)`
+- `type RuntimeEnv`
+- `type RuntimeFastify`
 
 ### `server/http/responseSerializerFactory.js`
 Exports
