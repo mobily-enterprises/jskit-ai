@@ -2987,6 +2987,15 @@ Supply the environment variable names carrying the runtime token and command
 hash. `capture()` records the leader's start time; `inspect()` checks the leader
 and marked descendant groups; `stop()` rechecks ownership before signalling and
 escalation. Ambiguous or unreadable ownership does not authorize signalling.
+A process table that cannot be read (`/proc` on Linux, `ps` on macOS), or a
+process in it whose stat or environment read fails for any reason but its
+having gone or belonging to another user, refuses the check: `inspect()` is
+`ambiguous` with `processTableError` naming the error, and `stop()` returns
+it with `processExitVerified: false`. The Codex runtime then neither reuses
+nor replaces its earlier app-server: `ensure` fails with
+`<errorPrefix>codex_app_server_process_identity_unreadable`, retryable. An
+ambiguous group whose table was read, such as one whose members are still
+settling, stays reusable.
 The caller must validate its persisted metadata contract before requesting these
 operations and must retain managed-execution authority where one exists. This
 facility leaves native server sharing and conversation lifetime to their owners.

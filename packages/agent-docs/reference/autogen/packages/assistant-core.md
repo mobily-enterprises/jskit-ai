@@ -1596,6 +1596,7 @@ Exports
 - `createConversationProcessIdentity({ runtimeTokenEnvironmentName = "JSKIT_EXECUTION_RUNTIME_TOKEN", commandHashEnvironmentName = "JSKIT_EXECUTION_COMMAND_HASH", label = "Native", unavailableCode = "native_process_identity_unavailable", platform = process.platform, ps = runPs } = {})`
 Local functions
 - `runPs(args)`
+- `unverifiedStop(inspection, fields = {})`
 
 ### `src/server/conversation/provider.js`
 Exports

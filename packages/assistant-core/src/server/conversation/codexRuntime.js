@@ -244,6 +244,18 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
         status: CODEX_APP_SERVER_RUNTIME_STATUS.EXITED
       };
     }
+    // A process table that could not be read leaves the runtime unchecked: reusing it would trust a process no check
+    // has seen, and replacing it needs the exit proof the same table gives.
+    if (processIdentity.processTableError) {
+      return {
+        metadata: normalized,
+        processTableError: processIdentity.processTableError,
+        replace: false,
+        reusable: false,
+        status: CODEX_APP_SERVER_RUNTIME_STATUS.UNVERIFIED
+      };
+    }
+    // An ambiguous group whose table was read, such as one whose members are still settling, stays in use.
     if (processIdentity.status !== CODEX_APP_SERVER_PROCESS_IDENTITY_STATUS.EXACT) {
       return {
         metadata: normalized,
@@ -358,12 +370,23 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
           runtimeStatus: afterLockStatus.status
         };
       }
+      if (afterLockStatus?.status === CODEX_APP_SERVER_RUNTIME_STATUS.UNVERIFIED) {
+        const error = new Error(
+          `${clientInfo.title} found an earlier Codex app-server but could not check that it is its own: the host's process table could not be read (${afterLockStatus.processTableError}). It neither reused nor replaced it; try again once the host can list its processes.`
+        );
+        error.code = `${errorPrefix}codex_app_server_process_identity_unreadable`;
+        error.retryable = true;
+        throw error;
+      }
 
       if (afterLock && (!afterLockStatus || afterLockStatus.replace !== false)) {
         const stopped = await runtimeStop.stopProcess(runtimeDir, runtimeOptions);
         if (stopped.processExitVerified !== true) {
+          const unreadable = stopped.processTableError
+            ? ` The host's process table could not be read (${stopped.processTableError}).`
+            : "";
           const error = new Error(
-            `${clientInfo.title} found an earlier Codex app-server but could not prove that its owned execution was stopped. It refused to start a replacement because two assistant processes could damage the session or worsen resource pressure.`
+            `${clientInfo.title} found an earlier Codex app-server but could not prove that its owned execution was stopped.${unreadable} It refused to start a replacement because two assistant processes could damage the session or worsen resource pressure.`
           );
           error.code = `${errorPrefix}codex_app_server_process_identity_unverified`;
           error.cleanupRequired = true;
