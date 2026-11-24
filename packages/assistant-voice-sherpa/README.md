@@ -71,8 +71,12 @@ a written form is 1 to 100 characters with no control characters; blank lines
 and `#` comments are skipped; at most 1000 phrases, each once. A host's spellings
 are added to JSKIT's own (JSKIT, Node.js, PostgreSQL, WebSocket and others) and
 replace JSKIT's on a clash. `serve` refuses a file it cannot read, naming the
-line. The catalogue's recognition model counts both (`hotwords`, `spellings`).
-Hotwords make a phrase likelier to be heard; a spelling only writes it.
+file, the line and why. The catalogue's recognition model counts both
+(`hotwords`, `spellings`). Hotwords make a phrase likelier to be heard; a
+spelling only writes it. A host checks a file before writing it with
+`parseRecognitionHotwords(text)` and `parseRecognitionSpellings(text)` from
+`@jskit-ai/assistant-voice/shared/protocol`, the rules `serve`, the engine and
+the stand-in apply.
 
 `runVoiceCli(argv, { createEngine, recognitionVocabulary })` runs the same
 commands from code. `createEngine(options)` receives what

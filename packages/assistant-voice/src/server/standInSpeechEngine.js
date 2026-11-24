@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
-import { normalizeRecognizedText, recognitionSpellingCount, recognitionSpellings } from "../shared/protocol.js";
+import { normalizeRecognizedText, recognitionHotwords, recognitionSpellingCount, recognitionSpellings } from "../shared/protocol.js";
 
 const PACKAGE_VERSION = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
 
@@ -19,7 +19,7 @@ function ignoreRecognizedText() {}
  * @param {string} [options.defaultVoice]
  * @param {number} [options.sampleRate]
  * @param {number} [options.synthesisMs] How long each phrase's synthesis takes.
- * @param {string[]} [options.hotwords] Counted in its recognition model, as the native engine counts a host's additions.
+ * @param {string[]} [options.hotwords] Checked and counted in its recognition model, as the native engine checks and counts a host's additions.
  * @param {Record<string, string>} [options.spellings] A host's spellings, checked and applied as the native engine applies them.
  * @param {number} [options.recognitionWorkers]
  * @param {number} [options.synthesisWorkers]
@@ -36,6 +36,7 @@ function createStandInSpeechEngine({
   synthesisWorkers = 1
 } = {}) {
   let closed = false;
+  const addedHotwords = recognitionHotwords(hotwords);
   const vocabulary = recognitionSpellings(spellings);
   const heard = normalizeRecognizedText(recognizedText, vocabulary);
 
@@ -101,7 +102,7 @@ function createStandInSpeechEngine({
     createListeningSession,
     defaultVoice,
     recognitionModels: Object.freeze([Object.freeze({
-      id: "stand-in", hotwords: hotwords.length, spellings: recognitionSpellingCount(vocabulary)
+      id: "stand-in", hotwords: addedHotwords.length, spellings: recognitionSpellingCount(vocabulary)
     })]),
     sampleRate,
     synthesize,

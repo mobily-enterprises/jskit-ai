@@ -3,7 +3,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { VOICE_INPUT_SAMPLE_RATE, normalizeRecognizedText, parseRecognitionSpellings, parseVoiceClientControl, recognitionSpellingCount, recognitionSpellings, speechPauseDurationMs, speechTextFromAssistant, splitSpeechText, takeStreamingSpeech } from '../src/shared/protocol.js';
+import { VOICE_INPUT_SAMPLE_RATE, normalizeRecognizedText, parseRecognitionHotwords, parseRecognitionSpellings, parseVoiceClientControl, recognitionHotwords, recognitionSpellingCount, recognitionSpellings, speechPauseDurationMs, speechTextFromAssistant, splitSpeechText, takeStreamingSpeech } from '../src/shared/protocol.js';
 import { visemeCuesFromText, visemeUnitsFromText } from '../src/shared/visemes.js';
 import { createVoiceClientToken, isVoiceClientToken, parseVoiceCredentials, voiceTokenSha256 } from '../src/server/voiceCredentials.js';
 import { readVoiceAccessToken, resolveVoiceProxyConfig, voiceEndpoint } from '../src/server/voiceProxyConfig.js';
@@ -123,6 +123,30 @@ test("a host's spellings win over JSKIT's on a clash, longest phrase first", () 
   assert.equal(normalizeRecognizedText("Vibe sixty four as typed", vocabulary), "Vibe sixty four as typed");
   assert.equal(recognitionSpellingCount({}), 41, "JSKIT's own: six phrases and 35 words");
   assert.equal(recognitionSpellingCount(vocabulary), 45, "four added; a clash replaces JSKIT's own");
+});
+
+test("a hotwords file has one hotword per line, and a refusal names the line and why", () => {
+  assert.deepEqual(
+    parseRecognitionHotwords("# Product words\nMercbot\n\n  vibe   sixty four :2.5 \no'reilly :10\r\n"),
+    ["MERCBOT", "VIBE SIXTY FOUR :2.5", "O'REILLY :10"]
+  );
+  assert.deepEqual(parseRecognitionHotwords(""), []);
+  const rule = 'a hotword is 1 to 100 letters, digits, apostrophes and spaces, with an optional " :SCORE".';
+  const refusals = [
+    ["Mercbot\nVibe64.com", `Hotwords line 2: Hotword "Vibe64.com": "." is not allowed; ${rule}`],
+    ["C++", `Hotwords line 1: Hotword "C++": "+" is not allowed; ${rule}`],
+    ["Merc-bot", `Hotwords line 1: Hotword "Merc-bot": "-" is not allowed; ${rule}`],
+    ["Zürich", `Hotwords line 1: Hotword "Zürich": "ü" is not allowed; ${rule}`],
+    [`# long\n${"a".repeat(101)}`, `Hotwords line 2: Hotword "${"a".repeat(80)}": it is 101 characters long; ${rule}`],
+    ["Mercbot :abc", `Hotwords line 1: Hotword "Mercbot :abc": the score "abc" is not a number below 100 with at most three decimals; ${rule}`],
+    ["Mercbot :100", `Hotwords line 1: Hotword "Mercbot :100": the score "100" is not a number below 100 with at most three decimals; ${rule}`],
+    ["Mercbot :1.2345", `Hotwords line 1: Hotword "Mercbot :1.2345": the score "1.2345" is not a number below 100 with at most three decimals; ${rule}`],
+    [Array.from({ length: 1001 }, (_, index) => `word ${index}`).join("\n"), "Hotwords line 1001: hotwords are limited to 1000 phrases."]
+  ];
+  for (const [text, message] of refusals) assert.throws(() => parseRecognitionHotwords(text), { name: "TypeError", message });
+  assert.deepEqual(recognitionHotwords(["Mercbot", "jskit :2"]), ["MERCBOT", "JSKIT :2"]);
+  assert.throws(() => recognitionHotwords(["Vibe64.com"]), { name: "TypeError", message: `Hotword "Vibe64.com": "." is not allowed; ${rule}` });
+  for (const value of ["Mercbot", [""], Array.from({ length: 1001 }, () => "word")]) assert.throws(() => recognitionHotwords(value), TypeError);
 });
 
 test("a spellings file maps each spoken phrase to its written form, one per line", () => {

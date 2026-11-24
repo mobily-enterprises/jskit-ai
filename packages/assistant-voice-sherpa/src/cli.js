@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { createSherpaSpeechEngine, defaultWorkerCount } from "./sherpaSpeechEngine.js";
 import { createVoiceDaemon } from "@jskit-ai/assistant-voice/server";
-import { parseRecognitionSpellings } from "@jskit-ai/assistant-voice/shared/protocol";
+import { parseRecognitionHotwords, parseRecognitionSpellings } from "@jskit-ai/assistant-voice/shared/protocol";
 import { verifyVoiceModelContract } from "./voiceModelContract.js";
 
 // Combined packs list their manifests in merge order: base, kitten, kokoro.
@@ -71,20 +71,13 @@ function setting(options, key, environmentKey) {
   return options[key] || process.env[environmentKey];
 }
 
-// The host's hotwords: one phrase per line; blank lines and # comments are skipped.
-async function readHotwordsFile(filePath) {
-  if (!filePath) return [];
-  return (await readFile(path.resolve(filePath), "utf8")).split("\n")
-    .map(line => line.trim())
-    .filter(line => line && !line.startsWith("#"));
-}
-
-// The host's spellings: one "spoken phrase => Written form" per line.
-async function readSpellingsFile(filePath) {
-  if (!filePath) return {};
+// A host's hotwords (one per line) or spellings ("spoken phrase => Written
+// form" per line) file; a refusal names the file and line.
+async function readRecognitionFile(filePath, parse, none) {
+  if (!filePath) return none;
   const file = path.resolve(filePath);
   try {
-    return parseRecognitionSpellings(await readFile(file, "utf8"));
+    return parse(await readFile(file, "utf8"));
   } catch (error) {
     if (error instanceof TypeError) throw new TypeError(`${file}: ${error.message}`);
     throw error;
@@ -165,8 +158,8 @@ async function runVoiceCli(argv = process.argv.slice(2), { createEngine = create
   const engine = await createEngine({
     modelsRoot,
     configuration: { ...configuration, recognitionVocabulary: configuration.recognitionVocabulary ?? recognitionVocabulary },
-    hotwords: await readHotwordsFile(setting(options, "hotwords-file", "JSKIT_VOICE_HOTWORDS_FILE")),
-    spellings: await readSpellingsFile(setting(options, "spellings-file", "JSKIT_VOICE_SPELLINGS_FILE")),
+    hotwords: await readRecognitionFile(setting(options, "hotwords-file", "JSKIT_VOICE_HOTWORDS_FILE"), parseRecognitionHotwords, []),
+    spellings: await readRecognitionFile(setting(options, "spellings-file", "JSKIT_VOICE_SPELLINGS_FILE"), parseRecognitionSpellings, {}),
     recognitionWorkers: positiveInteger(setting(options, "recognition-workers", "JSKIT_VOICE_RECOGNITION_WORKERS"), workers),
     synthesisWorkers: positiveInteger(setting(options, "synthesis-workers", "JSKIT_VOICE_SYNTHESIS_WORKERS"), workers),
     recognizerActivePaths: positiveInteger(setting(options, "stt-active-paths", "JSKIT_VOICE_STT_ACTIVE_PATHS"), 16),
