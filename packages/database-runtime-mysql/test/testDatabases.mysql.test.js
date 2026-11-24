@@ -16,6 +16,7 @@ import {
   RUN_SETTINGS_FILE,
   countQueries,
   countRuntimeQueries,
+  createPackageTestKnex,
   matchesSnapshot,
   prepareTestDatabases,
   restoreTestDatabase,
@@ -340,6 +341,37 @@ test("countQueries() counts a MySQL or MariaDB path's statements, its transactio
   assert.deepEqual([together.count, together.result.length], [1, 30]);
   const transaction = await countQueries(db, () => db.transaction((trx) => trx("books").count({ books: "*" })));
   assert.deepEqual(transaction.queries, ["BEGIN;", "select count(*) as `books` from `books`", "COMMIT;"]);
+});
+
+test("createPackageTestKnex() on a mysql2 run gives each package test a MySQL or MariaDB database of its own, dropped after it", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const environment = { ...process.env, DB_CLIENT: "mysql2" };
+  const { connection } = createKnexMigrationConfig({ client: "mysql2", environment, appRoot: os.tmpdir() });
+  const server = knex({ client: "mysql2", connection: { ...connection, database: undefined } });
+  context.after(() => server.destroy());
+  const exists = async (database) => (await server("information_schema.schemata").where("schema_name", database).pluck("schema_name")).length > 0;
+  const made = [];
+  await context.test("two package tests' Knexes at once", async (t) => {
+    const knexes = await Promise.all([createPackageTestKnex(t, { environment }), createPackageTestKnex(t, { environment })]);
+    for (const [index, db] of knexes.entries()) {
+      assert.equal(db.client.config.client, "mysql2");
+      const [[database]] = await db.raw("SELECT DATABASE() AS name, @@character_set_database AS charset, @@collation_database AS collation");
+      assert.match(database.name, new RegExp(`^${process.env.TEST_DB_NAME}_t[0-9a-f]{8}$`, "u"));
+      assert.deepEqual([database.charset, database.collation], ["utf8mb4", "utf8mb4_unicode_ci"]);
+      made.push(database.name);
+      // The same table in each: they share nothing.
+      await db.schema.createTable("notes", (table) => { table.bigIncrements("id"); table.string("title"); });
+      await db("notes").insert({ title: `note ${index}` });
+    }
+    assert.equal(new Set(made).size, 2);
+    assert.deepEqual(await Promise.all(knexes.map((db) => db("notes").select("id", "title"))), [
+      [{ id: "1", title: "note 0" }],
+      [{ id: "1", title: "note 1" }]
+    ]);
+    for (const database of made) assert.equal(await exists(database), true);
+  });
+  for (const database of made) assert.equal(await exists(database), false, `${database} was dropped after its test`);
 });
 
 test("countRuntimeQueries() sees a route of a server booted in the test read per row, at 10 rows and at 200", {

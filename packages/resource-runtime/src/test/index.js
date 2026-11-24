@@ -12,11 +12,28 @@ import { expectScoped } from "./expectScoped.js";
 // Tables every migrated database has that no feature owns: the migration ledger.
 const MIGRATION_TABLES = Object.freeze(["knex_migrations", "knex_migrations_lock"]);
 
+// The owned resources' names, each after the ones its belongsTo fields name among them, so MySQL, MariaDB and
+// PostgreSQL, which check a foreign key as its table is created, find the table it references. A cycle keeps the
+// order the resources were owned in.
+function inCreationOrder(resources) {
+  const pending = new Map(resources.map((resource) => [resource.name, resource]));
+  const waits = (resource) => Object.values(resource.schema)
+    .some(({ belongsTo }) => belongsTo !== resource.name && pending.has(belongsTo));
+  const ordered = [];
+  while (pending.size > 0) {
+    const next = [...pending.values()].find((resource) => !waits(resource)) ?? pending.values().next().value;
+    pending.delete(next.name);
+    ordered.push(next.name);
+  }
+  return ordered;
+}
+
 /**
  * A resource runtime on the test's own Knex, for a package test that owns
  * tables without booting a server: `runtime.own(featureId, owns)` answers handles.
  * With `createTables`, own() also creates each owned table from its resource's
- * schema, for a SQLite test whose shipped migrations are written for another database.
+ * schema, each after the tables its belongs-to fields reference, for a test whose
+ * shipped migrations it does not run (on SQLite, they are written for another database).
  * `hostHooks` are json-rest-api hooks the test installs on the runtime's host,
  * such as an afterCommit that fails on request.
  * @param {object} options
@@ -40,7 +57,7 @@ async function createTestResourceRuntime({ knex, logger = silentLogger, requestR
     ...runtime,
     async own(featureId, owns, options) {
       const handles = await runtime.own(featureId, owns, options);
-      for (const name of Object.keys(handles)) {
+      for (const name of inCreationOrder(Object.keys(handles).map((owned) => runtime.tableResource(owned)))) {
         await api.resources[name].createKnexTable();
       }
       return handles;

@@ -1978,11 +1978,17 @@ nothing never passes: "The path sent no statement at any size" means pass
 
 A package's own data test that creates its tables in the test takes its Knex
 from `createPackageTestKnex(t, { environment: process.env })` (from
-`@jskit-ai/resource-runtime/test`): an in-memory SQLite database, or on a
-`DB_CLIENT=pg` run a schema of the test's own in `TEST_DB_NAME`, dropped after
-it. The same file then proves its locks, many-row writes and upserts on
-PostgreSQL too; compare counts with `Number()` (PostgreSQL answers them as
-strings) and ids with `String()`.
+`@jskit-ai/resource-runtime/test`), on the run's `DB_CLIENT`: an in-memory
+SQLite database when it is neither `pg` nor `mysql2`; on `pg` a schema of the
+test's own in `TEST_DB_NAME`; on `mysql2` a MySQL or MariaDB database of the
+test's own, `<TEST_DB_NAME>_t` and 8 hex digits, made as the run's test
+databases are. Either is dropped after the test, so files run at once, on
+MySQL and MariaDB as on SQLite, and an application on MySQL or MariaDB needs
+no SQLite driver. There the database user needs `CREATE` and `DROP` on the
+databases named after `TEST_DB_NAME` (`` `<TEST_DB_NAME>\_%`.* ``), as its
+numbered copies do. The same file then proves its locks, many-row writes and
+upserts on PostgreSQL, MySQL and MariaDB too; compare counts with `Number()`
+(PostgreSQL answers them as strings) and ids with `String()`.
 
 `createTestResourceRuntime({ knex })` gives a test the resource runtime its
 features own their tables through: `runtime.own(featureId, [resource])`

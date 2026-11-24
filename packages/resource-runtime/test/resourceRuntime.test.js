@@ -21,7 +21,7 @@ import { isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createPackageTestKnex, createTestResourceRuntime } from "../src/test/index.js";
 
-// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+// SQLite in memory, or on a DB_CLIENT=pg or mysql2 run a schema or database of its own (see createPackageTestKnex).
 const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const WORKSPACE_A = Object.freeze({ workspace: { id: "1" } });
@@ -56,6 +56,8 @@ async function createFixture(t, { requestRowLimit, owns = [noteResource()] } = {
     table.string("title").notNullable();
     table.string("status").notNullable().defaultTo("open");
     table.integer("lock_version").notNullable().defaultTo(0);
+    // An index that reads a workspace's rows in id order, which lockWhere and lockPages need on MySQL and MariaDB.
+    table.index(["workspace_id"], "notes_workspace");
   });
   const runtime = await createTestResourceRuntime({ knex, requestRowLimit });
   const resources = await runtime.own("notes.feature", owns);
@@ -1961,6 +1963,8 @@ async function createVisitFixture(t) {
     table.string("internal_code");
     table.string("reviewer");
     table.integer("lock_version").notNullable().defaultTo(0);
+    // An index that reads a workspace's rows in id order, which lockWhere and lockPages need on MySQL and MariaDB.
+    table.index(["workspace_id"], "visits_workspace");
   });
   await knex("customers").insert({ workspace_id: 1, name: "Ada" });
   await knex("vets").insert({ name: "Grace" });
@@ -1994,11 +1998,13 @@ async function createVisitFixture(t) {
     { customerId: "1", vetId: "1", stage: "new", internalCode: "k1", reviewer: "lee" },
     { customerId: "1", vetId: "1", stage: "new", internalCode: "k2" }
   ], { ...options, returning: "ids" });
-  // The tables each SELECT reads, in order.
+  // The tables each SELECT reads, in order. On MySQL and MariaDB json-rest-api first reads the connection's schema
+  // name and the table's indexes (select database(), information_schema), once, which reads no row of a table here.
   const selects = async (work) => (await countQueries(knex, work)).queries
-    .filter((sql) => /^select/iu.test(sql))
+    .filter((sql) => /^select/iu.test(sql) && !/^select database\(\)|\binformation_schema\./iu.test(sql))
     .map((sql) => [...sql.matchAll(/from [`"](\w+)[`"]/gu)].map(([, table]) => table)[0]);
-  return { visits: handles.visits, options, ids: created, selects, postgres: knex.client.config.client === "pg" };
+  const client = knex.client.config.client;
+  return { visits: handles.visits, options, ids: created, selects, postgres: client === "pg", mysql: client === "mysql2" };
 }
 
 test("a read whose list filter is an empty list answers nothing without a statement, as a read that matches no row does", async (t) => {
@@ -2047,10 +2053,13 @@ test("a read whose list filter is an empty list answers nothing without a statem
 });
 
 test("lock, lockMany, lockWhere and claim read only the fields they name, so a relation left out costs no visibility check", async (t) => {
-  const { visits, options, ids, selects, postgres } = await createVisitFixture(t);
+  const { visits, options, ids, selects, postgres, mysql } = await createVisitFixture(t);
   let locked;
   // PostgreSQL's lockWhere reads once more under the locks it took, for rows that started to match while it waited.
   const lockWhereReads = postgres ? ["visits", "visits"] : ["visits"];
+  // MySQL's and MariaDB's claim reads the candidates' ids in order without a lock, then locks the first it can (SKIP
+  // LOCKED) and reads its fields under that lock, since a locking read there holds every row it examines.
+  const claimReads = mysql ? ["visits", "visits", "visits"] : ["visits"];
   // Every field: the locking read, then one visibility check per related type.
   assert.deepEqual(await selects(() => visits.withTransaction(options, (tx) => visits.lock(ids[0], tx))), ["visits", "customers", "vets"]);
   assert.deepEqual(await selects(() => visits.withTransaction(options, async (tx) => {
@@ -2066,10 +2075,10 @@ test("lock, lockMany, lockWhere and claim read only the fields they name, so a r
     locked = await visits.lockWhere({ id: ids }, { ...tx, fields: ["stage"] });
   })), lockWhereReads);
   assert.deepEqual(locked, ids.map((id) => ({ id, stage: "new" })));
-  assert.deepEqual(await selects(() => visits.withTransaction(options, (tx) => visits.claim({ filters: { id: ids } }, tx))), ["visits", "customers", "vets"]);
+  assert.deepEqual(await selects(() => visits.withTransaction(options, (tx) => visits.claim({ filters: { id: ids } }, tx))), [...claimReads, "customers", "vets"]);
   assert.deepEqual(await selects(() => visits.withTransaction(options, async (tx) => {
     locked = await visits.claim({ filters: { id: ids }, take: 1 }, { ...tx, fields: ["stage", "vetId"] });
-  })), ["visits", "vets"]);
+  })), [...claimReads, "vets"]);
   assert.deepEqual(locked, [{ id: ids[0], stage: "new", vetId: "1" }]);
 });
 

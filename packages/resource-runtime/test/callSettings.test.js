@@ -4,7 +4,7 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 import { passedOn } from "../src/server/index.js";
 import { createPackageTestKnex, createTestResourceRuntime } from "../src/test/index.js";
 
-// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+// SQLite in memory, or on a DB_CLIENT=pg or mysql2 run a schema or database of its own (see createPackageTestKnex).
 const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 // A call's settings (returning, missing, format, lockVersion...) are for that one call. What it hands on, to the work

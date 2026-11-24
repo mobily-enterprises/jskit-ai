@@ -4,9 +4,10 @@ import knexFactory from "knex";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
 import { createPackageTestKnex, createTestResourceRuntime, expectEveryTableOwned, expectFlatQueries, expectScoped, startTestFeatures, TestDatabaseMissingError } from "../src/test/index.js";
 
-// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+// SQLite in memory, or on a DB_CLIENT=pg or mysql2 run a schema or database of its own (see createPackageTestKnex).
 const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const environment = Object.freeze({ TEST_DB_NAME: "catalogue_test" });
@@ -264,6 +265,30 @@ test("expectScoped() reads back only the other owner's rows, so a table past que
     run: (owner) => books.queryAll({}, owner)
   });
   assert.deepEqual(result.map(({ title }) => title).sort(), ["a", "b"]);
+});
+
+test("createTables creates each owned table after the tables its belongs-to fields reference, as a foreign key needs", async (t) => {
+  const knex = await testKnex(t);
+  const runtime = await createTestResourceRuntime({ knex, createTables: true });
+  const visits = defineTableResource({
+    name: "visits",
+    tableName: "visits",
+    ownership: "public",
+    schema: {
+      id: { type: "id", primary: true },
+      petId: { type: "id", belongsTo: "pets", as: "pet", storage: { column: "pet_id" } }
+    }
+  });
+  const pets = defineTableResource({
+    name: "pets",
+    tableName: "pets",
+    ownership: "public",
+    schema: { id: { type: "id", primary: true }, ownerId: { type: "id", belongsTo: "owners", as: "owner", storage: { column: "owner_id" } } }
+  });
+  const owners = defineTableResource({ name: "owners", tableName: "owners", ownership: "public", schema: { id: { type: "id", primary: true } } });
+  const { queries } = await countQueries(knex, () => runtime.own("clinic.feature", [visits, pets, owners]));
+  const created = queries.map((sql) => /^create table [`"]?(\w+)/iu.exec(sql)?.[1]).filter(Boolean);
+  assert.deepEqual(created, ["owners", "pets", "visits"]);
 });
 
 test("expectEveryTableOwned() names each table no feature owns", async (t) => {

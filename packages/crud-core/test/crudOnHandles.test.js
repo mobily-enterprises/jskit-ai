@@ -13,7 +13,7 @@ import { CrudContractsProvider, createCrudContracts } from "../src/server/crudCo
 import { defineCrudFeature } from "../src/server/defineCrudFeature.js";
 import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
 
-// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+// SQLite in memory, or on a DB_CLIENT=pg or mysql2 run a schema or database of its own (see createPackageTestKnex).
 const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const WORKSPACE_ONE = Object.freeze({ scopeValues: Object.freeze({ workspaceId: "1" }) });

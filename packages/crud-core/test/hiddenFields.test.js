@@ -6,7 +6,7 @@ import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudCont
 import { defineCrudFeature } from "../src/server/defineCrudFeature.js";
 import { CrudContractsProvider } from "../src/server/crudContracts.js";
 
-// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+// SQLite in memory, or on a DB_CLIENT=pg or mysql2 run a schema or database of its own (see createPackageTestKnex).
 const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 test("a CRUD feature's repository reads a hidden field of its table only in a system context; its owner's methods read it", async (t) => {

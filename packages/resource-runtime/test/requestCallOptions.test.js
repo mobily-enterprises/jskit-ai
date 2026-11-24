@@ -112,7 +112,7 @@ function fastifyStub() {
 }
 
 test("a hand route's callOptions() scope user, workspace and workspace_user tables as the same request's action", async (t) => {
-  // SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+  // SQLite in memory, or on a DB_CLIENT=pg or mysql2 run a schema or database of its own (see createPackageTestKnex).
   const knex = await createPackageTestKnex(t, { environment: process.env });
   for (const [table, columns] of [["bookmarks", ["user_id"]], ["notes", ["workspace_id"]], ["pins", ["workspace_id", "user_id"]]]) {
     await knex.schema.createTable(table, (builder) => {

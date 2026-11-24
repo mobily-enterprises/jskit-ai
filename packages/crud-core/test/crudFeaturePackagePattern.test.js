@@ -4,7 +4,7 @@ import test from "node:test";
 import { createPackageTestKnex, createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { bookCrud, bookResource } from "../patterns/crud-feature-package/example/packages/books/src/shared/bookResource.js";
 
-// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+// SQLite in memory, or on a DB_CLIENT=pg or mysql2 run a schema or database of its own (see createPackageTestKnex).
 const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const providerPath = new URL(

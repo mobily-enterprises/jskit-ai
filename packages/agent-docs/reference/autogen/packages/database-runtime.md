@@ -107,6 +107,8 @@ Local functions
 - `dialectOf(knexConfig)`
 - `refusedPrivilege(error)`
 - `recordStatements(listen, work)`
+- `dropPackageTestData(knex, admin, statement, name)`
+- `createMysqlPackageTestKnex(context, knexFactory, environment)`
 
 ### `src/server/types.js`
 Exports

@@ -4,7 +4,7 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 import { isDuplicateEntryError, retryLostInsertRace } from "@jskit-ai/database-runtime/shared";
 import { createPackageTestKnex, createTestResourceRuntime } from "../src/test/index.js";
 
-// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+// SQLite in memory, or on a DB_CLIENT=pg or mysql2 run a schema or database of its own (see createPackageTestKnex).
 const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const WORKSPACE_A = Object.freeze({ workspace: { id: "1" } });

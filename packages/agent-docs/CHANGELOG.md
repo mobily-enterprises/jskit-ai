@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The data access guide says `createPackageTestKnex` follows the run's `DB_CLIENT`: SQLite in memory, a PostgreSQL schema on `pg`, and on `mysql2` a MySQL or MariaDB database of the test's own named after `TEST_DB_NAME`, dropped after it, with the grant the database user needs.
 - The client requests heuristic says a failure shows once: `useList()`, `useView()` and `useAddEdit()` show their read's failure on their screen, so shell-web's request recovery banner leaves their queries out unless `requestRecovery` asks for it (a lookup's options), and a hand-written query whose component shows its own load error with Retry sets `meta.jskit.requestRecovery = false`.
 - The application shell pattern says `ShellErrorHost`'s banners below a top app bar are a top layout item of their own height, so `v-main` starts the content below them and they never cover it.
 - Where the host provides a managed browser runner, the UI testing heuristic, the UI operations guide, the skill and the Upgrade guide's timed full run say every Playwright suite runs through it from the first run, never through `npx playwright test`, `playwright test` or a package script such as `npm run test:e2e`, before they show any direct command; the heuristic's direct example is for a machine with no managed runner, its managed-host section no longer shows a `PLAYWRIGHT_STORAGE_STATE=… playwright test` launch to copy, and its index adds those commands as keywords. Both foundations' example `AGENTS.md`, which every new application copies, say the same.

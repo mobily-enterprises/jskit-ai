@@ -6,7 +6,7 @@ import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
 import { withoutHiddenFields } from "../src/server/index.js";
 import { createPackageTestKnex, createTestResourceRuntime } from "../src/test/index.js";
 
-// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+// SQLite in memory, or on a DB_CLIENT=pg or mysql2 run a schema or database of its own (see createPackageTestKnex).
 const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const WORKSPACE_A = Object.freeze({ workspace: { id: "1" } });
@@ -23,6 +23,8 @@ async function createCardFixture(t) {
     table.boolean("sent");
     table.integer("views");
     table.dateTime("issued_at");
+    // An index that reads a workspace's rows in id order, which lockWhere and lockPages need on MySQL and MariaDB.
+    table.index(["workspace_id"], "cards_workspace");
   });
   await knex("cards").insert([
     { workspace_id: 1, title: "Rex", public_token: "t1", sent: 1, views: 3 },

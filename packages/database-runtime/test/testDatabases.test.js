@@ -58,12 +58,21 @@ test("a test database and its copies are never the application's database, stagi
     /PRODUCTION_DB_NAME \(catalogue_test_1\)/u);
 });
 
-test("package data tests on PostgreSQL never run in staging or production, before any connection", async (context) => {
-  for (const APP_ENV of ["staging", "production"]) {
-    await assert.rejects(
-      createPackageTestKnex(context, { environment: { ...connectionEnvironment, DB_CLIENT: "pg", APP_ENV, NODE_ENV: "production" } }),
-      { message: `Package data tests never run when APP_ENV is ${APP_ENV}.` }
-    );
+test("package data tests on PostgreSQL, MySQL and MariaDB never run in staging or production, before any connection", async (context) => {
+  for (const DB_CLIENT of ["pg", "mysql2"]) {
+    for (const APP_ENV of ["staging", "production"]) {
+      await assert.rejects(
+        createPackageTestKnex(context, { environment: { ...connectionEnvironment, DB_CLIENT, APP_ENV, NODE_ENV: "production" } }),
+        { message: `Package data tests never run when APP_ENV is ${APP_ENV}.` }
+      );
+    }
+  }
+});
+
+test("a package data test on PostgreSQL, MySQL or MariaDB without TEST_DB_NAME fails before any connection", async (context) => {
+  for (const DB_CLIENT of ["pg", "mysql2"]) {
+    await assert.rejects(createPackageTestKnex(context, { environment: { ...connectionEnvironment, DB_CLIENT } }), (error) =>
+      error instanceof TestDatabaseMissingError && error.message === "TEST_DB_NAME is not set; data tests never skip.");
   }
 });
 
