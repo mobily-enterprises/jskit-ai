@@ -441,10 +441,10 @@ test("a host's hotwords are added to the prepared pack's, each phrase once, and 
   }, "the engine refuses by the rule a host checks with parseRecognitionHotwords");
 });
 
-test("each synthesis worker keeps its model, and replies for different models run at once", async t => {
+test("each synthesis worker keeps its model, replies for different models run at once, and a reply goes to the worker that has its model", async t => {
   const loads = [];
   const running = [];
-  const finishes = [];
+  const finishes = new Map();
   const engine = await createSherpaSpeechEngine({
     recognitionWorkers: 1,
     synthesisWorkers: 2,
@@ -457,22 +457,30 @@ test("each synthesis worker keeps its model, and replies for different models ru
       loads.push(config.id);
       let alive = true;
       return { sampleRate: 22050, numSpeakers: 1, get running() { return alive; }, async close() { alive = false; },
-        synthesize(text) { running.push(`${config.id}:${text}`); return new Promise(resolve => finishes.push(() => resolve({ sampleRate: 22050 }))); } };
+        synthesize(text) { running.push(`${config.id}:${text}`); return new Promise(resolve => finishes.set(text, () => resolve({ sampleRate: 22050 }))); } };
     }
   });
   t.after(() => engine.close());
+  const started = async count => {
+    for (let tries = 0; tries < 50 && running.length < count; tries += 1) await new Promise(resolve => setImmediate(resolve));
+  };
   assert.deepEqual(loads, ["b", "a", "a"], "one worker checks every model, finishing with the default; the other loads the default");
-  const both = [engine.synthesize("one", { voiceId: "b" }), engine.synthesize("two", { voiceId: "a" })];
-  for (let tries = 0; tries < 20 && running.length < 2; tries += 1) await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(running.sort(), ["a:two", "b:one"], "two workers synthesize at once");
-  for (const finish of finishes.splice(0)) finish();
-  await Promise.all(both);
-  const loadsAfterBoth = loads.length;
-  const again = [engine.synthesize("three", { voiceId: "a" }), engine.synthesize("four", { voiceId: "b" })];
-  for (let tries = 0; tries < 20 && running.length < 4; tries += 1) await new Promise(resolve => setImmediate(resolve));
-  for (const finish of finishes.splice(0)) finish();
-  await Promise.all(again);
-  assert.equal(loads.length, loadsAfterBoth, "a reply goes to the worker that already has its model");
+  const one = engine.synthesize("one", { voiceId: "b" });
+  const two = engine.synthesize("two", { voiceId: "a" });
+  await started(2);
+  assert.deepEqual([...running].sort(), ["a:two", "b:one"], "two workers synthesize at once");
+  // The worker that now has b finishes first, so the one with a was used last.
+  finishes.get("one")();
+  await one;
+  finishes.get("two")();
+  await two;
+  const loadsBefore = loads.length;
+  const three = engine.synthesize("three", { voiceId: "a" });
+  await started(3);
+  finishes.get("three")();
+  await three;
+  assert.equal(running.at(-1), "a:three");
+  assert.equal(loads.length, loadsBefore, "the reply goes to the idle worker that has its model, not the one idle longest");
   assert.deepEqual(engine.concurrency, { recognition: 1, synthesis: 2 });
 });
 

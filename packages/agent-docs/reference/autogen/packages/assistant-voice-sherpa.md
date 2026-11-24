@@ -23,8 +23,7 @@ Local functions
 - `requiredOption(options, key, environmentKey = "")`
 - `positiveInteger(value, fallback)`
 - `setting(options, key, environmentKey)`
-- `readHotwordsFile(filePath)`
-- `readSpellingsFile(filePath)`
+- `readRecognitionFile(filePath, parse, none)`
 - `usage()`
 
 ### `src/index.js`
@@ -66,8 +65,6 @@ Exports
 Local functions
 - `workerCount(value, name)`
 - `installedVersion(packageName)`
-- `hotwordLine(value)`
-- `addedHotwords(hotwords)`
 - `hotwordLines(baseFile, added)`
 - `recognitionModelId(root)`
 - `closeAll(resources)`
