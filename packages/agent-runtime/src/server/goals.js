@@ -270,14 +270,24 @@ export function createGoals({
   }
 
   let running = null;
+  // Asked while it runs (a round queued, another server's notice): it looks again before it ends.
+  let again = false;
   function runDue() {
-    if (running) return running;
+    if (running) {
+      again = true;
+      return running;
+    }
+    again = false;
     running = (async () => {
       try {
         for (let count = 0; count < 100 && !handingOver; count += 1) {
           const goal = await goals.claimDue(limits.leaseSeconds);
-          if (!goal) break;
-          await round(goal);
+          if (goal) {
+            await round(goal);
+            continue;
+          }
+          if (!again) break;
+          again = false;
         }
       } catch (error) {
         console.error(`Goals: ${error?.message || error}`);
