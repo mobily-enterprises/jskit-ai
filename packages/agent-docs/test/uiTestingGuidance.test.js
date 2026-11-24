@@ -298,6 +298,11 @@ test("a managed browser runner runs every Playwright suite, said before any dire
     "skills/jskit/SKILL.md",
     "site/guide/app-setup/upgrading-jskit.md",
     "guide/agent/app-setup/upgrading-jskit.md",
+    // Every new application copies its foundation's AGENTS.md, which its AI reads first.
+    "patterns/minimal-foundation/example/AGENTS.md",
+    "patterns/shell-foundation/example/AGENTS.md",
+    "skills/jskit/references/patterns/app/minimal-foundation/example/AGENTS.md",
+    "skills/jskit/references/patterns/app/shell-foundation/example/AGENTS.md",
   ];
 
   for (const relativePath of relativePaths) {
