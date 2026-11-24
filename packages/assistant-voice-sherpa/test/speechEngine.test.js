@@ -435,6 +435,10 @@ test("a host's hotwords are added to the prepared pack's, each phrase once, and 
   for (const hotwords of [["semi;colon"], ["a".repeat(101)], [""], "MERCBOT", Array.from({ length: 1001 }, (_, index) => `WORD ${index}`)]) {
     await assert.rejects(createSherpaSpeechEngine({ ...options, hotwords }), /Hotword/u);
   }
+  await assert.rejects(createSherpaSpeechEngine({ ...options, hotwords: ["Mercbot", "Vibe64.com"] }), {
+    name: "TypeError",
+    message: 'Hotword "Vibe64.com": "." is not allowed; a hotword is 1 to 100 letters, digits, apostrophes and spaces, with an optional " :SCORE".'
+  }, "the engine refuses by the rule a host checks with parseRecognitionHotwords");
 });
 
 test("each synthesis worker keeps its model, and replies for different models run at once", async t => {

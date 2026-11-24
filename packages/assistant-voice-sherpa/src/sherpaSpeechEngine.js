@@ -9,6 +9,8 @@ import { createSynthesisProcess, SYNTHESIS_REQUEST_TIMEOUT_MS } from "./synthesi
 import {
   VOICE_ID_PATTERN,
   VOICE_INPUT_SAMPLE_RATE,
+  recognitionHotword,
+  recognitionHotwords,
   recognitionSpellingCount,
   recognitionSpellings
 } from "@jskit-ai/assistant-voice/shared/protocol";
@@ -16,8 +18,6 @@ import {
 const require = createRequire(import.meta.url);
 const PACKAGE_VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const MAXIMUM_WORKERS = 64;
-const MAXIMUM_ADDED_HOTWORDS = 1000;
-const HOTWORD_PATTERN = /^([A-Za-z0-9' ]{1,100}?)(?: +:(\d{1,2}(?:\.\d{1,3})?))?$/u;
 
 function positiveThreadCount(value, fallback = 1) {
   const count = Number.parseInt(String(value || ""), 10);
@@ -49,28 +49,6 @@ function installedVersion(packageName) {
   }
 }
 
-// A hotword line's words and optional score, in the upper case the recognizer's
-// tokens use; the score keeps its spelling.
-function hotwordLine(value) {
-  const match = HOTWORD_PATTERN.exec(String(value ?? "").trim().replace(/\s+/gu, " "));
-  if (!match || !match[1].trim()) return null;
-  const words = match[1].trim().toUpperCase();
-  return { words, line: match[2] ? `${words} :${match[2]}` : words };
-}
-
-function addedHotwords(hotwords) {
-  if (!Array.isArray(hotwords) || hotwords.length > MAXIMUM_ADDED_HOTWORDS) {
-    throw new TypeError(`Hotwords must be a list of at most ${MAXIMUM_ADDED_HOTWORDS} phrases.`);
-  }
-  return hotwords.map(value => {
-    const hotword = hotwordLine(value);
-    if (!hotword) {
-      throw new TypeError(`Hotword ${JSON.stringify(String(value).slice(0, 80))} must be up to 100 letters, digits, apostrophes and spaces, with an optional " :SCORE".`);
-    }
-    return hotword;
-  });
-}
-
 // JSKIT's hotwords from the prepared pack, kept as written, then the host's,
 // each phrase once.
 async function hotwordLines(baseFile, added) {
@@ -79,7 +57,7 @@ async function hotwordLines(baseFile, added) {
     throw error;
   }) : "";
   const prepared = base.split("\n").map(line => line.trim()).filter(Boolean)
-    .map(line => ({ words: hotwordLine(line)?.words ?? line, line }));
+    .map(line => ({ words: recognitionHotword(line)?.words ?? line, line }));
   const seen = new Set();
   const lines = [];
   for (const hotword of [...prepared, ...added]) {
@@ -147,7 +125,7 @@ async function createSherpaSpeechEngine({
     ...Object.fromEntries(Object.entries(configuredVocabulary).map(([phrase, spelling]) => [phrase.trim().replace(/\s+/gu, " ").toLowerCase(), spelling])),
     ...recognitionSpellings(spellings)
   });
-  const added = addedHotwords(hotwords);
+  const added = recognitionHotwords(hotwords).map(recognitionHotword);
   const outputSampleRate = configuration.outputSampleRate;
   if (outputSampleRate !== undefined && (!Number.isInteger(outputSampleRate) || outputSampleRate < 8000 || outputSampleRate > 48000)) {
     throw new TypeError("Output sample rate must be an integer between 8000 and 48000 Hz.");

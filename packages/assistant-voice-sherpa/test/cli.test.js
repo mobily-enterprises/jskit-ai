@@ -43,14 +43,24 @@ test("serve requires a credentials file before it loads an engine", async t => {
   }), /requires --credentials-file/u);
 });
 
-test("serve refuses a spellings file it cannot read as spellings, naming the file and line, before it loads an engine", async t => {
+test("serve refuses a hotwords or spellings file it cannot read, naming the file and line, before it loads an engine", async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-cli-"));
   t.after(() => rm(root, { force: true, recursive: true }));
   const spellingsFile = path.join(root, "spellings.txt");
   await writeFile(spellingsFile, "vibe sixty four => Vibe64\nmerc = Merc\n");
-  await assert.rejects(runVoiceCli(["serve", "--models-root", root, "--credentials-file", path.join(root, "credentials.json"), "--spellings-file", spellingsFile], {
-    createEngine: () => assert.fail("No engine loads with a bad spellings file.")
-  }), { name: "TypeError", message: `${spellingsFile}: Spellings line 2 must read "spoken phrase => Written form".` });
+  const hotwordsFile = path.join(root, "hotwords.txt");
+  await writeFile(hotwordsFile, "Mercbot\nVibe64.com\n");
+  const serve = extra => runVoiceCli(["serve", "--models-root", root, "--credentials-file", path.join(root, "credentials.json"), ...extra], {
+    createEngine: () => assert.fail("No engine loads with a bad hotwords or spellings file.")
+  });
+  await assert.rejects(serve(["--spellings-file", spellingsFile]),
+    { name: "TypeError", message: `${spellingsFile}: Spellings line 2 must read "spoken phrase => Written form".` });
+  await assert.rejects(serve(["--hotwords-file", hotwordsFile]), {
+    name: "TypeError",
+    message: `${hotwordsFile}: Hotwords line 2: Hotword "Vibe64.com": "." is not allowed; a hotword is 1 to 100 letters, digits, apostrophes and spaces, with an optional " :SCORE".`
+  });
+  assert.throws(() => createStandInSpeechEngine({ hotwords: ["Vibe64.com"] }), /^TypeError: Hotword "Vibe64\.com": "\." is not allowed/u,
+    "the stand-in refuses a hotword as the native engine does");
 });
 
 test("serve runs the real daemon on a host's engine, with its credentials file, hotwords, spellings and worker counts", async t => {
@@ -83,7 +93,7 @@ test("serve runs the real daemon on a host's engine, with its credentials file, 
     });
   });
   t.after(() => service.close());
-  assert.deepEqual(engineOptions.hotwords, ["Mercbot", "VIBE SIXTY FOUR :2"]);
+  assert.deepEqual(engineOptions.hotwords, ["MERCBOT", "VIBE SIXTY FOUR :2"]);
   assert.deepEqual(engineOptions.spellings, { "vibe sixty four": "Vibe64", merc: "Merc", "j s kit": "J.S. Kit" });
   const listening = engine.createListeningSession();
   listening.acceptPcm(Buffer.alloc(320));

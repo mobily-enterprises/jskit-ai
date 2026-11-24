@@ -248,6 +248,10 @@ const BUILT_IN_RECOGNITION_WORD_PATTERN = new RegExp(
   "giu"
 );
 
+const MAXIMUM_RECOGNITION_HOTWORDS = 1000;
+const MAXIMUM_HOTWORD_CHARACTERS = 100;
+const HOTWORD_PATTERN = /^([A-Za-z0-9' ]{1,100}?)(?: +:(\d{1,2}(?:\.\d{1,3})?))?$/u;
+const HOTWORD_RULE = 'a hotword is 1 to 100 letters, digits, apostrophes and spaces, with an optional " :SCORE"';
 const MAXIMUM_RECOGNITION_SPELLINGS = 1000;
 const MAXIMUM_SPELLING_CHARACTERS = 100;
 const SPOKEN_PHRASE_PATTERN = /^[a-z0-9'](?:[a-z0-9' ]{0,98}[a-z0-9'])?$/u;
@@ -332,6 +336,74 @@ function parseRecognitionSpellings(text = "") {
     }
   }
   return Object.freeze(spellings);
+}
+
+/**
+ * A hotword's words, in the upper case the recognizer's tokens use, and its line
+ * as the recognizer reads it (the optional score keeps its spelling), or null
+ * when it is not a hotword.
+ * @param {string} value
+ * @returns {{ words: string, line: string } | null}
+ */
+function recognitionHotword(value = "") {
+  const match = HOTWORD_PATTERN.exec(String(value ?? "").trim().replace(/\s+/gu, " "));
+  if (!match || !match[1].trim()) return null;
+  const words = match[1].trim().toUpperCase();
+  return { words, line: match[2] ? `${words} :${match[2]}` : words };
+}
+
+// Why a phrase is not a hotword, in words a host can act on.
+function hotwordRefusal(value) {
+  const text = String(value ?? "").trim().replace(/\s+/gu, " ");
+  const scored = /^(.*?) +:(\S*)$/u.exec(text);
+  const words = (scored ? scored[1] : text).trim();
+  const character = /[^A-Za-z0-9' ]/u.exec(words)?.[0];
+  const reason = scored && !/^\d{1,2}(?:\.\d{1,3})?$/u.test(scored[2])
+    ? `the score "${scored[2]}" is not a number below 100 with at most three decimals`
+    : !words ? "it has no words"
+      : character ? `${JSON.stringify(character)} is not allowed`
+        : words.length > MAXIMUM_HOTWORD_CHARACTERS ? `it is ${words.length} characters long` : "it is not a hotword";
+  return `Hotword ${JSON.stringify(text.slice(0, 80))}: ${reason}; ${HOTWORD_RULE}.`;
+}
+
+/**
+ * A host's hotwords checked, at most 1000, as the recognizer reads them: each
+ * one's words in upper case and its optional score.
+ * @param {string[]} value
+ * @returns {readonly string[]}
+ */
+function recognitionHotwords(value = []) {
+  if (!Array.isArray(value) || value.length > MAXIMUM_RECOGNITION_HOTWORDS) {
+    throw new TypeError(`Hotwords must be a list of at most ${MAXIMUM_RECOGNITION_HOTWORDS} phrases.`);
+  }
+  return Object.freeze(value.map(phrase => {
+    const hotword = recognitionHotword(phrase);
+    if (!hotword) throw new TypeError(hotwordRefusal(phrase));
+    return hotword.line;
+  }));
+}
+
+/**
+ * Reads a hotwords file: one hotword per line (1 to 100 letters, digits,
+ * apostrophes and spaces, then optionally " :SCORE"); blank lines and lines
+ * starting with # are skipped. A refusal names its line.
+ * @param {string} text
+ * @returns {readonly string[]} The hotwords as the recognizer reads them.
+ */
+function parseRecognitionHotwords(text = "") {
+  const hotwords = [];
+  for (const [index, raw] of String(text).split("\n").entries()) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const number = index + 1;
+    if (hotwords.length === MAXIMUM_RECOGNITION_HOTWORDS) {
+      throw new TypeError(`Hotwords line ${number}: hotwords are limited to ${MAXIMUM_RECOGNITION_HOTWORDS} phrases.`);
+    }
+    const hotword = recognitionHotword(line);
+    if (!hotword) throw new TypeError(`Hotwords line ${number}: ${hotwordRefusal(line)}`);
+    hotwords.push(hotword.line);
+  }
+  return Object.freeze(hotwords);
 }
 
 // One pattern for a vocabulary's phrases, longest first, made once per vocabulary.
@@ -611,8 +683,11 @@ export {
   float32ToPcm16Le,
   normalizeRecognizedText,
   parseVoiceClientControl,
+  parseRecognitionHotwords,
   parseRecognitionSpellings,
   pcm16LeToFloat32,
+  recognitionHotword,
+  recognitionHotwords,
   recognitionSpellingCount,
   recognitionSpellings,
   speechPauseDurationMs,
