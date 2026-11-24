@@ -455,6 +455,10 @@ async function startCodexHistoryAdapter({ token, codexHome, readHistoryPath = re
   // The built-in OpenAI provider tries WebSocket first. Codex falls back to
   // streaming HTTP after this explicit rejection; HTTP carries full history.
   server.on("upgrade", (_request, socket) => {
+    // Node takes its own error listener off a socket it hands to 'upgrade'. A
+    // peer that resets it (before or while the 426 is written) would otherwise
+    // be an unhandled 'error', which ends the process that runs this adapter.
+    socket.on("error", () => socket.destroy());
     socket.end("HTTP/1.1 426 Upgrade Required\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
   });
   await new Promise((resolve, reject) => {
