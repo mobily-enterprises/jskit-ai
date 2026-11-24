@@ -86,15 +86,18 @@ main-menu destinations show no arrow, a reload keeps the trail, and Save or
 Cancel never leaves the form in it. Find a field by its exact label:
 `page.getByLabel("Email", { exact: true })`.
 
-A managed host owns its browser and may provide
-`PLAYWRIGHT_STORAGE_STATE`; never print or commit that value, bypass it,
-or install another browser. If tests run signed out despite that state, report
-the host defect with evidence and stop; never rewrite its cookies or add a login.
+Where the host provides a managed browser runner, every Playwright suite runs
+through it from the first run, never through `npx playwright test`,
+`playwright test` or a package script such as `npm run test:e2e`. The host owns
+its browser and may provide `PLAYWRIGHT_STORAGE_STATE`; never print or commit
+that value, bypass it, or install another browser. If tests run signed out
+despite that state, report the host defect with evidence and stop; never
+rewrite its cookies or add a login.
 For explicitly enabled direct-local auth, use
 `loginAsExistingUser()` from `@jskit-ai/auth-web/test/playwright`; never expose
 the exchange secret to browser code, URLs, or client environment.
 
-Run the narrow test directly:
+Without a managed runner, run the narrow test directly:
 
 ```bash
 npx playwright test <test-file> -g "<changed behavior>"

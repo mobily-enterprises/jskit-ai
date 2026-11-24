@@ -262,9 +262,12 @@ application:
    (`CREATEDB` on PostgreSQL). Test files read `DB_NAME`/`TEST_DB_NAME` as
    given rather than naming the test database themselves, and no longer
    create, migrate or drop it: the run hands each file a restored copy.
-5. Proves it with a timed full run: `npm test` and `npx playwright test`, every
-   test passing, the time of each before and after recorded, and the slowest
-   tests the run lists read.
+5. Proves it with a timed full run: `npm test` and the whole Playwright suite,
+   every test passing, the time of each before and after recorded, and the
+   slowest tests the run lists read. Where the host provides a managed browser
+   runner, every Playwright suite runs through it from the first run, never
+   through `npx playwright test`, `playwright test` or a package script such
+   as `npm run test:e2e`. Elsewhere the suite is `npx playwright test`.
 
 ## Cache built assets for good
 

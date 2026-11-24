@@ -9,6 +9,7 @@ Use when:
 
 Rules:
 
+- Where the host provides a managed browser runner, every Playwright suite runs through it from the first run, never through `npx playwright test`, `playwright test` or a package script such as `npm run test:e2e`. Do not try a direct start first to see whether it is allowed, and do not install a browser. See Run verification below.
 - Any chunk that adds or changes user-facing UI proves the changed behavior with an automated test before the chunk is done, at the cheapest level that can: a component's content, states and conditional display in a client component test (Vitest); only what needs a real browser (navigation, a flow across screens, layout at the standard widths, focus, the real sign-in) in Playwright.
 - Put a new browser check in the existing spec that already reaches that screen with the data it needs. Add a new spec only for a new flow, using the app's shared server, sign-in and fixture setup. A browser test that pays its own server start, sign-in or seeding to check one card, label or state is not acceptable: every run pays for it for as long as it exists. Move that check to a component test or an existing spec, and report the spec's time and the suite's time before and after.
 - Never wait out the app's own delays (request retries, debounce, polling) in real time, and never change the scenario to skip them: install Playwright's `page.clock` before the page loads and advance it with `page.clock.runFor(...)`, or use Vitest's fake timers in a component test. Change the scenario only when another test already proves the skipped path.
@@ -35,7 +36,6 @@ Rules:
 - A managed runner supplies `PLAYWRIGHT_BASE_URL`. When it is set, JSKIT does not start another app server.
 - Otherwise the config starts the app on `PLAYWRIGHT_PORT`, 4173 by default. A runner that shares a machine between runs sets a free port for each run; with one fixed port, a second run would wait for it or reuse another run's server.
 - A managed runner may supply an authenticated context through `PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
-- Do not install a browser when the environment provides a managed browser runner.
 - Shared CRUD lists retain both card and table markup and hide the inactive
   layout with CSS. Select visible record text with
   `page.getByText(title, { exact: true }).filter({ visible: true })`; asserting on
@@ -148,13 +148,7 @@ The route only selects an existing user. Seed a stable user or fixture before th
 
 ## Managed-host authentication
 
-A managed preview must not expose `AUTH_DEV_BYPASS_SECRET` to project code or forward an ordinary browser request to the private login exchange. The host performs its trusted identity exchange outside the application browser context, writes a temporary Playwright storage-state file, and launches the test with:
-
-```bash
-PLAYWRIGHT_BASE_URL=https://managed-preview.example.test \
-PLAYWRIGHT_STORAGE_STATE=/secure/temp/playwright-state.json \
-playwright test tests/e2e/contacts.spec.ts
-```
+A managed preview must not expose `AUTH_DEV_BYPASS_SECRET` to project code or forward an ordinary browser request to the private login exchange. The host performs its trusted identity exchange outside the application browser context and writes a temporary Playwright storage-state file. Its managed runner then starts Playwright itself, with `PLAYWRIGHT_BASE_URL` set to the target it serves and `PLAYWRIGHT_STORAGE_STATE` set to that file. Run the suite through the runner; never set these variables and start Playwright yourself.
 
 The app-owned config applies that state to Playwright contexts and omits its local `webServer`. Tests then navigate with relative paths and begin with the runner-provided identity already authenticated.
 
@@ -162,17 +156,23 @@ Do not call `loginAsExistingUser()` against a managed preview. It is deliberatel
 
 ## Run verification
 
-Run the focused Playwright command and keep the complete output in a local
-artifact. Preserve its exit status; a pipe through `tail` must not turn a failed
-test into a successful command. For an unmanaged project, for example:
+Where the host provides a managed browser runner, every Playwright suite runs
+through it from the first run, never through `npx playwright test`,
+`playwright test` or a package script such as `npm run test:e2e`. The host's
+own instructions name its command. Give it the declared test target and the
+file and case selection; when the suite runs through a package script, give the
+runner that script instead of running it.
+
+Only a machine with no managed browser runner runs Playwright directly, for
+example:
 
 ```bash
 npx playwright test tests/e2e/contacts.spec.ts -g filters --reporter=dot > /tmp/contacts-test.log 2>&1
 ```
 
-On a managed host, run the host's launcher for the declared test target
-with the same file/case selection and output redirection. Do not replace the
-managed launcher with the unmanaged example.
+Either way, keep the complete output in a local artifact and preserve its exit
+status; a pipe through `tail` must not turn a failed test into a successful
+command.
 
 Read a compact summary first: exit status, passed/failed/skipped counts,
 duration and artifact paths. On failure, extract the affected case and its
@@ -194,5 +194,5 @@ Do not mark the chunk done if:
 - the feature changed user-facing UI but no test at the right level proves it
 - the test skipped the changed behavior itself
 - a new browser test pays its own setup to check what a component test or an existing spec could
-- a managed environment was bypassed by installing another browser
+- a managed environment was bypassed by installing another browser or by starting Playwright directly
 - an authenticated flow was left untested without clearly reporting the missing session-bootstrap seam
