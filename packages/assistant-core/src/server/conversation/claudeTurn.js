@@ -330,8 +330,8 @@ export function createClaudeConversationOwner({
     return entry.nativeTurn.readFinalAssistantResult(conversationId, turnId);
   }
 
-  function readHistory(entry) {
-    return readClaudeHistory({ configRoot, workdir: entry.nativeWorkdir, conversationId: entry.id });
+  function readHistory(entry, options) {
+    return readClaudeHistory({ configRoot, workdir: entry.nativeWorkdir, conversationId: entry.id, ...options });
   }
 
   function savedState(saved, conversationId) {
@@ -388,7 +388,7 @@ export function createClaudeConversationOwner({
       process: {
         stopExecution: process.stopExecution,
         ...(bound ? { releaseExecution: () => store.releaseExecution(entry) } : {}),
-        ownerClosing: () => cleanup.closing,
+        ownerClosing: () => cleanup.closing, answeredInHistory: async () => (await readHistory(entry, { answeredTurn: { turnId: entry.turn?.id || "", lastMessageId: entry.lastMessageId } })).turnAnswered === true,
         getProcess: () => entry.stopping ? null : entry.process,
         isActive: () => isTurnActive(entry),
         startProcess: input => processStart.startProcess(entry, input),

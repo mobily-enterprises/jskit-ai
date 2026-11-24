@@ -309,6 +309,21 @@ export function openCodeRowsForInput(value = null, inputMessageId = "") {
   return turnRows;
 }
 
+/**
+ * Whether OpenCode's history shows the turn for `inputMessageId` answered: the
+ * history's last message is that input's assistant answer, which OpenCode
+ * completed (finish "stop") without an error and with the answer's text. An
+ * answer that finished with tool calls is one step of a turn that goes on,
+ * which only the live turn's idle session tells apart, and a later input (a
+ * steer, another prompt) means the turn went on; neither is an answer here.
+ */
+export function openCodeInputAnswered(value = null, inputMessageId = "") {
+  const answer = openCodeRowsForInput(value, inputMessageId).at(-1);
+  return Boolean(answer) && answer === openCodeMessageRows(value).at(-1) && answer.type === "assistant" &&
+    !answer.summary && !openCodeMessageError(answer) && answer.finish === "stop" && Boolean(answer.time?.completed) &&
+    Boolean(normalizeNullableText(assistantMessageText(answer)));
+}
+
 function openCodeMessageResultForInput(value = null, inputMessageId = "", { readError = openCodeMessageError } = {}) {
   const rows = openCodeRowsForInput(value, inputMessageId);
   if (!rows.length && !openCodeMessageRows(value).some((message) => (
