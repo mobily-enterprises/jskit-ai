@@ -4229,12 +4229,22 @@ unbounded. A request abort retires the local request; interrupt a running native
 turn with `turn/interrupt` when cancellation must stop provider work.
 
 `prepareCodexModelCatalog({ command, runtimeDir, bundled, additionalModels,
-codexHome, signal })` from the same entry point exports a runtime's
+codexHome, signal, env })` from the same entry point exports a runtime's
 `models.json` with the CLI's `debug models` and reuses it until its revision
 changes: the absolute command's file identity, `bundled`, `additionalModels`, or
 the metadata of `auth.json` and `config.toml` in `codexHome` (default
 `CODEX_HOME`, then `~/.codex`). A bare command name exports every time. Isolated
-tests pass their own `codexHome`.
+tests pass their own `codexHome`. `env` is the exporter's environment when it is
+not this process's.
+
+Every app-server start passes its exported catalogue as its last
+`-c model_catalog_json=...`; without one, Codex's model manager fetches the
+provider's model list (chatgpt.com for OpenAI) before each `turn/start` and
+`thread/resume`. A managed start's leader (`runCodexAppServerProcess`) exports
+it. A Helper start, which has no leader, exports the binary's bundled
+definitions, which fetch nothing, with a copied provider home's rows, in the
+Helper's own home and environment, and refuses to start
+(`codex_helper_runtime_start_failed`) when that export fails.
 
 The original public import contracts remain available alongside these host and
 testing surfaces. `/server/codex-client` exports `CodexAppServerJsonRpcClient`
