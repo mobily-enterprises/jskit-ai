@@ -2,6 +2,7 @@ import { SUMMARY_LIMITS, assertCallbacks, cutPoint, estimateTokens, transcriptTe
 import { NO_NOTICES } from "./notices.js";
 import { createSummariesRepository } from "./repositories/summariesRepository.js";
 import { requireStoreDependencies } from "./arguments.js";
+import { settledWithin } from "./settledWithin.js";
 
 /**
  * Summaries between turns, in the background. A reply reads the conversation's newest summary and
@@ -163,7 +164,7 @@ export function createSummaries({
         stopped = true;
         clearInterval(timer);
         unsubscribe();
-        await Promise.race([running, new Promise((resolve) => setTimeout(resolve, ms))]);
+        await settledWithin(running, ms);
       }
     };
   }

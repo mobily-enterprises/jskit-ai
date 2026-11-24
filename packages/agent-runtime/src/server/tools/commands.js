@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createTool, textPart } from "@jskit-ai/agent/server";
 import { createCommandsRepository } from "../repositories/commandsRepository.js";
 import { requireStoreDependencies } from "../arguments.js";
+import { settledWithin } from "../settledWithin.js";
 
 // Commands in the workspace, through an executor (executors.js). One still running after
 // `foregroundSeconds` carries on in the background on this server, with a heartbeat, and the model
@@ -101,7 +102,7 @@ export function createCommands({
         await Promise.resolve(onEnd(done)).catch(() => {});
         return done;
       });
-    const finished = await Promise.race([ended, new Promise((resolve) => setTimeout(resolve, limits.foregroundSeconds * 1000, null))]);
+    const finished = await settledWithin(ended, limits.foregroundSeconds * 1000);
     if (finished) return view(finished);
     return { run: String(row.id), status: "running", output: kept.slice(0, limits.outputHead), note: "It's still going and carries on in the background; follow it with check_command." };
   }

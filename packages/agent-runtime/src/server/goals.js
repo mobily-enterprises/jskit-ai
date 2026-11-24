@@ -3,6 +3,7 @@ import { assertCallbacks, createTool } from "@jskit-ai/agent/server";
 import { NO_NOTICES } from "./notices.js";
 import { createGoalsRepository } from "./repositories/goalsRepository.js";
 import { requireStoreDependencies } from "./arguments.js";
+import { settledWithin } from "./settledWithin.js";
 
 // Goals and goal rounds, after DeepSeek Harness (MIT; P3–P5 in @jskit-ai/agent's
 // docs/deepseek-harness.md). For a job of several steps the model opens a goal; whenever its turn
@@ -271,7 +272,7 @@ export function createGoals({
         stopped = true;
         clearInterval(timer);
         unsubscribe();
-        await Promise.race([running || Promise.resolve(), new Promise((resolve) => setTimeout(resolve, ms))]);
+        await settledWithin(running, ms);
       }
     };
   }

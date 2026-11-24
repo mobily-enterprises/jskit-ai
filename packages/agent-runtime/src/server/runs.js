@@ -1,5 +1,6 @@
 import { createRunsRepository } from "./repositories/runsRepository.js";
 import { requireStoreDependencies } from "./arguments.js";
+import { settledWithin } from "./settledWithin.js";
 
 // Replies in progress, one per conversation at a time, kept in the database so any server can see
 // them (one claimed per conversation, with a heartbeat). Each finished step is saved as it happens,
@@ -106,7 +107,7 @@ export function startResumer({ runs, resume, resumable, everyMs = 30000 }) {
     async drain(ms) {
       stopped = true;
       clearInterval(timer);
-      await Promise.race([running || Promise.resolve(), new Promise((resolve) => setTimeout(resolve, ms))]);
+      await settledWithin(running, ms);
     }
   };
 }

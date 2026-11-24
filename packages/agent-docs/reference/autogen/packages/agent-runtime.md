@@ -118,6 +118,10 @@ Exports
 - `startResumer({ runs, resume, resumable, everyMs = 30000 })`
 - `RUN_LIMITS`
 
+### `src/server/settledWithin.js`
+Exports
+- `settledWithin(work, ms)`
+
 ### `src/server/summaryStore.js`
 Exports
 - `createSummaries({ resources, systemContext, model, app = "the app", history, track = runSummaryUnmetered, notices, channel = "agent-summaries", summarize = (input) => writeSummary({ model, app, ...input, limits }), limits = SUMMARY_LIMITS, ...removed })`
