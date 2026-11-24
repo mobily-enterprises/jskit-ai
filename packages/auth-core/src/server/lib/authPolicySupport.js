@@ -78,8 +78,33 @@ function normalizeActorResolution(result) {
     secondFactorAt: textOr(source.secondFactorAt),
     sessionSignIn: normalizeSessionSignIn(source.signIn),
     credentialsChangedAt: normalizeCredentialsChangedAt(source.credentialsChangedAt),
-    transientFailure: Boolean(source.transientFailure)
+    transientFailure: Boolean(source.transientFailure),
+    // "bearer" when the provider signed the request in by its Authorization header, as a bearer route requires.
+    credentials: source.credentials === "bearer" ? "bearer" : "cookies",
+    // The service key a bearer request acts through, `{ userId, name }`, while `actor` is the user it acts as.
+    via: normalizeVia(source.via),
+    // Why a bearer request is refused, in words: `{ status, code, message }`.
+    refusal: normalizeRefusal(source.refusal)
   };
+}
+
+const REFUSAL_STATUSES = Object.freeze([400, 401, 403]);
+
+function normalizeVia(value) {
+  const source = asObject(value);
+  const userId = textOr(source.userId);
+  return userId ? Object.freeze({ userId, name: textOr(source.name) }) : null;
+}
+
+function normalizeRefusal(value) {
+  const source = asObject(value);
+  const message = textOr(source.message);
+  if (!message) return null;
+  return Object.freeze({
+    status: REFUSAL_STATUSES.includes(source.status) ? source.status : 401,
+    code: textOr(source.code) || "auth.session.required",
+    message
+  });
 }
 
 export { assertAuthPolicyDeps, normalizeActorResolution };

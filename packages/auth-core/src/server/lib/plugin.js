@@ -108,6 +108,10 @@ function authPolicyPlugin(deps = {}, options = {}) {
     fastify.decorateRequest("secondFactorAt", "");
     fastify.decorateRequest("sessionSignIn", null);
     fastify.decorateRequest("credentialsChangedAt", null);
+    // The credentials the route takes ("cookies" or "bearer"), which the auth service authenticates the request by.
+    fastify.decorateRequest("authCredentials", "cookies");
+    // On a bearer route, the service key the request acts through ({ userId, name }); `user` is who it acts as.
+    fastify.decorateRequest("actingVia", null);
 
     fastify.addHook("preHandler", async (request, reply) => {
       const pathname = request.raw.url || request.url || "/";
@@ -116,7 +120,9 @@ function authPolicyPlugin(deps = {}, options = {}) {
       }
 
       const meta = resolveAuthPolicyMeta(resolveRouteConfig(request));
-      if (meta.csrfProtection && unsafeMethods.has(String(request.method || "").toUpperCase())) {
+      request.authCredentials = meta.credentials;
+      const bearer = meta.credentials === "bearer";
+      if (meta.csrfProtection && !bearer && unsafeMethods.has(String(request.method || "").toUpperCase())) {
         await enforceCsrfProtection(fastify, request, reply);
       }
 
@@ -124,7 +130,11 @@ function authPolicyPlugin(deps = {}, options = {}) {
         return;
       }
 
-      const actorResolution = normalizeActorResolution(await resolveActor(request, reply, meta));
+      const resolution = normalizeActorResolution(await resolveActor(request, reply, meta));
+      // A provider that signs requests in by cookies alone does not sign in a bearer route's caller.
+      const actorResolution = bearer && resolution.authenticated && resolution.credentials !== "bearer"
+        ? { ...resolution, authenticated: false, actor: null, refusal: null }
+        : resolution;
       if (actorResolution.transientFailure) {
         onPolicyDenied({
           reason: AUTH_POLICY_DENY_REASONS.AUTH_UPSTREAM_UNAVAILABLE,
@@ -140,21 +150,29 @@ function authPolicyPlugin(deps = {}, options = {}) {
       }
 
       if (!actorResolution.authenticated) {
+        // A bearer route's caller is another application's server: it is told in words why it is refused.
+        const refusal = bearer ? actorResolution.refusal : null;
+        const statusCode = refusal?.status || 401;
         onPolicyDenied({
           reason: AUTH_POLICY_DENY_REASONS.UNAUTHENTICATED,
-          statusCode: 401,
+          statusCode,
           request,
           meta,
           actor: actorResolution.actor,
           context: null
         });
-        throw createError(401, "Authentication required.", { code: "auth.session.required" });
+        if (bearer && statusCode === 401) {
+          const presented = /^Bearer /iu.test(String(request.headers.authorization || ""));
+          reply.header("www-authenticate", presented ? 'Bearer error="invalid_token"' : "Bearer");
+        }
+        throw createError(statusCode, refusal?.message || "Authentication required.", { code: refusal?.code || "auth.session.required" });
       }
 
       request.user = actorResolution.actor;
       request.secondFactorAt = actorResolution.secondFactorAt;
       request.sessionSignIn = actorResolution.sessionSignIn;
       request.credentialsChangedAt = actorResolution.credentialsChangedAt;
+      request.actingVia = bearer ? actorResolution.via : null;
       request.workspace = null;
       request.membership = null;
       request.permissions = [];

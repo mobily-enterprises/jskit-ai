@@ -7,6 +7,7 @@ export { createLoggedRecoverySender } from "./passwordFlows.js";
 export { createLocalFileBackend } from "./fileBackend.js";
 export { createLoggedSecondFactorEvents } from "./secondFactor.js";
 export { createLoggedSignInEvents } from "./sessions.js";
+export { ACT_AS_USER_HEADER, SERVICE_KEY_PURPOSE, createServiceKeyRecord } from "./serviceKeys.js";
 export { SETUP_CODE_ENV, SETUP_CODE_FILE, createFirstAccountSetup } from "./firstAccountSetup.js";
 export {
   LOCAL_AUTH_USER_REGISTERED_EVENT,
