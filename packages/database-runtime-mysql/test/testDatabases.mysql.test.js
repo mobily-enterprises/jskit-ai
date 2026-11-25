@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -370,6 +371,116 @@ test("jskit test --databases gives a file that follows another on the same copy 
     const seen = JSON.parse(await readFile(path.join(appRoot, `seen-${file}.json`), "utf8"));
     assert.deepEqual(seen, { db: name, titles: ["Written by the migration"] }, `test file ${file}`);
   }
+});
+
+const BROWSER_LAUNCHER = path.join(REPO_ROOT, "tooling", "jskit-catalog", "scripts", "browser-test-servers.mjs");
+// The patterns' prepare module: each worker gets its own copy of BROWSER_TEST_DB_NAME.
+const BROWSER_PREPARE = `import { prepareTestDatabases } from "@jskit-ai/database-runtime/server/testDatabases";
+import knexConfig from "../../knexfile.js";
+export default async function prepareBrowserDatabases({ workers }) {
+  const { databases } = await prepareTestDatabases({ knexConfig, environment: process.env, variable: "BROWSER_TEST_DB_NAME", count: workers });
+  return databases.map((database) => ({ DB_NAME: database }));
+}
+`;
+// An app server: it holds a session on its worker's database until it stops, as a real one's pool does.
+const BROWSER_SERVER = `import http from "node:http";
+import knex from "knex";
+import knexConfig from "./knexfile.js";
+const db = knex({ ...knexConfig, pool: { min: 1, max: 1 } });
+await db.raw("SELECT 1");
+const server = http.createServer((request, response) => response.end("ok")).listen(Number(process.env.PORT), process.env.HOST);
+process.once("SIGTERM", async () => {
+  server.close();
+  await db.destroy();
+  process.exit(0);
+});
+`;
+
+/** A base port whose next `count` ports on 127.0.0.1 are free now. */
+async function freePorts(count) {
+  const free = (port) => new Promise((resolve) => {
+    const probe = net.createServer().once("error", () => resolve(false));
+    probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(true)));
+  });
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const base = 20_000 + Math.floor(Math.random() * 30_000);
+    if ((await Promise.all(Array.from({ length: count }, (_, index) => free(base + index)))).every(Boolean)) return base;
+  }
+  throw new Error(`No ${count} free ports in a row.`);
+}
+
+test("a browser run's launcher, stopped by SIGTERM, drops the numbered copies of BROWSER_TEST_DB_NAME its prepare module made once its servers stop, and keeps BROWSER_TEST_DB_NAME and its snapshot", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-browser-"));
+  const name = `${process.env.TEST_DB_NAME}_browser`;
+  const server = { host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 3306), user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD };
+  const admin = knex({ client: "mysql2", connection: server });
+  // `_7` is numbered like a copy, but a run of three workers makes only `_1` and `_2`.
+  const candidates = [name, `${name}_1`, `${name}_2`, `${name}_7`];
+  let launcher;
+  context.after(async () => {
+    if (launcher?.exitCode === null) launcher.kill("SIGKILL");
+    for (const database of candidates) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    await admin.destroy();
+    await rm(appRoot, { recursive: true, force: true });
+  });
+  const present = async () => (await admin("information_schema.schemata").whereIn("schema_name", candidates).pluck("schema_name")).sort();
+  for (const database of candidates) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+  await admin.raw("CREATE DATABASE ??", [`${name}_7`]);
+  await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
+  await mkdir(path.join(appRoot, "tests", "e2e"), { recursive: true });
+  await mkdir(path.join(appRoot, "node_modules", "@jskit-ai"), { recursive: true });
+  await writeFile(path.join(appRoot, "migrations", "20200101000000_books.cjs"), BOOKS);
+  await writeFile(path.join(appRoot, "package.json"), JSON.stringify({ name: "browser-fixture", type: "module", private: true }));
+  await writeFile(path.join(appRoot, "knexfile.js"), FIXTURE_KNEXFILE);
+  await writeFile(path.join(appRoot, ".env"), [`DB_HOST=${server.host}`, `DB_PORT=${server.port}`, `DB_USER=${server.user}`,
+    `DB_PASSWORD=${server.password ?? ""}`, ""].join("\n"), { mode: 0o600 });
+  await writeFile(path.join(appRoot, "tests", "e2e", "databases.js"), BROWSER_PREPARE);
+  await writeFile(path.join(appRoot, "server.mjs"), BROWSER_SERVER);
+  await writeFile(path.join(appRoot, "build.mjs"), "import { mkdirSync, writeFileSync } from \"node:fs\";\nmkdirSync(\"dist\", { recursive: true });\nwriteFileSync(\"dist/index.html\", \"<p>ok</p>\");\n");
+  await symlink(path.join(REPO_ROOT, "node_modules", "@jskit-ai", "database-runtime"), path.join(appRoot, "node_modules", "@jskit-ai", "database-runtime"), "dir");
+  await symlink(path.join(REPO_ROOT, "node_modules", "knex"), path.join(appRoot, "node_modules", "knex"), "dir");
+  const workers = 3;
+  const settings = { workers, host: "127.0.0.1", basePort: await freePorts(workers), server: `${process.execPath} server.mjs`,
+    build: `${process.execPath} build.mjs`, prepare: "tests/e2e/databases.js", env: {}, health: "/",
+    workerEnvironments: path.join(appRoot, "test-results", "workers.json") };
+  const env = { ...process.env, JSKIT_BROWSER_TESTS: JSON.stringify(settings), BROWSER_TEST_DB_NAME: name,
+    DB_NAME: `${name}_application`, DATABASE_URL: "" };
+  for (const variable of ["NODE_TEST_CONTEXT", "TEST_DB_NAME", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD"]) delete env[variable];
+
+  launcher = spawn(process.execPath, [BROWSER_LAUNCHER], { cwd: appRoot, env, stdio: ["pipe", "pipe", "pipe"] });
+  let output = "";
+  launcher.stdout.on("data", (chunk) => { output += chunk; });
+  launcher.stderr.on("data", (chunk) => { output += chunk; });
+  const exited = new Promise((resolve) => launcher.once("exit", (code, signal) => resolve(code ?? signal)));
+  const deadline = Date.now() + 60_000;
+  while (!/jskit browser tests: 3 server\(s\) ready/u.test(output) && launcher.exitCode === null && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.match(output, /jskit browser tests: 3 server\(s\) ready/u);
+  assert.deepEqual(await present(), candidates);
+  const cache = path.join(appRoot, "node_modules", ".cache", "jskit-test-databases");
+  const snapshots = (await readdir(cache)).filter((file) => file.endsWith(".json"));
+  assert.equal(snapshots.length, 1);
+
+  const stopped = performance.now();
+  launcher.kill("SIGTERM");
+  assert.equal(await exited, 143, output);
+  assert.ok(performance.now() - stopped < 10_000, "within the 10 s Playwright gives its webServer to stop");
+  assert.match(output, /\[browser-tests\] dropped the run's 2 numbered test database\(s\)\./u);
+  assert.deepEqual(await present(), [name, `${name}_7`]);
+  assert.deepEqual((await readdir(cache)).filter((file) => file.endsWith(".json")), snapshots, "the stored snapshot stays");
+
+  // prepareTestDatabases() drops the copies it made when it throws: here its seed.
+  const environment = { ...process.env, DB_NAME: `${name}_application`, DATABASE_URL: "", BROWSER_TEST_DB_NAME: name };
+  delete environment.TEST_DB_NAME;
+  const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment, appRoot });
+  const seed = () => { throw new Error("the seed failed"); };
+  await assert.rejects(prepareTestDatabases({ knexConfig, environment, variable: "BROWSER_TEST_DB_NAME", count: 3, seed, appRoot }),
+    /the seed failed/u);
+  assert.deepEqual(await present(), [name, `${name}_7`]);
 });
 
 test("countQueries() counts a MySQL or MariaDB path's statements, its transactions' included", {
