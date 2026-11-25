@@ -118,6 +118,12 @@ async function collectCiContractIssues({
   if (!/\bnpm_config_engine_strict:\s*["']?true["']?\s*$/mu.test(verifyWorkflow)) {
     issues.push("verify workflow must enable npm_config_engine_strict.");
   }
+  // A push to the same branch, or a new commit on the same pull request, supersedes the running verification.
+  const concurrency = /^concurrency:[ \t]*\n((?:[ \t]+\S.*(?:\n|$))+)/mu.exec(verifyWorkflow)?.[1] || "";
+  if (!/^\s*group:.*\bgithub\.ref\b/mu.test(concurrency) || !/^\s*cancel-in-progress:\s*true\s*$/mu.test(concurrency)) {
+    issues.push("verify workflow must cancel a run that a newer one of the same branch or pull request supersedes: " +
+      "a top-level concurrency group on github.ref with cancel-in-progress: true.");
+  }
 
   return issues;
 }
