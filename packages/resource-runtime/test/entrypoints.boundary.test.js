@@ -42,6 +42,62 @@ test("package exports its provider and helpers, its types and its test helpers, 
   assert.equal(typeof server.withoutHiddenFields, "function");
 });
 
+// json-rest-api knows the transactions api.transaction opened by identity, in its own module, and AnyAPI its registry
+// with instanceof: an application's own AnyAPI instances (tables it defines while it runs, which no table resource
+// describes) work with the runtime's handles only on the json-rest-api copy the runtime runs. ./server/anyapi hands on
+// that copy's own objects, so the application declares no json-rest-api, and a JSKIT update moves its one copy.
+const ANYAPI_EXPORTS = Object.freeze([
+  "AnyapiRegistry",
+  "JsonRestApi",
+  "RestApiAnyapiKnexPlugin",
+  "RestApiPlugin",
+  "RowPolicyPlugin",
+  "ensureAnyApiSchema"
+]);
+
+test("./server/anyapi exports json-rest-api's own AnyAPI objects, those and no others", async () => {
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(packageJson.exports["./server/anyapi"], "./src/server/anyapi.js");
+  const anyapi = await import("@jskit-ai/resource-runtime/server/anyapi");
+  const jsonRestApi = await import("json-rest-api");
+  assert.deepEqual(Object.keys(anyapi).sort(), [...ANYAPI_EXPORTS].sort());
+  for (const name of ANYAPI_EXPORTS) {
+    assert.equal(anyapi[name], jsonRestApi[name], name);
+  }
+});
+
+test("an AnyAPI write from ./server/anyapi joins the transaction a handle opened, and rolls back with it", async (t) => {
+  const { AnyapiRegistry, JsonRestApi: AnyapiRestApi, RestApiAnyapiKnexPlugin, RestApiPlugin } =
+    await import("@jskit-ai/resource-runtime/server/anyapi");
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("notes", (table) => {
+    table.increments("id");
+    table.string("title").notNullable();
+  });
+  const { resources: runtime } = await ResourceRuntimeProvider.setup({ database: { knex }, logger: silentLogger });
+  const { notes } = await runtime.own("notes.feature", [
+    defineTableResource({ name: "notes", tableName: "notes", ownership: "public", schema: { title: { type: "string", required: true } } })
+  ]);
+  const api = new AnyapiRestApi({ name: "records" });
+  await api.use(RestApiPlugin, { format: "plain", returning: "full" });
+  // The plugin takes only a registry of its own json-rest-api's class.
+  await api.use(RestApiAnyapiKnexPlugin, { knex, registry: new AnyapiRegistry({ knex }), ownsKnex: false });
+  await api.addResource("records", { schema: { title: { type: "string" } } });
+
+  await notes.withTransaction({}, async (txOptions) => {
+    await notes.create({ title: "kept" }, txOptions);
+    await api.resources.records.post({ data: { title: "kept" }, transaction: txOptions.trx });
+  });
+  await assert.rejects(notes.withTransaction({}, async (txOptions) => {
+    await notes.create({ title: "undone" }, txOptions);
+    await api.resources.records.post({ data: { title: "undone" }, transaction: txOptions.trx });
+    throw new Error("undo");
+  }), { message: "undo" });
+  assert.deepEqual((await api.resources.records.query({})).data.map((record) => record.title), ["kept"]);
+  assert.deepEqual(await knex("notes").pluck("title"), ["kept"]);
+});
+
 test("standalone resources on a server's Knex client never own a table one of the server's features owns", async (t) => {
   const { createStandaloneResources } = await import("../src/server/index.js");
   const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
