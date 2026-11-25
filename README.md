@@ -146,7 +146,8 @@ release and name the first differing file; registry errors also stop it. Hash
 matches prove identical tarballs. Hash differences trigger comparison of
 verified archive files and permissions, ignoring container timestamps and
 compression. Only absent versions are uploaded, using the exact checked
-tarballs in dependency order. `npm run verify:registry` contains additional
+tarballs in dependency order: up to eight at a time, each once every package it
+requires in the release is up. `npm run verify:registry` contains additional
 public registry checks.
 
 The catalog (`@jskit-ai/jskit-catalog`) is what `jskit update` installs as npm's

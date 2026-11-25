@@ -507,6 +507,22 @@ async function committedTarballs(repoRoot, records, { entries, staged }) {
   return tarballs;
 }
 
+// Uploads each entry once every entry it requires is up, several at a time, level by level: as in one-at-a-time
+// dependency order, npm never serves a package before a version it requires.
+async function uploadInDependencyOrder(entries, recordsByName, upload) {
+  const names = new Set(entries.map(entry => entry.name));
+  const levels = new Map();
+  for (const entry of entries) {
+    const required = [...recordsByName.get(entry.name).localDependencies].filter(name => names.has(name));
+    levels.set(entry.name, Math.max(-1, ...required.map(name => levels.get(name))) + 1);
+  }
+  for (let level = 0; level < entries.length; level++) {
+    const ready = entries.filter(entry => levels.get(entry.name) === level);
+    if (!ready.length) break;
+    await inParallel(ready, upload);
+  }
+}
+
 // `carried` (from a publish's preparation) supplies tarballs already packed; publish still rechecks every exact
 // version against npm before any upload.
 async function publishRelease(records, { cwd: repoRoot, registry }, carried = null) {
@@ -525,9 +541,8 @@ async function publishRelease(records, { cwd: repoRoot, registry }, carried = nu
     const tarballs = carried ? await committedTarballs(repoRoot, records, carried) : new Map();
     const plan = await planPublication(order.map(name => recordsByName.get(name)), { inspection, tarballs });
     const upload = (entry, tag) => runCommand("npm", ["publish", entry.tarball, "--access", "public", "--tag", tag, ...npmArgs]);
-    for (const entry of plan) {
-      if (entry.state !== "skip" && entry.name !== CATALOG_PACKAGE) await upload(entry, "latest");
-    }
+    await uploadInDependencyOrder(plan.filter(entry => entry.state !== "skip" && entry.name !== CATALOG_PACKAGE), recordsByName,
+      entry => upload(entry, "latest"));
     const catalog = plan.find(entry => entry.name === CATALOG_PACKAGE);
     if (catalog) {
       if (catalog.state !== "skip") await upload(catalog, "next");

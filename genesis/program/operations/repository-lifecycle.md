@@ -63,7 +63,8 @@ different contents under an existing version, and fails on registry errors.
 Hashes are compared first; a different hash triggers comparison of verified
 archive files, links and permissions while ignoring tar timestamps and
 compression. Absent versions upload those same candidate tarballs in dependency
-order. The catalog goes up under npm's `next` dist-tag with them, and `latest`
+order, up to eight at a time, each once every package it requires in the release
+is up. The catalog goes up under npm's `next` dist-tag with them, and `latest`
 moves to it once npm serves every version it pins as latest, so `jskit update`
 never installs a catalog whose versions npm does not serve yet; a rerun after a
 failed wait uploads nothing and moves it. A retry checks npm again and needs no

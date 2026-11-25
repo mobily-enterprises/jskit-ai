@@ -91,6 +91,7 @@ Local functions
 - `waitUntilServedAsLatest(pins, inspection, catalog, { attempts = Number(process.env.JSKIT_RELEASE_SERVE_ATTEMPTS || 120), delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 5_000) } = {})`
 - `moveLatestToCatalog(entry, record, inspection, npmArgs)`
 - `committedTarballs(repoRoot, records, { entries, staged })`
+- `uploadInDependencyOrder(entries, recordsByName, upload)`
 - `publishRelease(records, { cwd: repoRoot, registry }, carried = null)`
 - `publishCommand(options)`
 - `forgetPinnedLockEntries(repoRoot, names)`
