@@ -133,6 +133,61 @@ test("darwin inspection keeps the absent, mismatch and ambiguous outcomes", asyn
   }
 });
 
+/**
+ * Stop options whose inspector finds the group exact until a signal is sent, then each of `afterSignal` in turn,
+ * keeping the last; with every status it gave and every signal sent.
+ */
+function scriptedStop(afterSignal) {
+  const statuses = [...afterSignal];
+  const seen = [];
+  const signals = [];
+  const options = {
+    async processIdentityInspector() {
+      const status = signals.length === 0 ? "exact" : (statuses.length > 1 ? statuses.shift() : statuses[0]);
+      seen.push(status);
+      return { processGroupIds: status === "exact" ? [LEADER] : [], status };
+    },
+    signalProcessGroup(processGroupId, signal) {
+      signals.push([processGroupId, signal]);
+      return true;
+    }
+  };
+  return { options, seen, signals };
+}
+
+test("a group caught mid-exit after SIGTERM is waited out, never reported as an unverified stop", async () => {
+  // A member mid-exit has released its memory, so its environment reads EACCES: the group looks ambiguous for a few
+  // milliseconds after SIGTERM, then is gone.
+  const { options, seen, signals } = scriptedStop(["exact", "exact", "ambiguous", "ambiguous", "absent"]);
+  const stopped = await createConversationProcessIdentity().stop(metadata(), options);
+  assert.deepEqual(stopped, {
+    descendantProcessGroups: [],
+    identityStatus: "absent",
+    pid: LEADER,
+    processExitVerified: true,
+    signaledProcessGroups: [LEADER],
+    stopped: true
+  });
+  assert.deepEqual(signals, [[LEADER, "SIGTERM"]]);
+  assert.deepEqual(seen.slice(-3), ["ambiguous", "ambiguous", "absent"]);
+});
+
+test("a group still ambiguous at the exit deadline is an unverified stop, never exit proof", async () => {
+  const { options, seen, signals } = scriptedStop(["exact", "exact", "ambiguous"]);
+  const stopped = await createConversationProcessIdentity().stop(metadata(), { ...options, termTimeoutMs: 300 });
+  assert.deepEqual(stopped, {
+    descendantProcessGroups: [],
+    identityStatus: "ambiguous",
+    pid: LEADER,
+    processExitVerified: false,
+    signaledProcessGroups: [LEADER],
+    stopped: false
+  });
+  // It inspected again until the deadline; an ambiguous group is neither proof of exit nor an exact group to kill.
+  assert.ok(seen.filter((status) => status === "ambiguous").length > 1, seen.join(", "));
+  assert.deepEqual(signals, [[LEADER, "SIGTERM"]]);
+});
+
 async function liveGroup(t, env) {
   const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
     detached: true, stdio: "ignore", env: { ...process.env, ...env }
