@@ -244,15 +244,18 @@ try {
 export default createKnexMigrationConfig({ client: "mysql2", environment: process.env });
 `;
 // Each file waits until the other has started, so both hold a database at once, then records what it was given (the
-// password as a digest).
+// password as a digest) and the database a package data test of its gets.
 const FIXTURE_TEST = (name, other) => `import { createHash } from "node:crypto";
 import { existsSync, writeFileSync } from "node:fs";
 import test from "node:test";
-test("${name}", async () => {
+import { createPackageTestKnex } from "@jskit-ai/database-runtime/server/testDatabases";
+test("${name}", async (t) => {
   writeFileSync("started-${name}", "");
   const deadline = Date.now() + 30000;
   while (!existsSync("started-${other}") && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20));
-  writeFileSync("seen-${name}.json", JSON.stringify({
+  const own = await createPackageTestKnex(t, { environment: { ...process.env, DB_CLIENT: "mysql2" } });
+  const [[{ packageDatabase }]] = await own.raw("SELECT DATABASE() AS packageDatabase");
+  writeFileSync("seen-${name}.json", JSON.stringify({ packageDatabase,
     db: process.env.DB_NAME, test: process.env.TEST_DB_NAME, settings: process.env.JSKIT_TEST_DATABASES ?? null,
     dotenv: process.env.FIXTURE_ONLY_IN_DOTENV ?? null, other: existsSync("started-${other}"),
     connection: { host: process.env.DB_HOST, port: process.env.DB_PORT, user: process.env.DB_USER,
@@ -291,7 +294,7 @@ async function fixtureApplication(context, suffix, { tests, concurrency }) {
     password: process.env.DB_PASSWORD };
   const admin = knex({ client: "mysql2", connection: server });
   context.after(async () => {
-    for (const database of [name, `${name}_1`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    for (const database of [name, `${name}_1`, `${name}_a`, `${name}_b`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
     await admin.destroy();
     await rm(appRoot, { recursive: true, force: true });
   });
@@ -336,8 +339,10 @@ test("jskit test --databases gives each test file running at once its own restor
   assert.deepEqual(seen.map(({ db }) => db).sort(), [name, `${name}_1`]);
   const connection = { host: server.host, port: String(server.port), user: server.user,
     password: createHash("sha256").update(server.password ?? "").digest("hex") };
-  for (const { db, test: testDatabase, settings, dotenv, other, connection: given } of seen) {
+  for (const { db, test: testDatabase, settings, dotenv, other, connection: given, packageDatabase } of seen) {
     assert.equal(testDatabase, db);
+    // A package data test claims a lettered copy of the run's designated database, not of the file's numbered copy.
+    assert.match(packageDatabase, new RegExp(`^${name}_[a-z]$`, "u"));
     assert.equal(settings, null);
     assert.equal(dotenv, null);
     assert.equal(other, true);
@@ -509,7 +514,7 @@ test("countQueries() counts a MySQL or MariaDB path's statements, its transactio
   assert.deepEqual(transaction.queries, ["BEGIN;", "select count(*) as `books` from `books`", "COMMIT;"]);
 });
 
-test("createPackageTestKnex() on a mysql2 run gives each package test a MySQL or MariaDB database of its own, dropped after it", {
+test("createPackageTestKnex() on a mysql2 run gives each package test a lettered copy of TEST_DB_NAME of its own, dropped after it", {
   skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
 }, async (context) => {
   const environment = { ...process.env, DB_CLIENT: "mysql2" };
@@ -523,7 +528,7 @@ test("createPackageTestKnex() on a mysql2 run gives each package test a MySQL or
     for (const [index, db] of knexes.entries()) {
       assert.equal(db.client.config.client, "mysql2");
       const [[database]] = await db.raw("SELECT DATABASE() AS name, @@character_set_database AS charset, @@collation_database AS collation");
-      assert.match(database.name, new RegExp(`^${process.env.TEST_DB_NAME}_t[0-9a-f]{8}$`, "u"));
+      assert.match(database.name, new RegExp(`^${process.env.TEST_DB_NAME}_[a-z]$`, "u"));
       assert.deepEqual([database.charset, database.collation], ["utf8mb4", "utf8mb4_unicode_ci"]);
       made.push(database.name);
       // The same table in each: they share nothing.
