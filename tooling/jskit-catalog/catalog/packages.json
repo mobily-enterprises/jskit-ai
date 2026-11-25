@@ -6,7 +6,7 @@
   "release": {
     "packages": {
       "@jskit-ai/agent": "0.1.3",
-      "@jskit-ai/agent-docs": "0.1.352",
+      "@jskit-ai/agent-docs": "0.1.353",
       "@jskit-ai/agent-runtime": "0.1.40",
       "@jskit-ai/architecture-inspector": "0.1.32",
       "@jskit-ai/assistant-core": "0.2.82",
@@ -33,7 +33,7 @@
       "@jskit-ai/database-runtime-postgres": "0.1.281",
       "@jskit-ai/http-runtime": "0.2.34",
       "@jskit-ai/http-web": "0.2.59",
-      "@jskit-ai/jskit-catalog": "0.2.104",
+      "@jskit-ai/jskit-catalog": "0.2.105",
       "@jskit-ai/kernel": "0.2.33",
       "@jskit-ai/material-web": "0.1.10",
       "@jskit-ai/mobile-capacitor": "0.2.50",
@@ -41,7 +41,7 @@
       "@jskit-ai/payments-core": "0.2.40",
       "@jskit-ai/payments-web": "0.2.34",
       "@jskit-ai/realtime": "0.2.53",
-      "@jskit-ai/release": "0.1.14",
+      "@jskit-ai/release": "0.1.15",
       "@jskit-ai/resource-core": "0.1.224",
       "@jskit-ai/resource-crud-core": "0.1.226",
       "@jskit-ai/resource-runtime": "0.2.48",
