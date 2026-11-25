@@ -184,10 +184,43 @@ test("createResourceHost uses the v2 runtime and the logger it is given", async 
   assert.equal(api.vars.returning, "full");
   assert.equal(api.options.logging, undefined);
   api.log.error("failure", { code: "example" });
-  assert.deepEqual(messages, [["failure", { code: "example" }]]);
+  assert.deepEqual(messages, [[{ code: "example" }, "failure"]]);
 
   const provided = await ResourceRuntimeProvider.setup({ database: { knex: fakeKnex }, logger: silentLogger });
   assert.deepEqual(Object.keys(provided), ["resources"]);
+});
+
+test("createResourceHost hands each json-rest-api detail to the runtime logger as its fields, before the message", async () => {
+  // The runtime logger is pino's, (fields, message): pino drops what follows a message with no %-placeholder, where
+  // json-rest-api puts its details, so a starter booted against an unreachable database logged "Database version
+  // observation failed" with neither its backend nor its error.
+  const refused = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:9"), { code: "ECONNREFUSED" });
+  const unreachableKnex = Object.assign(() => {}, {
+    client: { config: { client: "mysql2" } },
+    raw: (sql) => sql,
+    async first() {
+      throw refused;
+    },
+    transaction() {}
+  });
+  const calls = [];
+  const record = (level) => (...args) => calls.push({ level, args });
+
+  await createResourceHost({ knex: unreachableKnex, logger: { ...silentLogger, info: record("info"), warn: record("warn") } });
+
+  const logged = (message) => calls.find(({ args }) => args.includes(message));
+  const observation = logged("Database version observation failed");
+  assert.equal(observation?.level, "warn", JSON.stringify(calls));
+  const [fields, message] = observation.args;
+  assert.equal(message, "Database version observation failed");
+  assert.equal(fields.backend, "mysql2");
+  assert.equal(fields.phase, "version-observation");
+  assert.match(JSON.stringify(fields.error), /connect ECONNREFUSED 127\.0\.0\.1:9/);
+  assert.deepEqual(logged("Database capabilities detected:").args,
+    [{ database: "MySQL", version: "unknown", windowFunctions: false }, "Database capabilities detected:"]);
+  // A message with no details stays a message alone.
+  assert.deepEqual(logged("RestApiKnexPlugin installed - basic CRUD operations ready").args,
+    ["RestApiKnexPlugin installed - basic CRUD operations ready"]);
 });
 
 test("createResourceHost installs row policies before resources are added", async () => {
