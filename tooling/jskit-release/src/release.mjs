@@ -23,7 +23,7 @@ import {
   updatePatternPackageJsonContents,
   validateReleaseState
 } from "./manifests.mjs";
-import { createPublicationInspection, planPublication, snapshotFiles } from "./npm-publication.mjs";
+import { createPublicationInspection, fileState, inParallel, planPublication, snapshotFiles } from "./npm-publication.mjs";
 
 // The release target is the working directory (or --cwd). Its publishable
 // packages are every non-private package among the root, its workspaces and
@@ -134,8 +134,9 @@ function compareVersions(left, right) {
 }
 
 async function assertNoNewerVersions(records, inspection) {
-  for (const record of records) {
-    const history = (await inspection.versions(record)).filter(version => /^\d+\.\d+\.\d+$/u.test(version));
+  const histories = await inParallel(records, record => inspection.versions(record));
+  for (const [index, record] of records.entries()) {
+    const history = histories[index].filter(version => /^\d+\.\d+\.\d+$/u.test(version));
     const current = record.packageJson.version;
     const newer = history.filter(version => compareVersions(version, current) > 0).sort(compareVersions).at(-1);
     if (newer) throw new Error(`${record.name}: checkout version ${current} is behind published ${newer}. Update the checkout before preparing or publishing a release.`);
@@ -176,6 +177,13 @@ async function runPrepareCommand(source, config) {
     .filter(file => before.get(file) !== after.get(file)).map(file => path.join(source, file)));
 }
 
+// Whether the staged copy holds a path: all but Git, installed dependencies and
+// root scratch/navigation data.
+function stagedPath(relative) {
+  const parts = relative.split(/[\\/]/u);
+  return !parts.some(part => part === ".git" || part === "node_modules") && ![".tmp", ".genesis"].includes(parts[0]);
+}
+
 // Ignored outputs (builds, custom pack artifacts) produced while planning stay
 // in the isolated source; only files Git would track are applied.
 function withoutIgnored(repoRoot, files) {
@@ -188,20 +196,19 @@ function withoutIgnored(repoRoot, files) {
   return files.filter(file => !ignored.has(file));
 }
 
-async function prepareRelease({ cwd: repoRoot, dryRun, registry, report = false }) {
+// `carry` (a publish) keeps the planned tarballs for the publish after the release commit, with what they were packed
+// from: the result's `carried`, until its `cleanup()`.
+async function prepareRelease({ cwd: repoRoot, dryRun, registry, report = false, carry = false }) {
   const started = performance.now();
   const directory = await mkdtemp(path.join(tmpdir(), "jskit-prepare-"));
   const source = path.join(directory, "source");
+  let kept = false;
   try {
     // Both modes plan in isolation. Included ignored files are copied too; only
     // Git, installed dependencies and root scratch/navigation data are omitted.
     await cp(repoRoot, source, {
       recursive: true, verbatimSymlinks: true,
-      filter: file => {
-        const parts = path.relative(repoRoot, file).split(path.sep);
-        return !parts.some(part => part === ".git" || part === "node_modules") &&
-          ![".tmp", ".genesis"].includes(parts[0]);
-      }
+      filter: file => stagedPath(path.relative(repoRoot, file))
     });
     const before = await snapshotFiles(source);
     const config = await releaseConfig(source);
@@ -227,33 +234,33 @@ async function prepareRelease({ cwd: repoRoot, dryRun, registry, report = false 
 
     await assertNoNewerVersions(staged, inspection);
 
+    // Registry reads run several at a time; packing stays one package at a time.
     async function selectChanged(dependencyChanges, generatedChanges) {
-      let bumped = 0;
-      const published = [];
-      for (const record of staged) {
-        if (!selected.has(record.name) && await inspection.version(record) !== null) published.push(record);
-      }
+      const pending = staged.filter(record => !selected.has(record.name));
+      const metadata = await inParallel(pending, record => inspection.version(record));
+      const published = pending.filter((record, index) => {
+        if (metadata[index] === null) selected.set(record.name, "unpublished current version");
+        return metadata[index] !== null;
+      });
       await inspection.packAll(published);
-      for (const record of staged) {
-        if (selected.has(record.name)) continue;
-        if (await inspection.version(record) === null) {
-          selected.set(record.name, "unpublished current version");
-          continue;
+      const tarballs = [];
+      for (const record of published) tarballs.push(await inspection.pack(record));
+      const compared = await inParallel(published, (record, index) => inspection.compare(record, tarballs[index]));
+      const changed = published.filter((record, index) => compared[index].state !== "skip");
+      const next = changed.map(record => bumpPatch(current.get(record.name)));
+      const occupied = await inParallel(changed, (record, index) => inspection.version(record, next[index]));
+      for (const [index, record] of changed.entries()) {
+        if (occupied[index] !== null) {
+          throw new Error(`${record.name}: chosen next version ${next[index]} is already published. Update the checkout before preparing a release.`);
         }
-        const { state, difference } = await inspection.compare(record, await inspection.pack(record));
-        if (state === "skip") continue;
+        const { difference } = compared[published.indexOf(record)];
         const file = path.join(record.dir, difference.replace(/^package\//u, ""));
         const reason = dependencyChanges.has(file) ? "dependency update"
           : generatedChanges.has(file) ? "generated artifact change" : "direct content change";
-        const next = bumpPatch(current.get(record.name));
-        if (await inspection.version(record, next) !== null) {
-          throw new Error(`${record.name}: chosen next version ${next} is already published. Update the checkout before preparing a release.`);
-        }
-        versions.set(record.name, next);
+        versions.set(record.name, next[index]);
         selected.set(record.name, reason);
-        bumped++;
       }
-      return bumped;
+      return changed.length;
     }
 
     let changes = await prepareManifests(staged, versions, source, config);
@@ -267,6 +274,13 @@ async function prepareRelease({ cwd: repoRoot, dryRun, registry, report = false 
       changes = await prepareManifests(staged, versions, source, config);
     }
     await validateReleaseState(staged, source);
+    // The lockfile is refreshed on the staged source, before its packages are packed, so every planned tarball,
+    // a package holding the lockfile's included, is packed from exactly the files the release commits. A failed
+    // refresh applies nothing.
+    const updateLockfile = await lockfileNeedsUpdate(staged, source);
+    if (!dryRun && updateLockfile) {
+      await runCommand("npm", ["install", "--package-lock-only", "--ignore-scripts"], { cwd: source });
+    }
     const order = topologicalPublishOrder(staged);
     const byName = new Map(staged.map(record => [record.name, record]));
     const plan = await planPublication(order.map(name => byName.get(name)), { inspection, report });
@@ -282,7 +296,6 @@ async function prepareRelease({ cwd: repoRoot, dryRun, registry, report = false 
     }
     const missing = plan.filter(entry => entry.state === "publish").length;
     process.stdout.write(`${missing}/${staged.length} packages need publication; ${changedFiles.length} source/generated files would change.\n`);
-    const updateLockfile = await lockfileNeedsUpdate(staged, source);
     if (updateLockfile) process.stdout.write("Lockfile refresh required (package-lock-only; no dependency reinstall).\n");
     if (!dryRun && changedFiles.length) {
       // Fail before applying if another writer changed any of these paths.
@@ -307,16 +320,23 @@ async function prepareRelease({ cwd: repoRoot, dryRun, registry, report = false 
         }
       }
     }
-    if (!dryRun && updateLockfile) {
-      await runCommand("npm", ["install", "--package-lock-only", "--ignore-scripts"], { cwd: repoRoot });
-    }
     process.stdout.write(`${dryRun ? "Prepare dry-run complete" : "Release source prepared"}. ${(performance.now() - started).toFixed(0)} ms; ` +
       `${inspection.stats.packed} packs, ${inspection.stats.lookups} registry lookups, ${inspection.stats.downloaded} downloads; ` +
       `${inspection.stats.packReused} packs, ${inspection.stats.metadataReused} lookups, ${inspection.stats.downloadReused} downloads reused.\n`);
     process.stdout.write(`Subprocess time: packing ${inspection.stats.packMs.toFixed(0)} ms, registry metadata ${inspection.stats.lookupMs.toFixed(0)} ms, verified downloads ${inspection.stats.downloadMs.toFixed(0)} ms.\n`);
-    return { plan: plan.filter(entry => entry.state === "publish"), changedFiles };
+    const result = { plan: plan.filter(entry => entry.state === "publish"), changedFiles };
+    if (!carry) return result;
+    // Each planned tarball, with its package's directory, and the staged files it was packed from.
+    result.carried = {
+      entries: plan.map(entry => ({ ...entry, dir: toPosixPath(path.relative(source, byName.get(entry.name).dir)) })),
+      staged: new Map([...after].map(([file, state]) => [toPosixPath(file), state]))
+    };
+    result.cleanup = () => rm(directory, { recursive: true, force: true });
+    kept = true;
+    await rm(source, { recursive: true, force: true });
+    return result;
   } finally {
-    await rm(directory, { recursive: true, force: true });
+    if (!kept) await rm(directory, { recursive: true, force: true });
   }
 }
 
@@ -418,31 +438,78 @@ async function catalogPins(record, entry) {
 }
 
 // Waits until the registry serves every pinned version as its package's latest, as installReleasedPins waits for npm,
-// and refuses, naming each one, if it still does not.
-async function waitUntilServedAsLatest(pins, inspection, {
-  attempts = Number(process.env.JSKIT_RELEASE_SERVE_ATTEMPTS || 20),
-  delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 30_000)
+// reading several packages at a time, and refuses, naming each one, if it still does not.
+async function waitUntilServedAsLatest(pins, inspection, catalog, {
+  attempts = Number(process.env.JSKIT_RELEASE_SERVE_ATTEMPTS || 120),
+  delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 5_000)
 } = {}) {
   let pending = pins;
   for (let attempt = 1; ; attempt++) {
-    const unserved = [];
-    for (const [name, version] of pending) {
-      const { versions, latest } = await inspection.serving(name);
-      if (!versions.includes(version) || latest !== version) unserved.push([name, version, versions.includes(version), latest]);
-    }
+    const serving = await inParallel(pending, ([name]) => inspection.serving(name));
+    const unserved = pending.flatMap(([name, version], index) => {
+      const { versions, latest } = serving[index];
+      return versions.includes(version) && latest === version ? [] : [[name, version, versions.includes(version), latest]];
+    });
     if (unserved.length === 0) return;
     if (attempt >= attempts) {
-      throw new Error(`The catalog is not published: the registry does not serve these pinned versions as latest yet:\n${
+      throw new Error(`${catalog.name}@${catalog.version} is published under next; latest moves to it once npm serves every ` +
+        `version it pins as latest, and it does not serve these yet:\n${
         unserved.map(([name, version, served, latest]) => `- ${name}@${version} (${served ? "served" : "not served"}, latest ${latest ?? "none"})`)
-          .join("\n")}\nRerun the publish once npm serves them; the published packages are skipped.`);
+          .join("\n")}\nRerun the publish once npm serves them: the published packages are skipped and latest then moves to the catalog.`);
     }
-    process.stdout.write(`npm does not serve ${unserved.length} pinned version(s) as latest yet; retrying in ${Math.round(delayMs / 1000)} s (${attempt}/${attempts})\n`);
+    // Said when the count changes, and about once a minute while it does not.
+    if (attempt === 1 || unserved.length !== pending.length || attempt % Math.max(1, Math.round(60_000 / (delayMs || 1))) === 0) {
+      process.stdout.write(`npm does not serve ${unserved.length} pinned version(s) as latest yet; retrying in ${Math.round(delayMs / 1000)} s (${attempt}/${attempts})\n`);
+    }
     pending = unserved.map(([name, version]) => [name, version]);
     await new Promise(resolve => setTimeout(resolve, delayMs));
   }
 }
 
-async function publishRelease(records, { cwd: repoRoot, registry }) {
+// `jskit update` installs the catalog npm calls latest, so latest names a catalog only once the registry serves every
+// version it pins as that package's latest: the catalog goes up under next with the packages, and npm serves it by the
+// time a consumer pins its exact version, while latest moves to it only after that wait. A publish whose wait failed
+// left the catalog under next; a rerun, which uploads nothing, moves latest to it.
+async function moveLatestToCatalog(entry, record, inspection, npmArgs) {
+  if ((await inspection.serving(entry.name)).latest === entry.version) return;
+  await waitUntilServedAsLatest(await catalogPins(record, entry), inspection, entry);
+  await runCommand("npm", ["dist-tag", "add", `${entry.name}@${entry.version}`, "latest", ...npmArgs]);
+}
+
+// The tarballs preparation packed that this release commit publishes: a package's tarball only when every file under
+// its directory is what preparation staged and packed it from (each file Git tracks there has the staged contents and
+// mode, and the staged copy has no other file there that Git would track). The commit of an ordinary release is the
+// staged tree; one rebased onto work that landed on main meanwhile can differ, and a package it differs in is packed
+// again from the checkout, as every package was before. Installed dependencies are not compared: a release does not
+// change them.
+async function committedTarballs(repoRoot, records, { entries, staged }) {
+  const byName = new Map(records.map(record => [record.name, record]));
+  const carried = entries.filter(entry => byName.get(entry.name)?.packageJson.version === entry.version);
+  const under = (file, dir) => dir === "" || file.startsWith(`${dir}/`);
+  const relevant = file => stagedPath(file) && carried.some(entry => under(file, entry.dir));
+  const tracked = execFileSync("git", ["ls-files", "--stage", "-z"], { cwd: repoRoot, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 })
+    .split("\0").filter(Boolean).filter(line => !line.startsWith("160000 ")).map(line => line.slice(line.indexOf("\t") + 1))
+    .filter(relevant);
+  const states = await inParallel(tracked, file => fileState(path.join(repoRoot, file)), 32);
+  const trackedFiles = new Set(tracked);
+  const differing = [
+    ...tracked.filter((file, index) => states[index] !== staged.get(file)),
+    ...withoutIgnored(repoRoot, [...staged.keys()].filter(file => !trackedFiles.has(file) && relevant(file)))
+  ].sort();
+  const tarballs = new Map();
+  for (const entry of carried) {
+    const difference = differing.find(file => under(file, entry.dir));
+    if (!difference) tarballs.set(entry.name, entry.tarball);
+    else process.stdout.write(`${entry.name}@${entry.version}: the release commit's ${difference} differs from what preparation packed; packing it again from the checkout\n`);
+  }
+  process.stdout.write(`Publishing the tarballs preparation packed for ${tarballs.size}/${records.length} packages: ` +
+    "the release commit holds exactly the files they were packed from.\n");
+  return tarballs;
+}
+
+// `carried` (from a publish's preparation) supplies tarballs already packed; publish still rechecks every exact
+// version against npm before any upload.
+async function publishRelease(records, { cwd: repoRoot, registry }, carried = null) {
   assertReleaseCheckout(repoRoot);
   assertNoOutsidePathDependencies(records, repoRoot);
   await validateReleaseState(records, repoRoot);
@@ -451,24 +518,20 @@ async function publishRelease(records, { cwd: repoRoot, registry }) {
   const directory = await mkdtemp(path.join(tmpdir(), "jskit-release-"));
   try {
     const configPath = await createNpmUserConfig(registry, directory, records);
+    const npmArgs = ["--registry", registry, "--workspaces=false", "--userconfig", configPath];
     await runCommand("npm", ["whoami", "--registry", registry, "--userconfig", configPath]);
     const inspection = createPublicationInspection({ directory, registry, configPath });
     await assertNoNewerVersions(records, inspection);
-    const plan = await planPublication(order.map(name => recordsByName.get(name)), { inspection });
-    const upload = entry => runCommand("npm", [
-      "publish", entry.tarball, "--access", "public", "--tag", "latest", "--registry", registry, "--workspaces=false",
-      "--userconfig", configPath
-    ]);
-    // The catalog is what `jskit update` installs as latest, so it goes last, once the registry serves every version
-    // it pins as that package's latest: published before them, an update in between installs versions npm does not
-    // serve yet, or a package whose latest still names something else (a placeholder its creator published).
-    const catalog = plan.find(entry => entry.name === CATALOG_PACKAGE && entry.state !== "skip");
+    const tarballs = carried ? await committedTarballs(repoRoot, records, carried) : new Map();
+    const plan = await planPublication(order.map(name => recordsByName.get(name)), { inspection, tarballs });
+    const upload = (entry, tag) => runCommand("npm", ["publish", entry.tarball, "--access", "public", "--tag", tag, ...npmArgs]);
     for (const entry of plan) {
-      if (entry.state !== "skip" && entry !== catalog) await upload(entry);
+      if (entry.state !== "skip" && entry.name !== CATALOG_PACKAGE) await upload(entry, "latest");
     }
+    const catalog = plan.find(entry => entry.name === CATALOG_PACKAGE);
     if (catalog) {
-      await waitUntilServedAsLatest(await catalogPins(recordsByName.get(CATALOG_PACKAGE), catalog), inspection);
-      await upload(catalog);
+      if (catalog.state !== "skip") await upload(catalog, "next");
+      await moveLatestToCatalog(catalog, recordsByName.get(CATALOG_PACKAGE), inspection, npmArgs);
     }
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -485,9 +548,13 @@ async function publishCommand(options) {
     return;
   }
   assertReleaseCheckout(options.cwd);
-  const { plan } = await prepareRelease(options);
-  commitAndPush(options.cwd, releaseCommitMessage(plan));
-  await publishRelease(await discoverReleasePackages(options.cwd), options);
+  const prepared = await prepareRelease({ ...options, carry: true });
+  try {
+    commitAndPush(options.cwd, releaseCommitMessage(prepared.plan));
+    await publishRelease(await discoverReleasePackages(options.cwd), options, prepared.carried);
+  } finally {
+    await prepared.cleanup();
+  }
 }
 
 // npm cannot move exactly pinned packages that require each other in
@@ -511,10 +578,19 @@ async function forgetPinnedLockEntries(repoRoot, names) {
   await writeFile(lockPath, serializeJson(lock), "utf8");
 }
 
-// npm can take minutes to serve a just-published version everywhere.
-async function installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 30_000) } = {}) {
+// npm can take minutes to serve a just-published version everywhere. A retry reads the registry through a throwaway
+// cache: --prefer-online still reuses a cached package list that predates the release (observed in a real deploy),
+// and cleaning the operator's own cache instead made every later install download everything again.
+async function installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 10_000) } = {}) {
   for (let attempt = 1; ; attempt++) {
-    const result = spawnSync("npm", ["install", "--no-audit", "--no-fund", "--prefer-online"], { cwd: repoRoot, encoding: "utf8" });
+    const cache = attempt > 1 ? await mkdtemp(path.join(tmpdir(), "jskit-pin-cache-")) : "";
+    let result;
+    try {
+      result = spawnSync("npm", ["install", "--no-audit", "--no-fund", "--prefer-online", ...(cache ? ["--cache", cache] : [])],
+        { cwd: repoRoot, encoding: "utf8" });
+    } finally {
+      if (cache) await rm(cache, { recursive: true, force: true });
+    }
     if (result.status === 0) return;
     const output = `${result.stdout || ""}${result.stderr || ""}`;
     if (!/ETARGET|notarget|E404/u.test(output) || attempt >= attempts) {
@@ -522,9 +598,6 @@ async function installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(p
       throw new Error(`npm install failed in ${repoRoot}.`);
     }
     process.stdout.write(`npm does not serve the new versions yet; retrying in ${Math.round(delayMs / 1000)} s (${attempt}/${attempts})\n`);
-    // --prefer-online still reuses a cached package list that predates the
-    // release; observed in a real deploy. Drop it so the retry sees the registry.
-    spawnSync("npm", ["cache", "clean", "--force"], { cwd: repoRoot, stdio: "ignore" });
     await new Promise(resolve => setTimeout(resolve, delayMs));
   }
 }

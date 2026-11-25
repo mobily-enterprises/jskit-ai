@@ -44,6 +44,8 @@ Local functions
 ### `src/npm-publication.mjs`
 Exports
 - `createPublicationInspection({ directory, registry, configPath = "", env = process.env })`
+- `fileState(file)`
+- `inParallel(items, work, limit = REGISTRY_CONCURRENCY)`
 - `planPublication(records, options)`
 - `snapshotFiles(root, relative = "", files = new Map())`
 Local functions
@@ -78,18 +80,21 @@ Local functions
 - `assertNoNewerVersions(records, inspection)`
 - `lockfileNeedsUpdate(records, repoRoot)`
 - `runPrepareCommand(source, config)`
+- `stagedPath(relative)`
 - `withoutIgnored(repoRoot, files)`
-- `prepareRelease({ cwd: repoRoot, dryRun, registry, report = false })`
+- `prepareRelease({ cwd: repoRoot, dryRun, registry, report = false, carry = false })`
 - `createNpmUserConfig(registry, directory, records = [])`
 - `git(repoRoot, args)`
 - `commitAll(repoRoot, message)`
 - `releaseCommitMessage(entries)`
 - `catalogPins(record, entry)`
-- `waitUntilServedAsLatest(pins, inspection, { attempts = Number(process.env.JSKIT_RELEASE_SERVE_ATTEMPTS || 20), delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 30_000) } = {})`
-- `publishRelease(records, { cwd: repoRoot, registry })`
+- `waitUntilServedAsLatest(pins, inspection, catalog, { attempts = Number(process.env.JSKIT_RELEASE_SERVE_ATTEMPTS || 120), delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 5_000) } = {})`
+- `moveLatestToCatalog(entry, record, inspection, npmArgs)`
+- `committedTarballs(repoRoot, records, { entries, staged })`
+- `publishRelease(records, { cwd: repoRoot, registry }, carried = null)`
 - `publishCommand(options)`
 - `forgetPinnedLockEntries(repoRoot, names)`
-- `installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 30_000) } = {})`
+- `installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 10_000) } = {})`
 - `pinCommand({ cwd: repoRoot, from, dryRun, noCommit, noPush, branch })`
 
 ### bin

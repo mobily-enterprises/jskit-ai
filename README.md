@@ -56,7 +56,11 @@ npm run npm-publish           # prepare, commit, push and publish
 whose HEAD matches the actual `main` commit on `origin`. It then prepares the
 release, commits the prepared files as `Release <package@version, ...>`, pushes
 them to `origin/main` (when `main` moved meanwhile, it rebases that commit and
-retries the push, up to three attempts), and publishes. Feature branches,
+retries the push, up to three attempts), and publishes the tarballs preparation
+packed. Before using one, it checks that every file under that package's
+directory in the pushed release commit is exactly what preparation staged and
+packed it from; a package whose committed files differ (a release commit
+rebased onto other work, say) is packed again from the checkout. Feature branches,
 detached checkouts, uncommitted files, and unpushed or stale commits cannot
 publish. The dry run changes nothing and needs no clean checkout.
 
@@ -96,11 +100,13 @@ Each package can be bumped at most once as these consequences converge.
 The summary names unchanged packages, retained unpublished versions, new versions,
 and direct-content, dependency or generated-artifact reasons. If contents and
 lockfile declarations match, preparation is a no-op and publish creates no
-commit. Otherwise it applies the prepared files (ignored build outputs stay in
-the isolated copy) and refreshes stale `package-lock.json` entries with
-`npm install --package-lock-only --ignore-scripts`, without reinstalling dependencies.
-If a lockfile refresh fails after source was prepared, repeat the command; it
-retains the prepared versions and finishes the stale lockfile update.
+commit. Otherwise it refreshes stale `package-lock.json` entries with
+`npm install --package-lock-only --ignore-scripts` on the staged source, without
+reinstalling dependencies and before packing, so every tarball is packed from
+exactly the files the release commits, then applies the prepared files (ignored
+build outputs stay in the isolated copy). A failed lockfile refresh applies
+nothing; repeat the command. A checkout whose prepared versions have a stale
+lockfile gets it refreshed without another version bump.
 
 The normal comparison anchor is each package's current exact version, not the
 mutable `latest` tag. If a newer stable version is already on npm, or the chosen
@@ -124,14 +130,16 @@ files, lockfile, generated artifacts or Git state. Normal preparation applies
 the plan only after the complete graph has passed registry preflight,
 and refuses to overwrite files changed by another writer during planning.
 Do not run writers against the same release checkout while preparing it.
-Current JSKIT packages have no packing lifecycle hooks; packing is sequential
-and any pack hooks run in that isolated source for preparation.
+Current JSKIT packages have no packing lifecycle hooks; packing runs one
+package at a time and any pack hooks run in that isolated source for
+preparation. Registry lookups and verified downloads run up to eight at a time.
 Dry runs require registry access. Public package comparisons work without
 `NPM_TOKEN`; an authenticated registry requires its usual credentials. Offline
 operation cannot prove registry state. Temporary artifacts and invocation-local
 metadata/download/pack reuse are discarded after the command.
 
-Publication packs and checks every exact package version before any upload.
+Publication checks every exact package version against npm before any upload,
+reading the registry afresh.
 It rejects stale internal versions and dependency cycles. Matching published
 releases are skipped. Different contents under an existing version stop the
 release and name the first differing file; registry errors also stop it. Hash
@@ -140,6 +148,16 @@ verified archive files and permissions, ignoring container timestamps and
 compression. Only absent versions are uploaded, using the exact checked
 tarballs in dependency order. `npm run verify:registry` contains additional
 public registry checks.
+
+The catalog (`@jskit-ai/jskit-catalog`) is what `jskit update` installs as npm's
+`latest`, so `latest` names a catalog only once npm serves every version it
+pins as that package's latest. Publish uploads the catalog under the `next`
+dist-tag with the other packages, waits for npm to serve those versions
+(checking every 5 seconds, up to ten minutes; `JSKIT_RELEASE_SERVE_ATTEMPTS`
+and `JSKIT_RELEASE_RETRY_DELAY_MS` change that), then moves `latest` to it with
+`npm dist-tag add`. A consumer pinning the catalog's exact version finds it
+served meanwhile. If the wait fails, the catalog stays under `next`; rerunning
+the publish uploads nothing and moves `latest` once npm serves the versions.
 
 `npm run release` verifies and then runs `npm run npm-publish`. The GitHub
 publish workflow runs the same command with read-only repository access, so it
@@ -150,8 +168,10 @@ repeated without creating versions or uploading already matching releases.
 Other repositories pin released packages with
 `jskit-release pin --from <repoDir>... [--branch <name>] [--dry-run|--no-commit|--no-push]`:
 every dependency range on a package published from those repositories follows
-its current version, keeping `^`/`~`. It then runs `npm install` (retrying while
-npm does not yet serve a new version), commits `Consume released packages` and
+its current version, keeping `^`/`~`. It then runs `npm install` (retrying every
+10 seconds while npm does not yet serve a new version, each retry through a
+throwaway npm cache, so a package list cached before the release is not read
+again and your own cache stays as it was), commits `Consume released packages` and
 pushes with the same retry. A real pin requires the same clean, current `main`
 checkout. `--branch <name>` pins that branch instead, for a repository kept on
 several branches such as the project starters: the checkout must already be on

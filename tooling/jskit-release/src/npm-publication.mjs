@@ -105,6 +105,33 @@ async function runPackCommand(record, env) {
   return path.resolve(record.dir, tarball);
 }
 
+// Registry reads (lookups and downloads) run this many at a time; npm processes beyond it only queue at the registry.
+const REGISTRY_CONCURRENCY = 8;
+
+// Runs `work` on each item, at most `limit` at a time, and returns the results in the items' order. After a failure no
+// further item starts; the in-flight ones finish and the failure of the earliest item is thrown.
+async function inParallel(items, work, limit = REGISTRY_CONCURRENCY) {
+  const results = new Array(items.length);
+  const failures = [];
+  let next = 0;
+  async function worker() {
+    while (next < items.length && !failures.length) {
+      const index = next++;
+      try { results[index] = await work(items[index], index); } catch (error) { failures.push({ index, error }); }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  if (failures.length) throw failures.sort((left, right) => left.index - right.index)[0].error;
+  return results;
+}
+
+// A file's state as snapshots record it: a link's target, or a file's permission bits and SHA-512.
+async function fileState(file) {
+  const info = await lstat(file);
+  return info.isSymbolicLink() ? `link:${await readlink(file)}`
+    : `${info.mode & 0o7777}:${createHash("sha512").update(await readFile(file)).digest("base64")}`;
+}
+
 // Directory snapshots invalidate only invocation-local pack reuse. Equality with
 // npm still comes from the actual package archive, never this source snapshot.
 async function snapshotFiles(root, relative = "", files = new Map()) {
@@ -112,13 +139,7 @@ async function snapshotFiles(root, relative = "", files = new Map()) {
     if (entry.name === "node_modules" || entry.name === ".git") continue;
     const name = path.join(relative, entry.name);
     if (entry.isDirectory()) await snapshotFiles(root, name, files);
-    else {
-      const file = path.join(root, name);
-      const info = await lstat(file);
-      files.set(name, entry.isSymbolicLink()
-        ? `link:${await readlink(file)}`
-        : `${info.mode & 0o7777}:${createHash("sha512").update(await readFile(file)).digest("base64")}`);
-    }
+    else files.set(name, await fileState(path.join(root, name)));
   }
   return files;
 }
@@ -278,19 +299,25 @@ function createPublicationInspection({ directory, registry, configPath = "", env
   return { version, versions, pack, packAll, compare, serving, stats };
 }
 
+// Each record's tarball, checked against npm: `tarballs` (package name -> file) supplies ones already packed from
+// exactly these files, and the others are packed here. Packing runs one package at a time (a pack command builds in
+// the shared tree); the registry comparisons run several at a time.
 async function planPublication(records, options) {
   const inspection = options.inspection || createPublicationInspection(options);
+  const tarballs = options.tarballs || new Map();
+  await inspection.packAll(records.filter(record => !tarballs.has(record.name)));
+  const packed = [];
+  for (const record of records) packed.push(tarballs.get(record.name) ?? await inspection.pack(record));
+  const compared = await inParallel(records, (record, index) => inspection.compare(record, packed[index]));
   const plan = [];
-  await inspection.packAll(records);
-  for (const record of records) {
-    const tarball = await inspection.pack(record);
-    const { state, difference } = await inspection.compare(record, tarball);
+  for (const [index, record] of records.entries()) {
+    const { state, difference } = compared[index];
     const { name, version } = record.packageJson;
     if (state === "conflict") throw new Error(`${name}@${version}: published contents differ at ${difference}. Prepare a new version.`);
-    plan.push({ name, version, tarball, state });
+    plan.push({ name, version, tarball: packed[index], state });
     if (options.report !== false) process.stdout.write(`${state === "skip" ? "Skip matching release" : "Publish new release"}: ${name}@${version}\n`);
   }
   return plan;
 }
 
-export { createPublicationInspection, planPublication, snapshotFiles };
+export { createPublicationInspection, fileState, inParallel, planPublication, snapshotFiles };

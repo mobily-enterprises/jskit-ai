@@ -37,32 +37,42 @@ repository, since npm would publish it as written; the error names each
 package, dependency and path. Relative paths inside the repository stay allowed.
 
 Both preparation modes use an isolated source copy. Dry runs compute the same
-selection without modifying checkout files or Git; real preparation applies
-changed files and updates the lockfile through the existing package-lock-only
-command only when its entries need refreshing. A failed lockfile refresh can be
-retried through preparation without another version bump. Matching source and
+selection without modifying checkout files or Git; real preparation refreshes
+the lockfile on that copy through the package-lock-only command, only when its
+entries need refreshing and before packing, then applies the changed files. A
+failed lockfile refresh applies nothing, and a stale lockfile under prepared
+versions is refreshed without another version bump. Matching source and
 lockfile are a no-op, and repeated preparation does not bump already unpublished
 versions. Installed development dependencies and registry
 access are required. Metadata, verified published contents and unchanged packs
-are reused only within that invocation. Packing is sequential: each pass packs
+are reused only within that invocation. Packing runs one package at a time: each pass packs
 every package it needs a fresh tarball of in one npm process, and a package with
-its own pack command packs alone.
+its own pack command packs alone. Registry lookups and verified downloads run up
+to eight at a time.
 
 `npm run npm-publish` (`jskit-release publish`) accepts
 only a clean, current `main` checkout, prepares it, commits the prepared files,
 pushes them (rebasing and retrying when `main` moved, up to three attempts) and
-then publishes, rechecking for newer stable registry releases. It packs and
+then publishes the tarballs preparation packed, rechecking for newer stable
+registry releases. A package's tarball is used only when every file under its
+directory in the pushed release commit is what preparation staged and packed it
+from; one whose committed files differ is packed again from the checkout. It
 checks every exact version
 against npm before uploading any package, skips matching releases, rejects
 different contents under an existing version, and fails on registry errors.
 Hashes are compared first; a different hash triggers comparison of verified
 archive files, links and permissions while ignoring tar timestamps and
 compression. Absent versions upload those same candidate tarballs in dependency
-order. A retry checks npm again and needs no release-resume state. Dry runs
+order. The catalog goes up under npm's `next` dist-tag with them, and `latest`
+moves to it once npm serves every version it pins as latest, so `jskit update`
+never installs a catalog whose versions npm does not serve yet; a rerun after a
+failed wait uploads nothing and moves it. A retry checks npm again and needs no
+release-resume state. Dry runs
 report the same plan without writing, pushing or uploading. Registry
 verification is a separate network-dependent operation. `release` verifies and
 then runs `npm-publish`. `jskit-release pin --from <repoDir>...` lets consuming
-repositories follow released versions, install, commit and push. `--branch
+repositories follow released versions, install (retrying through a throwaway
+npm cache while npm does not serve them yet), commit and push. `--branch
 <name>` pins a checkout of that named branch (current with origin's) and pushes
 to it; `--no-commit` leaves the installed edits uncommitted and `--no-push`
 commits without pushing, for a caller that proves the commit before moving the
