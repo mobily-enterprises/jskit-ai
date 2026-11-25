@@ -639,13 +639,33 @@ async function returnBadRequestWhenJsonRestFieldsetInvalid(run) {
   }
 }
 
+const JSON_REST_LOG_LEVELS = Object.freeze(["trace", "debug", "info", "warn", "error", "fatal"]);
+
+/**
+ * json-rest-api writes (message, ...details), console's order. The runtime logger takes pino's (fields, message),
+ * and pino drops what follows a message with no %-placeholder: a starter booted against an unreachable database
+ * logged "Database version observation failed" with neither its backend nor its error. So each json-rest-api
+ * detail reaches the runtime logger first, as its fields: one object as it is, anything else as `details`.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} logger
+ */
+function jsonRestApiLogger(logger) {
+  return Object.fromEntries(JSON_REST_LOG_LEVELS.map((level) => [
+    level,
+    // readable-check: allow optional-call - input validation: the runtime logger has debug, info, warn and error; trace and fatal are pino's own
+    (message, ...details) => (details.length === 0
+      ? logger[level]?.(message)
+      : logger[level]?.(details.length === 1 && isRecord(details[0]) ? details[0] : { details }, message))
+  ]));
+}
+
 /**
  * The json-rest-api instance behind the resource runtime: its REST, query
  * projection, Knex, row policy and autofilter plugins, with JSKIT's ownership
  * presets and the resolvers that read a context's workspace and user.
  * @param {object} dependencies
  * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger Receives json-rest-api's log calls.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger Receives json-rest-api's log
+ * calls, each detail first, as its fields (jsonRestApiLogger).
  */
 async function createResourceHost({ knex, logger }) {
   // readable-check: allow method-probe - input validation: the application passes its own Knex instance
@@ -660,7 +680,7 @@ async function createResourceHost({ knex, logger }) {
   /** @type {import("json-rest-api").JsonRestApi<Record<string, import("./types.js").JsonRestResource>>} */
   const api = new JsonRestApi({
     name: "jskit-internal-json-rest-api",
-    logger
+    logger: jsonRestApiLogger(logger)
   });
 
   // A numbered page is one statement: json-rest-api counts no rows for it.
