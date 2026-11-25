@@ -251,7 +251,12 @@ test("a browser run's launcher on PostgreSQL, stopped by SIGTERM, drops the numb
   const environment = { ...process.env, DB_CLIENT: "pg", DB_NAME: TEST_DB_NAME, DATABASE_URL: "", BROWSER_TEST_DB_NAME: name };
   delete environment.TEST_DB_NAME;
   const knexConfig = createKnexMigrationConfig({ client: "pg", environment, appRoot });
-  const seed = () => { throw new Error("the seed failed"); };
+  // The designated database's seed fails at once while the copies' still run: their sessions end before the drop.
+  const seed = async (trx) => {
+    const { rows: [{ name: database }] } = await trx.raw("SELECT current_database() AS name");
+    if (database === name) throw new Error("the seed failed");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  };
   await assert.rejects(prepareTestDatabases({ knexConfig, environment, variable: "BROWSER_TEST_DB_NAME", count: 3, seed, appRoot }),
     /the seed failed/u);
   assert.deepEqual(await present(), [name, `${name}_7`, `${name}_snapshot`]);

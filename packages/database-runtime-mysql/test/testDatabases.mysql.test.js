@@ -482,10 +482,45 @@ test("a browser run's launcher, stopped by SIGTERM, drops the numbered copies of
   const environment = { ...process.env, DB_NAME: `${name}_application`, DATABASE_URL: "", BROWSER_TEST_DB_NAME: name };
   delete environment.TEST_DB_NAME;
   const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment, appRoot });
-  const seed = () => { throw new Error("the seed failed"); };
+  // The designated database's seed fails at once while the copies' still run: their sessions end before the drop.
+  const seed = async (trx) => {
+    const [[{ name: database }]] = await trx.raw("SELECT DATABASE() AS name");
+    if (database === name) throw new Error("the seed failed");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  };
   await assert.rejects(prepareTestDatabases({ knexConfig, environment, variable: "BROWSER_TEST_DB_NAME", count: 3, seed, appRoot }),
     /the seed failed/u);
   assert.deepEqual(await present(), [name, `${name}_7`]);
+});
+
+test("prepareTestDatabases() drops the numbered copies it made when a restore throws, once every restore has ended", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const { appRoot, name, server } = await fixtureApplication(context, "restore", { tests: {}, concurrency: 1 });
+  const environment = { ...process.env, DB_NAME: `${name}_application`, DATABASE_URL: "", TEST_DB_NAME: name };
+  const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment, appRoot });
+  const admin = knex({ client: "mysql2", connection: server, pool: { min: 0, max: 2 } });
+  const copies = [`${name}_1`, `${name}_2`];
+  context.after(async () => {
+    for (const database of copies) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    await admin.destroy();
+  });
+  const present = async () => (await admin("information_schema.schemata").whereIn("schema_name", [name, ...copies])
+    .pluck("schema_name")).sort();
+  await prepareTestDatabases({ knexConfig, environment, appRoot });
+  // TEST_DB_NAME's restore fails at once (a view), while a session reading the copies holds their restores back.
+  await admin.raw("CREATE VIEW ??.shelf AS SELECT 1 AS id", [name]);
+  for (const copy of copies) {
+    await admin.raw("CREATE DATABASE ??", [copy]);
+    await admin.raw("CREATE TABLE ??.held (id INT)", [copy]);
+  }
+  const reader = await admin.transaction();
+  for (const copy of copies) await reader.raw("SELECT * FROM ??.held", [copy]);
+  const preparing = prepareTestDatabases({ knexConfig, environment, count: 3, appRoot }).then(() => null, (error) => error);
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await reader.commit();
+  assert.match((await preparing)?.message ?? "(it did not throw)", new RegExp(`^${name} holds a view`, "u"));
+  assert.deepEqual(await present(), [name]);
 });
 
 test("countQueries() counts a MySQL or MariaDB path's statements, its transactions' included", {
