@@ -16,7 +16,6 @@ const screen = useCrudViewScreen({
   titleFallbackFieldKey: "title",
   listUrlTemplate: "/books",
   editUrlTemplate: "/books/:bookId/edit",
-  requestRecoveryLabel: "Book",
   fallbackLoadError: "Unable to load this book."
 });
 

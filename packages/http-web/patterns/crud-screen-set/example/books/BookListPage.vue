@@ -20,7 +20,6 @@ const screen = useCrudListScreen({
   listFilters,
   listBulkActions,
   listRowActions,
-  requestRecoveryLabel: "Books",
   fallbackLoadError: "Unable to load books."
 });
 </script>

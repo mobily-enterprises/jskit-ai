@@ -235,21 +235,20 @@ const LOAD_REFUSALS = Object.freeze([
   }
 ]);
 
-const REFUSAL_RUNTIMES = Object.freeze({
-  useList: (client) => useList(listOptions(client)),
-  useView: (client) => useView({
-    apiSuffix: "/contacts/7",
-    ownershipFilter: "public",
-    client,
-    queryKeyFactory: () => ["contacts", "7"]
-  }),
-  useAddEdit: (client) => useAddEdit({
+const REFUSAL_RUNTIMES_OPTIONS = Object.freeze({
+  view: (client) => ({ apiSuffix: "/contacts/7", ownershipFilter: "public", client, queryKeyFactory: () => ["contacts", "7"] }),
+  addEdit: (client) => ({
     apiSuffix: "/contacts/7",
     ownershipFilter: "public",
     client,
     queryKeyFactory: () => ["contacts", "7", "edit"],
     model: reactive({ name: "" })
   })
+});
+const REFUSAL_RUNTIMES = Object.freeze({
+  useList: (client) => useList(listOptions(client)),
+  useView: (client) => useView(REFUSAL_RUNTIMES_OPTIONS.view(client)),
+  useAddEdit: (client) => useAddEdit(REFUSAL_RUNTIMES_OPTIONS.addEdit(client))
 });
 
 for (const [name, useRuntime] of Object.entries(REFUSAL_RUNTIMES)) {
@@ -300,6 +299,56 @@ for (const [name, useRuntime] of Object.entries(SCREEN_READS)) {
     assert.deepEqual(mounted.reports.map((event) => event.intent), ["resource-load"]);
     assertRetryOffer(mounted, { status: undefined, retry: true });
     assert.ok(mounted.runtime.loadError);
+  });
+}
+
+// The errors a reader's setup throws, as the app's error handler receives them.
+async function setupErrors(t, useRuntime) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/contacts/:recordId?", component: { render: () => h("div") } }]
+  });
+  await router.push("/contacts/7");
+  await router.isReady();
+  const errors = [];
+  const app = renderer.createApp({
+    setup() {
+      useRuntime({ async request() { return {}; } });
+      return () => h("div");
+    }
+  });
+  app.config.errorHandler = (error) => errors.push(error);
+  app.use(router);
+  app.use(VueQueryPlugin, { queryClient: new QueryClient() });
+  app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, { report: () => ({}), dismiss() {} });
+  app.mount(node("root"));
+  t.after(() => app.unmount());
+  return errors;
+}
+
+// A label names the banner, which a screen read leaves out: given without requestRecovery: true it names nothing, as
+// in an application written before this default, so the read is refused and the error says what to change.
+const LABELLED_SCREEN_READS = Object.freeze([
+  ["useList", "useList", (client) => useList({ ...listOptions(client), requestRecoveryLabel: "Contacts" })],
+  ["useList with requestRecovery: false", "useList", (client) => useList({
+    ...listOptions(client),
+    requestRecovery: false,
+    requestRecoveryLabel: "Contacts"
+  })],
+  ["useView", "useView", (client) => useView({ ...REFUSAL_RUNTIMES_OPTIONS.view(client), requestRecoveryLabel: "Contact" })],
+  ["useAddEdit", "useAddEdit", (client) => useAddEdit({ ...REFUSAL_RUNTIMES_OPTIONS.addEdit(client), requestRecoveryLabel: "Contact" })],
+  ["useCrudList", "useList", (client) => useCrudList({ ...listOptions(client), requestRecoveryLabel: "Contacts" })]
+]);
+
+for (const [name, caller, useRuntime] of LABELLED_SCREEN_READS) {
+  test(`${name}: a requestRecoveryLabel without requestRecovery: true is refused, naming the fix`, async (t) => {
+    const errors = await setupErrors(t, useRuntime);
+    assert.equal(errors.length, 1);
+    assert.ok(errors[0] instanceof TypeError);
+    assert.equal(errors[0].message, `${caller}() was given requestRecoveryLabel, which names the shell's request ` +
+      "recovery banner, but its read leaves the banner out unless requestRecovery is true: its screen shows the failure " +
+      "as loadError. Pass requestRecovery: true for a read whose screen shows no loadError (a lookup's options), or " +
+      "drop requestRecoveryLabel where the screen shows loadError (a CRUD screen always does).");
   });
 }
 

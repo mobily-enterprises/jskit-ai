@@ -129,9 +129,18 @@ function mergeRequestRecoveryQueryMeta(queryOptions = null, requestRecovery = nu
 // the read failed, with Retry when trying again can help) and the shell's one `resource-load` notice, whose channel the
 // app's error policy picks. So shell-web's request recovery, which would report a network failure again as its own
 // banner, leaves their reads out unless the caller asks for it with `requestRecovery`, for a read no screen shows the
-// failure of (a lookup's options). The one rule for the three.
-function resolveScreenReadRequestRecovery(requestRecovery = null) {
-  return requestRecovery ?? false;
+// failure of (a lookup's options). The one rule for the three. A requestRecoveryLabel the caller gives while the banner
+// stays out names nothing, so it is refused: such a read relied on the banner before this default, or its label is a
+// leftover.
+function resolveScreenReadRequestRecovery(requestRecovery = null, { caller, requestRecoveryLabel } = {}) {
+  const resolved = requestRecovery ?? false;
+  if (requestRecoveryLabel != null && (resolved === false || resolved?.enabled === false)) {
+    throw new TypeError(`${caller}() was given requestRecoveryLabel, which names the shell's request recovery banner, ` +
+      "but its read leaves the banner out unless requestRecovery is true: its screen shows the failure as loadError. " +
+      "Pass requestRecovery: true for a read whose screen shows no loadError (a lookup's options), or drop " +
+      "requestRecoveryLabel where the screen shows loadError (a CRUD screen always does).");
+  }
+  return resolved;
 }
 
 export {

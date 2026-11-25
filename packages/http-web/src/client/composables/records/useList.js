@@ -63,7 +63,7 @@ function useList({
   requestOptions,
   queryOptions,
   requestRecovery,
-  requestRecoveryLabel = t("jskit.http.list.label"),
+  requestRecoveryLabel,
   realtime,
   recordIdParam = "recordId",
   recordIdSelector,
@@ -253,8 +253,8 @@ function useList({
     selectItems,
     requestOptions: listRequestOptions,
     queryOptions,
-    requestRecovery: resolveScreenReadRequestRecovery(requestRecovery),
-    requestRecoveryLabel,
+    requestRecovery: resolveScreenReadRequestRecovery(requestRecovery, { caller: "useList", requestRecoveryLabel }),
+    requestRecoveryLabel: requestRecoveryLabel ?? t("jskit.http.list.label"),
     fallbackLoadError
   });
   const routeSyncApplying = ref(false);

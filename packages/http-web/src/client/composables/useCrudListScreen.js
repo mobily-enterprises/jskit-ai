@@ -134,7 +134,7 @@ function useCrudListScreen({
   requestQueryParams,
   requestFieldsets,
   readEnabled = true,
-  requestRecoveryLabel = t("jskit.http.crud.records"),
+  requestRecoveryLabel,
   fallbackLoadError = t("jskit.http.crud.list.loadFailed")
 }) {
   const crudHttpClient = resolveCrudHttpClient(resource, { client });

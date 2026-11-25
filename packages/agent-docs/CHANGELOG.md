@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The client requests heuristic says `requestRecoveryLabel` goes with `requestRecovery: true` on `useList()`, `useView()` and `useAddEdit()` and is refused alone, and the CRUD screen set pattern's Book screens no longer pass one.
 - The data access guide says `createPackageTestKnex` follows the run's `DB_CLIENT`: SQLite in memory, a PostgreSQL schema on `pg`, and on `mysql2` a MySQL or MariaDB database of the test's own named after `TEST_DB_NAME`, dropped after it, with the grant the database user needs.
 - The client requests heuristic says a failure shows once: `useList()`, `useView()` and `useAddEdit()` show their read's failure on their screen, so shell-web's request recovery banner leaves their queries out unless `requestRecovery` asks for it (a lookup's options), and a hand-written query whose component shows its own load error with Retry sets `meta.jskit.requestRecovery = false`.
 - The application shell pattern says `ShellErrorHost`'s banners below a top app bar are a top layout item of their own height, so `v-main` starts the content below them and they never cover it.

@@ -284,7 +284,7 @@
  * @property {HttpClient} [client]
  * @property {Record<string, any> | null} [transport]
  * @property {RequestRecovery} [requestRecovery]
- * @property {string} [requestRecoveryLabel]
+ * @property {string} [requestRecoveryLabel] The request recovery banner's label: only with `requestRecovery: true`, refused (a TypeError) without it.
  * @property {string} [placementSource]
  * @property {string} [fallbackLoadError]
  * @property {string} [fallbackSaveError]
@@ -356,7 +356,7 @@
  * @property {HttpClient} [client]
  * @property {Record<string, any> | null} [transport]
  * @property {RequestRecovery} [requestRecovery]
- * @property {string} [requestRecoveryLabel]
+ * @property {string} [requestRecoveryLabel] The request recovery banner's label: only with `requestRecovery: true`, refused (a TypeError) without it.
  * @property {string} [placementSource]
  * @property {string} [fallbackLoadError]
  * @property {number[]} [notFoundStatuses]
@@ -403,7 +403,7 @@
  * @property {Record<string, any>} [requestOptions]
  * @property {Record<string, any>} [queryOptions]
  * @property {RequestRecovery} [requestRecovery]
- * @property {string} [requestRecoveryLabel]
+ * @property {string} [requestRecoveryLabel] The request recovery banner's label: only with `requestRecovery: true`, refused (a TypeError) without it.
  * @property {OperationRealtime | false | null} [realtime]
  * @property {string} [recordIdParam]
  * @property {(record: Record<string, any>) => unknown} [recordIdSelector]
@@ -567,7 +567,6 @@
  * @property {RequestQueryParams} [requestFieldsets]
  * @property {ReadEnabled} [readEnabled]
  * @property {QueryKeyFactory} [queryKeyFactory]
- * @property {string} [requestRecoveryLabel]
  * @property {string} [fallbackLoadError]
  * @property {string} [notFoundMessage]
  */
@@ -595,7 +594,6 @@
  * @property {RequestQueryParams} [requestQueryParams]
  * @property {RequestQueryParams} [requestFieldsets]
  * @property {ReadEnabled} [readEnabled]
- * @property {string} [requestRecoveryLabel]
  * @property {string} [fallbackLoadError]
  */
 

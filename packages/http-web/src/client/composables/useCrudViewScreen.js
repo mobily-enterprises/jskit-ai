@@ -20,7 +20,7 @@ function useCrudViewScreen({
   requestFieldsets,
   readEnabled = true,
   queryKeyFactory = null,
-  requestRecoveryLabel = t("jskit.http.crud.record"),
+  requestRecoveryLabel,
   fallbackLoadError = t("jskit.http.crud.view.loadFailed"),
   notFoundMessage = t("jskit.http.crud.recordNotFound")
 }) {

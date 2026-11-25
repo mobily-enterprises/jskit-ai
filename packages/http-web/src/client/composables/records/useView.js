@@ -35,7 +35,7 @@ function useView({
   client,
   transport,
   requestRecovery,
-  requestRecoveryLabel = t("jskit.http.resource.label"),
+  requestRecoveryLabel,
   placementSource = "http-web.view",
   fallbackLoadError = t("jskit.http.resource.loadFailed"),
   notFoundStatuses = [404],
@@ -117,8 +117,8 @@ function useView({
     readMethod,
     readQuery: requestQueryRuntime.requestQuery,
     transport,
-    requestRecovery: resolveScreenReadRequestRecovery(requestRecovery),
-    requestRecoveryLabel,
+    requestRecovery: resolveScreenReadRequestRecovery(requestRecovery, { caller: "useView", requestRecoveryLabel }),
+    requestRecoveryLabel: requestRecoveryLabel ?? t("jskit.http.resource.label"),
     refreshOnPull: true,
     fallbackLoadError
   });

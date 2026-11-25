@@ -39,7 +39,7 @@ function useAddEdit({
   client,
   transport,
   requestRecovery,
-  requestRecoveryLabel = t("jskit.http.resource.label"),
+  requestRecoveryLabel,
   placementSource = "http-web.add-edit",
   fallbackLoadError = t("jskit.http.resource.loadFailed"),
   fallbackSaveError = "",
@@ -137,8 +137,8 @@ function useAddEdit({
     writeMethod,
     readQuery: requestQueryRuntime.requestQuery,
     transport,
-    requestRecovery: resolveScreenReadRequestRecovery(requestRecovery),
-    requestRecoveryLabel,
+    requestRecovery: resolveScreenReadRequestRecovery(requestRecovery, { caller: "useAddEdit", requestRecoveryLabel }),
+    requestRecoveryLabel: requestRecoveryLabel ?? t("jskit.http.resource.label"),
     fallbackLoadError,
     fallbackSaveError: effectiveMessages.saveError
   });
