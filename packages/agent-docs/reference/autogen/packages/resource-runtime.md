@@ -235,6 +235,7 @@ Local functions
 - `workspaceScopeOwnerId(visibilityContext)`
 - `isJsonRestResourceMissingError(error = null)`
 - `isJsonRestSparseFieldError(error = null)`
+- `jsonRestApiLogger(logger)`
 
 ### `src/server/resourceRuntime.js`
 Exports
