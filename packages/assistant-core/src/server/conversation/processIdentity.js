@@ -424,9 +424,12 @@ export function createConversationProcessIdentity({
   async function waitForProcessIdentityExit(metadata = {}, options = {}, timeoutMs = 0) {
     const deadline = Date.now() + timeoutMs;
     let inspection = await inspectProcessIdentity(metadata, options);
+    // An ambiguous group is not yet known to have exited: a member mid-exit has released its memory, so its
+    // environment cannot be read for a few milliseconds before it is a zombie. It is inspected again until it is
+    // absent or mismatched, or the deadline passes and the stop stays unverified.
     while (
       Date.now() < deadline &&
-      inspection.status === PROCESS_IDENTITY_STATUS.EXACT
+      [PROCESS_IDENTITY_STATUS.EXACT, PROCESS_IDENTITY_STATUS.AMBIGUOUS].includes(inspection.status)
     ) {
       await delay(100);
       inspection = await inspectProcessIdentity(metadata, options);
