@@ -27,7 +27,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes } from "node:crypto";
 import diagnosticsChannel from "node:diagnostics_channel";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,6 +37,7 @@ import { parseDatabaseUrl, resolveKnexConnectionFromEnvironment, resolveKnexPool
 import { detectDialectFromClient } from "../shared/dialect.js";
 import { RUNTIME_QUERY_CHANNEL } from "./database.js";
 import { loadKnexFactory } from "./knexFactory.js";
+import { POSTGRES_MAINTENANCE_DATABASE, dropCopiesIfThrows, endTestDatabaseRun } from "./testDatabaseCopies.js";
 
 const SNAPSHOT_DIRECTORY = path.join("node_modules", ".cache", "jskit-test-databases");
 // Room for a `_snapshot` or copy suffix within MySQL's 64 and PostgreSQL's 63 characters.
@@ -53,8 +54,6 @@ const POSTGRES_INSUFFICIENT_PRIVILEGE = "42501";
 // The run's settings, connection password included, in a file only this user can read; the environment names its
 // directory only.
 const RUN_SETTINGS_FILE = "settings.json";
-// The database a PostgreSQL connection uses to create, drop and copy the test databases.
-const POSTGRES_MAINTENANCE_DATABASE = "postgres";
 // PostgreSQL 15 and later copy a template file by file (STRATEGY FILE_COPY) instead of through the write-ahead log, the
 // default there: about half the time per copy of a test schema, and less again with copies made at once.
 const POSTGRES_FILE_COPY_VERSION = 150000;
@@ -492,7 +491,7 @@ function refusedPrivilege(error) {
  * as it runs (`testDatabaseFile.js`, preloaded into every file's process); or, with no usable TEST_DB_NAME (unset, the
  * connected database itself, or one the database user may not prepare), one file at a time on the connected database,
  * as before. Anything else that stops the preparation, such as a TEST_DB_NAME copy named like a protected database or
- * an unreachable server, fails the run.
+ * an unreachable server, fails the run. Its cleanup() ends the run, removing its settings and dropping its copies.
  * @param {object} options
  * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig
  * @param {Record<string, string | undefined>} options.environment
@@ -500,7 +499,7 @@ function refusedPrivilege(error) {
  * @param {TestDatabaseSchema} [options.schema]
  * @param {string} [options.appRoot]
  * @param {(knex: import("knex").Knex) => Promise<string>} [options.checkDatabase] Runs once on the prepared TEST_DB_NAME,
- *   before any test file: what it answers joins the summary, and a throw fails the run.
+ *   before any test file: what it answers joins the summary, and a throw drops the copies and fails the run.
  */
 async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd(), checkDatabase }) {
   assertNoRetiredVariables(environment);
@@ -523,7 +522,8 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
     if (!refusedPrivilege(error)) throw error;
     return oneAtATime(`the database user may not prepare ${testDatabase} (${error.code})`);
   }
-  const checked = checkDatabase ? await withKnex(knexConfig, prepared.databases[0], checkDatabase) : "";
+  const checked = await dropCopiesIfThrows(knexConfig, prepared.databases, async () =>
+    (checkDatabase ? withKnex(knexConfig, prepared.databases[0], checkDatabase) : ""));
   // mkdtemp makes the directory for this user alone; the settings file holds the connection password.
   const directory = mkdtempSync(path.join(os.tmpdir(), "jskit-test-databases-"));
   const { client, connection, migrations } = knexConfig;
@@ -538,7 +538,7 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
     env: { JSKIT_TEST_DATABASES: directory },
     preload: TEST_DATABASE_FILE,
     summary: `${prepared.summary}${checked ? `; ${checked}` : ""}`,
-    cleanup: () => rmSync(directory, { recursive: true, force: true })
+    cleanup: () => endTestDatabaseRun(knexConfig, prepared.databases, directory)
   };
 }
 

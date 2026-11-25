@@ -239,7 +239,9 @@ async function runTests(args) {
     if (times) process.stderr.write(times.report);
     if (times?.overruns.length > 0 && exitCode === 0) exitCode = 1;
   } finally {
-    databases?.cleanup();
+    // However the run ended, it drops its numbered test databases, and says what it dropped.
+    const ended = await databases?.cleanup();
+    if (ended) process.stderr.write(`jskit test: ${ended}.\n`);
     rmSync(timesDirectory, { recursive: true, force: true });
   }
   return exitCode;
