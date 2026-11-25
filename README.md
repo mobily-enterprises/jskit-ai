@@ -30,6 +30,12 @@ npm run docs:build
 npm run verify
 ```
 
+`npm run verify` runs every package's tests on the run's `DB_CLIENT` (CI's
+verify job: MariaDB), where each package data test gets a database of its own
+from `createPackageTestKnex()`, then `npm run test:sqlite`: the same data-test
+files again with `DB_CLIENT` unset, on SQLite in memory, which no other run
+covers. CI's PostgreSQL job runs them on PostgreSQL.
+
 ## Publishing
 
 JSKIT releases through its own published release tool, `@jskit-ai/release`
