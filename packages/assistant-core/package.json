@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.2.81",
+  "version": "0.2.82",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -60,7 +60,7 @@
     "ws": "^8.20.1"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.2.33",
+    "@jskit-ai/http-runtime": "0.2.34",
     "@jskit-ai/kernel": "0.2.33",
     "vue": "^3.5.13",
     "vuetify": "^4.3.0"
@@ -219,6 +219,6 @@
     }
   },
   "devDependencies": {
-    "@jskit-ai/material-web": "0.1.9"
+    "@jskit-ai/material-web": "0.1.10"
   }
 }

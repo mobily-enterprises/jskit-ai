@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-core",
-  "version": "0.2.62",
+  "version": "0.2.63",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -202,9 +202,9 @@
   },
   "peerDependencies": {
     "@jskit-ai/auth-core": "0.2.38",
-    "@jskit-ai/database-runtime": "0.1.283",
-    "@jskit-ai/http-runtime": "0.2.33",
+    "@jskit-ai/database-runtime": "0.1.284",
+    "@jskit-ai/http-runtime": "0.2.34",
     "@jskit-ai/kernel": "0.2.33",
-    "@jskit-ai/resource-runtime": "0.2.47"
+    "@jskit-ai/resource-runtime": "0.2.48"
   }
 }

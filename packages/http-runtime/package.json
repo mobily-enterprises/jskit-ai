@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/http-runtime",
-  "version": "0.2.33",
+  "version": "0.2.34",
   "type": "module",
   "scripts": {
     "test": "jskit test"

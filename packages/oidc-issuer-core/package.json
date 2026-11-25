@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/oidc-issuer-core",
-  "version": "0.1.52",
+  "version": "0.1.53",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -122,7 +122,7 @@
     "@jskit-ai/auth-provider-local-core": "0.2.44"
   },
   "peerDependencies": {
-    "@jskit-ai/database-runtime": "0.1.283",
+    "@jskit-ai/database-runtime": "0.1.284",
     "@jskit-ai/kernel": "0.2.33"
   }
 }

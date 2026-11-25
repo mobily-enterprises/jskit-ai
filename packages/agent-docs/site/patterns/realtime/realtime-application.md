@@ -97,6 +97,6 @@ describe distinct lifecycle states.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/realtime@0.2.52`
+- Owner: `@jskit-ai/realtime@0.2.53`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/realtime/patterns/realtime-application/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/realtime/patterns/realtime-application/example)
