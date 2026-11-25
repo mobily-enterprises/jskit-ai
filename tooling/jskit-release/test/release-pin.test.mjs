@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import test from "node:test";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { existsSync } from "node:fs";
 import { publicationFixture } from "./npm-publication-fixture.mjs";
 import { snapshotFiles } from "../src/npm-publication.mjs";
 import { discoverReleasePackages, validateReleaseState } from "../src/release.mjs";
@@ -239,9 +240,14 @@ test("pin follows released versions, keeps range prefixes, retries npm propagati
   const calls = await f.calls();
   const installs = calls.filter(call => call.args[0] === "install");
   assert.equal(installs.length, 2);
-  const firstInstall = calls.indexOf(installs[0]);
-  assert.deepEqual(calls[firstInstall + 1].args, ["cache", "clean", "--force"], "the retry drops npm's stale package list");
+  // The first install reads through the operator's npm cache; the retry through a throwaway one, so a stale package
+  // list cached before the release is not read again and the operator's cache stays warm for later installs.
+  assert.equal(calls.some(call => call.args[0] === "cache"), false, "the operator's npm cache is never cleaned");
   assert.ok(installs[0].args.includes("--prefer-online"));
+  assert.equal(installs[0].args.includes("--cache"), false);
+  const cache = installs[1].args[installs[1].args.indexOf("--cache") + 1];
+  assert.ok(installs[1].args.includes("--cache") && path.isAbsolute(cache), installs[1].args.join(" "));
+  assert.equal(existsSync(cache), false, "the throwaway cache is removed");
   const root = JSON.parse(await readFile(path.join(consumer, "package.json"), "utf8"));
   assert.deepEqual(root.dependencies, { "@jskit-ai/a": "^1.0.0", "@jskit-ai/b": "1.0.0", "left-pad": "^1.0.0", "@jskit-ai/local": "file:vendor/local" });
   assert.equal(JSON.parse(await readFile(path.join(consumer, "packages/x/package.json"), "utf8")).devDependencies["@jskit-ai/a"], "~1.0.0");

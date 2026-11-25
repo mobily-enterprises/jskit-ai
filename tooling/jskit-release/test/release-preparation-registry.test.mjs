@@ -18,18 +18,28 @@ test("preparation retains unpublished versions for both existing and never-publi
   assert.deepEqual(await snapshotFiles(f.repo), after);
 });
 
-test("repeating preparation repairs a failed lockfile refresh without bumping prepared versions", async t => {
+test("a failed lockfile refresh applies nothing, and preparation repairs a stale lockfile without bumping prepared versions", async t => {
   const f = await publicationFixture(t, "jskit");
   await publishFixtureBaseline(f);
   await writeFile(path.join(f.packages[0].dir, "index.js"), "export const value = 2;\n");
-  const partial = f.run(["prepare"], { RELEASE_TEST_FAIL: "install" });
-  assert.equal(partial.status, 1);
+  // The refresh runs on the staged source before it is applied, so a failure leaves the checkout as it was.
+  const untouched = await snapshotFiles(f.repo);
+  const failed = f.run(["prepare"], { RELEASE_TEST_FAIL: "install" });
+  assert.equal(failed.status, 1);
+  assert.deepEqual(await snapshotFiles(f.repo), untouched);
+  // A checkout whose versions were prepared and whose lockfile was not (one hand-edited, or left by an older release
+  // tool) gets its lockfile refreshed, and keeps the prepared versions.
+  assert.equal(f.run(["prepare"]).status, 0);
   const prepared = await fixtureVersions(f);
   assert.equal(prepared["@jskit-ai/a"], "1.0.1");
+  const lockPath = path.join(f.repo, "package-lock.json");
+  const refreshed = await readFile(lockPath, "utf8");
+  await writeFile(lockPath, refreshed.replace(/"1\.0\.1"/gu, '"1.0.0"'));
   const retry = f.run(["prepare"]);
   assert.equal(retry.status, 0, retry.stderr);
   assert.deepEqual(await fixtureVersions(f), prepared);
-  const lock = JSON.parse(await readFile(path.join(f.repo, "package-lock.json"), "utf8"));
+  assert.equal(await readFile(lockPath, "utf8"), refreshed);
+  const lock = JSON.parse(refreshed);
   assert.equal(lock.packages["packages/a"].version, "1.0.1");
   assert.equal(lock.packages["packages/b"].dependencies["@jskit-ai/a"], "1.0.1");
   const installCount = (await f.calls()).filter(call => call.args[0] === "install").length;

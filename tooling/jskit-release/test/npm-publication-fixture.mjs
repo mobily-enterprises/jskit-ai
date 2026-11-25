@@ -89,7 +89,7 @@ const crypto=require('node:crypto');
 const {spawnSync}=require('node:child_process');
 const args=process.argv.slice(2);
 const config=args.includes('--userconfig')?args[args.indexOf('--userconfig')+1]:null;
-const entry={args,cwd:process.cwd(),config};
+const entry={args,cwd:process.cwd(),config,pid:process.pid,start:Date.now()};
 if(config){entry.mode=fs.statSync(config).mode&0o777;entry.tokenPresent=Boolean(process.env.NPM_TOKEN);}
 if(args[0]==='install'&&fs.existsSync('package-lock.json'))entry.lockKeys=Object.keys(JSON.parse(fs.readFileSync('package-lock.json','utf8')).packages||{});
 if(args[0]==='publish')entry.integrity='sha512-'+crypto.createHash('sha512').update(fs.readFileSync(args[1])).digest('base64');
@@ -101,14 +101,27 @@ if(process.env.RELEASE_TEST_FAIL===args[0]){
   console.log(JSON.stringify({error:{code:process.env.RELEASE_TEST_CODE||'E503'}}));process.exit(1);
 }
 const registry=JSON.parse(fs.readFileSync(process.env.RELEASE_TEST_REGISTRY,'utf8'));
+// A registry read (a lookup or a download) takes this long, and its end is logged beside its start, so a test can see
+// how many ran at once.
+if(process.env.RELEASE_TEST_REGISTRY_DELAY_MS&&(args[0]==='view'||(args[0]==='pack'&&!args[1].startsWith('--')))){
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,Number(process.env.RELEASE_TEST_REGISTRY_DELAY_MS));
+  fs.appendFileSync(process.env.RELEASE_TEST_LOG+'.ends',JSON.stringify({pid:process.pid,start:entry.start,end:Date.now()})+'\\n');
+}
+// Dist-tags per package; a package without any has the last version registered as latest. A hidden version is one a
+// stale registry does not serve yet: it is in neither the version list nor a tag.
+const hidden=process.env.RELEASE_TEST_HIDE_VERSION;
+const tagsOf=name=>((registry['#tags']||{})[name]);
+function setTag(name,tag,version){(registry['#tags']??={})[name]??={};registry['#tags'][name][tag]=version;}
 if(args[0]==='view'){
   if(process.env.RELEASE_TEST_NULL_METADATA){console.log('null');process.exit(0);}
   if(!args[1].slice(1).includes('@')){
-    const entries=Object.values(registry).filter(record=>record.name===args[1]);
-    const versions=entries.map(record=>record.version).filter(version=>version!==process.env.RELEASE_TEST_HIDE_VERSION);
+    const entries=Object.values(registry).filter(record=>record.name===args[1]&&record.version!==hidden);
+    const versions=entries.map(record=>record.version);
     if(!versions.length){console.log(JSON.stringify({error:{code:'E404'}}));process.exit(1);}
-    const record=entries.at(-1);
-    console.log(JSON.stringify({name:record.name,version:record.version,versions,'dist-tags':{latest:record.version},dist:{integrity:record.integrity,tarball:record.tarball}}));
+    const tags=Object.fromEntries(Object.entries(tagsOf(args[1])||{}).filter(([,version])=>versions.includes(version)));
+    tags.latest??=entries.at(-1).version;
+    const record=entries.find(candidate=>candidate.version===tags.latest);
+    console.log(JSON.stringify({name:record.name,version:record.version,versions,'dist-tags':tags,dist:{integrity:record.integrity,tarball:record.tarball}}));
   }else{
     const record=registry[args[1]];
     if(!record){console.log(JSON.stringify({error:{code:'E404'}}));process.exit(1);}
@@ -133,8 +146,15 @@ if(args[0]==='view'){
   const file=path.join(path.dirname(process.env.RELEASE_TEST_REGISTRY),metadata.name.replace('/','-')+'-'+metadata.version+'.tgz');
   fs.copyFileSync(args[1],file);
   registry[metadata.name+'@'+metadata.version]={name:metadata.name,version:metadata.version,file,integrity:entry.integrity,tarball:'https://registry.fixture.invalid/'+encodeURIComponent(metadata.name+'@'+metadata.version)+'.tgz'};
+  setTag(metadata.name,args.includes('--tag')?args[args.indexOf('--tag')+1]:'latest',metadata.version);
   fs.writeFileSync(process.env.RELEASE_TEST_REGISTRY,JSON.stringify(registry));
   console.log('published fixture');
+}else if(args[0]==='dist-tag'&&args[1]==='add'){
+  const at=args[2].lastIndexOf('@');
+  if(!registry[args[2]]){console.log(JSON.stringify({error:{code:'E404'}}));process.exit(1);}
+  setTag(args[2].slice(0,at),args[3],args[2].slice(at+1));
+  fs.writeFileSync(process.env.RELEASE_TEST_REGISTRY,JSON.stringify(registry));
+  console.log('+'+args[3]+': '+args[2]);
 }else if(args[0]==='install'){
   const lock={name:'release-fixture',lockfileVersion:3,packages:{}};
   const files=['package.json'];
@@ -153,6 +173,9 @@ if(args[0]==='view'){
     RELEASE_TEST_LOG: log, RELEASE_TEST_REGISTRY: registryFile };
   async function register(record, version, file, integrity) {
     const spec = `${record.name}@${version}`;
+    // What the release tool's npm wrote since, then this version, as latest like an ordinary publish.
+    Object.assign(registry, JSON.parse(await readFile(registryFile, "utf8")));
+    ((registry["#tags"] ??= {})[record.name] ??= {}).latest = version;
     registry[spec] = { name: record.name, version, file, tarball: `https://registry.fixture.invalid/${encodeURIComponent(spec)}.tgz`,
       integrity: integrity || `sha512-${createHash("sha512").update(await readFile(file)).digest("base64")}` };
     await writeFile(registryFile, JSON.stringify(registry));
@@ -209,6 +232,13 @@ if(args[0]==='view'){
     async calls() {
       if (!existsSync(log)) return [];
       return (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line));
+    },
+    // The most of the calls `matches` selects that ran at once, from the starts and ends a delayed registry read logs.
+    async mostAtOnce(matches) {
+      const ends = new Map((await readFile(`${log}.ends`, "utf8")).trim().split("\n").map(line => JSON.parse(line))
+        .map(({ pid, start, end }) => [`${pid}:${start}`, end]));
+      const spans = (await this.calls()).filter(matches).map(call => [call.start, ends.get(`${call.pid}:${call.start}`)]);
+      return Math.max(0, ...spans.map(([start]) => spans.filter(([from, to]) => from <= start && start < to).length));
     }
   };
 }
