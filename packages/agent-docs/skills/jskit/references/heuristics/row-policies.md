@@ -100,7 +100,7 @@ Avoid:
 
 - filtering `document.data` in `service.js`
 - accepting visible ids or hierarchy roots from client query parameters
-- installing `RowPolicyPlugin` in applications
+- installing `RowPolicyPlugin` in applications for their table resources (the runtime installs it; only an application's own AnyAPI instances, built from `@jskit-ai/resource-runtime/server/anyapi`, install it themselves)
 - adding a default policy file to every CRUD
 - returning a Knex builder or promise from a synchronous grouped contribution
 - swallowing a policy error and retrying without mandatory visibility

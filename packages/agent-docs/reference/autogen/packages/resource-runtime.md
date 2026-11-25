@@ -14,6 +14,15 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/server/anyapi.js`
+Exports
+- `AnyapiRegistry`
+- `JsonRestApi`
+- `RestApiAnyapiKnexPlugin`
+- `RestApiPlugin`
+- `RowPolicyPlugin`
+- `ensureAnyApiSchema`
+
 ### `src/server/changeHorizon.js`
 Exports
 - `readChangeHorizon(name, db)`

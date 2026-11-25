@@ -2592,6 +2592,10 @@
                 "summary": "Provides runtime.resources (ResourceRuntimeProvider): own(featureId, owns) registers a feature's tables and answers their scoped handles, and declareSystemScope(featureId, systemScope) answers the feature's systemContext(reason) for work across every workspace and user. Exports createStandaloneResources, passedOn, withoutHiddenFields, isSystemContext, buildJsonRestQueryParams, the workspace and user scope resolvers, the default row limit and page size, and the runtime's error classes."
               },
               {
+                "subpath": "./server/anyapi",
+                "summary": "json-rest-api's AnyAPI storage for tables an application defines while it runs, which no table resource describes: AnyapiRegistry, JsonRestApi, RestApiAnyapiKnexPlugin, RestApiPlugin, RowPolicyPlugin and ensureAnyApiSchema, the json-rest-api copy's own objects that the runtime's handles run on, so the application's AnyAPI writes join a handle's transaction (txOptions.trx) and the application declares no json-rest-api of its own."
+              },
+              {
                 "subpath": "./server/types",
                 "summary": "Types of runtime.resources, its handles, call options and system contexts."
               },
