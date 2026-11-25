@@ -101,9 +101,9 @@ if(process.env.RELEASE_TEST_FAIL===args[0]){
   console.log(JSON.stringify({error:{code:process.env.RELEASE_TEST_CODE||'E503'}}));process.exit(1);
 }
 const registry=JSON.parse(fs.readFileSync(process.env.RELEASE_TEST_REGISTRY,'utf8'));
-// A registry read (a lookup or a download) takes this long, and its end is logged beside its start, so a test can see
-// how many ran at once.
-if(process.env.RELEASE_TEST_REGISTRY_DELAY_MS&&(args[0]==='view'||(args[0]==='pack'&&!args[1].startsWith('--')))){
+// A registry call (a lookup, a download or an upload) takes this long, and its end is logged beside its start, so a
+// test can see how many ran at once.
+if(process.env.RELEASE_TEST_REGISTRY_DELAY_MS&&(args[0]==='view'||args[0]==='publish'||(args[0]==='pack'&&!args[1].startsWith('--')))){
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,Number(process.env.RELEASE_TEST_REGISTRY_DELAY_MS));
   fs.appendFileSync(process.env.RELEASE_TEST_LOG+'.ends',JSON.stringify({pid:process.pid,start:entry.start,end:Date.now()})+'\\n');
 }
@@ -139,15 +139,26 @@ if(args[0]==='view'){
     process.stdout.write(result.stdout);process.stderr.write(result.stderr);process.exitCode=result.status;
   }
 }else if(args[0]==='publish'){
-  const calls=fs.readFileSync(process.env.RELEASE_TEST_LOG,'utf8').trim().split('\\n').map(line=>JSON.parse(line));
-  const number=calls.filter(call=>call.args[0]==='publish').length;
-  if(process.env.RELEASE_TEST_FAIL_UPLOAD===String(number))process.exit(1);
+  // Uploads can run at once: each one numbers itself and writes the registry under a lock.
+  const lock=process.env.RELEASE_TEST_REGISTRY+'.lock';
+  for(;;){try{fs.mkdirSync(lock);break;}catch{Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,5);}}
+  let failed=false;
+  try{
+  const counter=process.env.RELEASE_TEST_REGISTRY+'.uploads';
+  const number=(fs.existsSync(counter)?Number(fs.readFileSync(counter,'utf8')):0)+1;
+  fs.writeFileSync(counter,String(number));
+  failed=process.env.RELEASE_TEST_FAIL_UPLOAD===String(number);
+  if(!failed){
+  Object.assign(registry,JSON.parse(fs.readFileSync(process.env.RELEASE_TEST_REGISTRY,'utf8')));
   const metadata=JSON.parse(spawnSync('tar',['-xOf',args[1],'package/package.json'],{encoding:'utf8'}).stdout);
   const file=path.join(path.dirname(process.env.RELEASE_TEST_REGISTRY),metadata.name.replace('/','-')+'-'+metadata.version+'.tgz');
   fs.copyFileSync(args[1],file);
   registry[metadata.name+'@'+metadata.version]={name:metadata.name,version:metadata.version,file,integrity:entry.integrity,tarball:'https://registry.fixture.invalid/'+encodeURIComponent(metadata.name+'@'+metadata.version)+'.tgz'};
   setTag(metadata.name,args.includes('--tag')?args[args.indexOf('--tag')+1]:'latest',metadata.version);
   fs.writeFileSync(process.env.RELEASE_TEST_REGISTRY,JSON.stringify(registry));
+  }
+  }finally{fs.rmdirSync(lock);}
+  if(failed)process.exit(1);
   console.log('published fixture');
 }else if(args[0]==='dist-tag'&&args[1]==='add'){
   const at=args[2].lastIndexOf('@');
@@ -233,12 +244,16 @@ if(args[0]==='view'){
       if (!existsSync(log)) return [];
       return (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line));
     },
-    // The most of the calls `matches` selects that ran at once, from the starts and ends a delayed registry read logs.
-    async mostAtOnce(matches) {
+    // The calls `matches` selects, each with its start and the end a delayed registry call logs.
+    async spans(matches) {
       const ends = new Map((await readFile(`${log}.ends`, "utf8")).trim().split("\n").map(line => JSON.parse(line))
         .map(({ pid, start, end }) => [`${pid}:${start}`, end]));
-      const spans = (await this.calls()).filter(matches).map(call => [call.start, ends.get(`${call.pid}:${call.start}`)]);
-      return Math.max(0, ...spans.map(([start]) => spans.filter(([from, to]) => from <= start && start < to).length));
+      return (await this.calls()).filter(matches).map(call => ({ call, start: call.start, end: ends.get(`${call.pid}:${call.start}`) }));
+    },
+    // The most of the calls `matches` selects that ran at once.
+    async mostAtOnce(matches) {
+      const spans = await this.spans(matches);
+      return Math.max(0, ...spans.map(({ start }) => spans.filter(span => span.start <= start && start < span.end).length));
     }
   };
 }

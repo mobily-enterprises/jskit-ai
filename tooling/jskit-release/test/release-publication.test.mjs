@@ -287,3 +287,21 @@ test("registry lookups and downloads run several at a time, never more than eigh
   assert.ok(lookups >= 2 && lookups <= 8, `${lookups} lookups at once`);
   assert.ok(downloads >= 2 && downloads <= 8, `${downloads} downloads at once`);
 });
+
+test("uploads run several at a time, each package's once every package it requires in the release is up", async t => {
+  const f = await publicationFixture(t, "jskit");
+  for (let index = 0; index < 10; index++) await f.addPackage(`@jskit-ai/extra-${index}`);
+  f.regenerate();
+  await f.syncLockfile();
+  f.git("add", "."); f.git("commit", "-m", "More packages"); f.git("push", "origin", "main");
+  const result = f.run(["publish"], { RELEASE_TEST_REGISTRY_DELAY_MS: "300" });
+  assert.equal(result.status, 0, result.stderr);
+  const isUpload = call => call.args[0] === "publish";
+  assert.equal((await f.calls()).filter(isUpload).length, 12);
+  const atOnce = await f.mostAtOnce(isUpload);
+  assert.ok(atOnce >= 2 && atOnce <= 8, `${atOnce} uploads at once`);
+  // b requires a, so its upload starts only once a's has ended.
+  const [a] = await f.spans(call => isUpload(call) && /jskit-ai-a-1\.0\.0\.tgz$/u.test(call.args[1]));
+  const [b] = await f.spans(call => isUpload(call) && /jskit-ai-b-1\.0\.0\.tgz$/u.test(call.args[1]));
+  assert.ok(b.start >= a.end, `b started at ${b.start}, a ended at ${a.end}`);
+});
