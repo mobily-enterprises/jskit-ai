@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import fsPromises, { lstat, mkdtemp, readFile, rm } from "node:fs/promises";
+import fsPromises, { lstat, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   CODEX_APP_SERVER_METADATA_SCHEMA_VERSION, CODEX_APP_SERVER_PROVIDER_ID, codexAppServerTerminalEnvHash,
   writeCodexAppServerMetadata
@@ -349,6 +350,106 @@ test("a runtime process whose environment cannot be read is refused, never left 
       code
     );
   }
+});
+
+/** A /proc stat line's fields after the command: [0] is the state, [17] num_threads (field 20). */
+function statFields(text) {
+  return text.slice(text.lastIndexOf(")") + 2).split(" ");
+}
+
+/**
+ * The stat line the kernel shows for a thread group leader whose main thread called pthread_exit while `threads`
+ * threads stay counted: state Z with that num_threads. A process that really is a zombie keeps its own line.
+ */
+function zombieLeaderStat(text, threads) {
+  const fields = statFields(text);
+  if (fields[0] === "Z") {
+    return text;
+  }
+  fields[0] = "Z";
+  fields[17] = String(threads);
+  return `${text.slice(0, text.lastIndexOf(")") + 2)}${fields.join(" ")}`;
+}
+
+test("a process whose main thread exited while its other threads run is identified and stopped, never taken as ended", linuxOnly, async (t) => {
+  const { child, identity, owned } = await ownedLinuxGroup(t);
+  const exited = new Promise((resolve) => child.once("exit", (code, signal) => resolve(signal)));
+  // Such a process's leader shows Z with its threads still counted, and its environment, the leader's memory released,
+  // only to root (EACCES). Its other threads, in /proc/<pid>/task, run on with the process's environment.
+  const asZombieLeader = (threads) => async (readFile, target, ...rest) => {
+    if (String(target) === `/proc/${child.pid}/environ`) {
+      throw Object.assign(new Error(`EACCES: /proc/${child.pid}/environ`), { code: "EACCES" });
+    }
+    const text = await readFile(target, ...rest);
+    return String(target) === `/proc/${child.pid}/stat` ? zombieLeaderStat(text, threads) : text;
+  };
+  // A Z leader alone in its thread group (num_threads 1) has ended, as before: nothing is signalled.
+  assert.deepEqual(
+    await withFsPromises("readFile", asZombieLeader(1), () => identity.stop(owned, { termTimeoutMs: 500 })),
+    { identityStatus: "mismatch", processExitVerified: true, stopped: false }
+  );
+  assert.equal(processGroupIsRunning(child.pid), true);
+  // With a second thread counted it runs on: exact from a live thread's environment, and stopped like any process.
+  const [inspection, stopped] = await withFsPromises("readFile", asZombieLeader(2), async () => [
+    await identity.inspect(owned),
+    await identity.stop(owned, { termTimeoutMs: 2000 })
+  ]);
+  assert.deepEqual(inspection, { processGroupIds: [child.pid], status: "exact" });
+  assert.equal(stopped.stopped, true, JSON.stringify(stopped));
+  assert.equal(stopped.processExitVerified, true);
+  assert.deepEqual(stopped.signaledProcessGroups, [child.pid]);
+  assert.equal(await exited, "SIGTERM");
+});
+
+// The main thread calls pthread_exit while a second thread waits for ever: the process runs on with its leader a zombie.
+const ZOMBIE_LEADER_SOURCE = `#include <pthread.h>
+#include <unistd.h>
+static void *wait_for_ever(void *unused) { (void) unused; for (;;) pause(); return NULL; }
+int main(void) {
+  pthread_t thread;
+  if (pthread_create(&thread, NULL, wait_for_ever, NULL) != 0) return 1;
+  pthread_exit(NULL);
+}
+`;
+
+test("a real process whose main thread called pthread_exit is stopped with its running thread", linuxOnly, async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "jskit-zombie-leader-"));
+  t.after(() => rm(dir, { force: true, recursive: true }));
+  const program = join(dir, "zombie-leader");
+  await writeFile(`${program}.c`, ZOMBIE_LEADER_SOURCE);
+  const compiled = await new Promise((resolve) => execFile("cc", ["-pthread", "-o", program, `${program}.c`], resolve));
+  if (compiled?.code === "ENOENT") {
+    t.skip("no C compiler (cc) to build the pthread_exit program");
+    return;
+  }
+  assert.ifError(compiled);
+  const token = randomUUID();
+  const child = spawn(program, [], { detached: true, stdio: "ignore", env: { ...process.env, [TOKEN_ENV]: token, [HASH_ENV]: commandHash } });
+  const exited = new Promise((resolve) => child.once("exit", (code, signal) => resolve(signal)));
+  await new Promise((resolve, reject) => { child.once("spawn", resolve); child.once("error", reject); });
+  t.after(() => { try { process.kill(-child.pid, "SIGKILL"); } catch {} });
+  const identity = createConversationProcessIdentity();
+  const owned = {
+    pid: child.pid,
+    processState: "running",
+    processIdentity: await identity.capture({ commandHash, pid: child.pid, runtimeToken: token })
+  };
+  let fields = [];
+  for (const deadline = Date.now() + 5000; Date.now() < deadline; await delay(10)) {
+    fields = statFields(await readFile(`/proc/${child.pid}/stat`, "utf8"));
+    if (fields[0] === "Z") {
+      break;
+    }
+  }
+  // The kernel's view: the leader is Z, both threads counted, and the process is there to signal.
+  assert.deepEqual([fields[0], fields[17]], ["Z", "2"]);
+  assert.equal(processGroupIsRunning(child.pid), true);
+  assert.deepEqual(await identity.inspect(owned), { processGroupIds: [child.pid], status: "exact" });
+  const stopped = await identity.stop(owned, { termTimeoutMs: 2000 });
+  assert.equal(stopped.stopped, true, JSON.stringify(stopped));
+  assert.equal(stopped.processExitVerified, true);
+  assert.deepEqual(stopped.signaledProcessGroups, [child.pid]);
+  assert.equal(await exited, "SIGTERM");
 });
 
 test("a Codex runtime whose process table cannot be read is neither reused nor replaced", linuxOnly, async (t) => {
