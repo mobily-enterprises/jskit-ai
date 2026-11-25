@@ -125,6 +125,7 @@ Local functions
 - `connectedDatabaseName(environment)`
 - `knexOn(knexConfig, database, connectionOptions = {})`
 - `withKnex(knexConfig, database, use, connectionOptions)`
+- `settleAll(promises)`
 - `ledgerNames(knex, ledger, tables)`
 - `dialectOf(knexConfig)`
 - `refusedPrivilege(error)`

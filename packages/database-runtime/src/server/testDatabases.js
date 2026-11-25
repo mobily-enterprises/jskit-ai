@@ -157,6 +157,18 @@ async function withKnex(knexConfig, database, use, connectionOptions) {
 }
 
 /**
+ * Awaits every promise, and then throws the first failure, if any: a step run on each test database at once ends on
+ * all of them before a failure on one drops the copies, which keeps any a session is still connected to.
+ * @param {Promise<unknown>[]} promises
+ */
+async function settleAll(promises) {
+  const results = await Promise.allSettled(promises);
+  const failed = results.find(({ status }) => status === "rejected");
+  if (failed) throw failed.reason;
+  return results.map(({ value }) => value);
+}
+
+/**
  * Every migration Knex applies, in its order, and the key of the schema they build: a digest of the dialect, of each
  * migration's name and contents, of each of `schemaFiles` (a schema build's own files) and of the application's
  * package-lock.json. A migration's own file does not show a change in a helper it imports from an installed package;
@@ -307,7 +319,7 @@ const mysql = {
       if (!(await mysql.createDatabase(knexConfig, database)) && index > 0) break;
       provided.push(database);
     }
-    await Promise.all(provided.map((database) => mysql.restore(knexConfig, database, snapshot)));
+    await settleAll(provided.map((database) => mysql.restore(knexConfig, database, snapshot)));
     return provided;
   },
 
@@ -440,7 +452,7 @@ async function prepareTestDatabases({
   const databases = await dropCopiesIfThrows(knexConfig, names, () => dialect.provide(knexConfig, names, snapshot));
   const restoreMs = milliseconds(restoreStarted);
   const seedStarted = performance.now();
-  if (seed) await dropCopiesIfThrows(knexConfig, databases, () => Promise.all(databases.map((database) =>
+  if (seed) await dropCopiesIfThrows(knexConfig, databases, () => settleAll(databases.map((database) =>
     withKnex(knexConfig, database, (knex) => knex.transaction(seed)))));
   const seedMs = milliseconds(seedStarted);
   const { replayed, ...stored } = snapshot;
