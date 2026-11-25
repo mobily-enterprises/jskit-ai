@@ -7,6 +7,9 @@ import {
 } from "./check-ci-contract.mjs";
 
 const VALID_VERIFY_WORKFLOW = `
+concurrency:
+  group: \${{ github.workflow }}-\${{ github.ref }}
+  cancel-in-progress: true
 env:
   npm_config_engine_strict: "true"
 jobs:
@@ -63,6 +66,21 @@ test("CI contract verification reports stale scripts, files, and runtime matrice
     "verify.yml runs test target \"packages/example/test/*.postgres.test.js\", which matches no file.",
     "verify workflow Node matrix (26) must match engines.node (24, 26)."
   ]);
+});
+
+test("CI contract verification requires a newer run of the same branch or pull request to cancel a running verification", async () => {
+  const check = (verifyWorkflow) => collectCiContractIssues({
+    packageJson: { engines: { node: "^24.0.0 || ^26.0.0" }, scripts: { verify: "node verify.mjs" } },
+    workflows: { "verify.yml": verifyWorkflow },
+    pathExists: async () => true,
+    listDirectory: async () => ["example.test.js", "store.postgres.test.js"]
+  });
+  const issue = "verify workflow must cancel a run that a newer one of the same branch or pull request supersedes: " +
+    "a top-level concurrency group on github.ref with cancel-in-progress: true.";
+  assert.deepEqual(await check(VALID_VERIFY_WORKFLOW), []);
+  assert.deepEqual(await check(VALID_VERIFY_WORKFLOW.replace(/^concurrency:\n(?: {2}.*\n)+/mu, "")), [issue]);
+  assert.deepEqual(await check(VALID_VERIFY_WORKFLOW.replace("cancel-in-progress: true", "cancel-in-progress: false")), [issue]);
+  assert.deepEqual(await check(VALID_VERIFY_WORKFLOW.replace("-${{ github.ref }}", "")), [issue]);
 });
 
 test("CI contract verification reads a * in a test target's file name, and no other pattern", async () => {
