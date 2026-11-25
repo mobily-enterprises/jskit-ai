@@ -2138,6 +2138,19 @@ it. Check and judge, for each file:
 - its statements per row are still measured, as any write path's are: a batch
   of 200 rows costs about what a batch of 10 does.
 
+Tables the application's people define while it runs, which no table resource
+describes, can live in json-rest-api's AnyAPI storage, built in such an
+infrastructure module from `@jskit-ai/resource-runtime/server/anyapi`:
+`AnyapiRegistry`, `JsonRestApi`, `RestApiAnyapiKnexPlugin`, `RestApiPlugin`,
+`RowPolicyPlugin` and `ensureAnyApiSchema`, the very objects of the
+json-rest-api copy the runtime's handles run on. Import them from there and
+declare no json-rest-api in the application: json-rest-api knows the
+transactions `api.transaction` opened by identity, so an AnyAPI write given a
+handle's `txOptions.trx` joins that transaction only on the runtime's copy,
+and beside a second copy it fails with "transaction must be an active
+transaction from api.transaction". `npm run jskit:update` then moves the one
+copy with the catalog.
+
 `jskit check` also fails:
 
 - a table with two table resources;
