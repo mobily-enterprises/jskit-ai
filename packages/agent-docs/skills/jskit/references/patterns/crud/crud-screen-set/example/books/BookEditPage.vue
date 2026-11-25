@@ -25,7 +25,6 @@ const screen = useCrudAddEditScreen({
     placementSource: "crud.books.edit",
     queryKeyFactory: (surfaceId = "", scope = "") => ["crud", "books", surfaceId, scope, routeRecordId.value],
     writeMethod: "PATCH",
-    requestRecoveryLabel: "Book",
     fallbackLoadError: "Unable to load this book.",
     fallbackSaveError: "Unable to save this book.",
     recordIdParam: "bookId",

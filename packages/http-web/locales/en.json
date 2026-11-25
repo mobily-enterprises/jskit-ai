@@ -80,7 +80,6 @@
         },
         "record": "Record",
         "recordNotFound": "Record not found.",
-        "records": "Records",
         "view": {
           "loadFailed": "Unable to load record.",
           "notFound": "This {resource} could not be found."

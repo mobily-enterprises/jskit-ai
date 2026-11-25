@@ -160,12 +160,12 @@ test("CRUD list chrome is English by default and follows the active language", a
 });
 
 test("date filters format with the app's active language", async () => {
-  const filter = { type: "dateRange", label: "jskit.http.crud.records" };
+  const filter = { type: "dateRange", label: "jskit.http.crud.record" };
   await withTestLanguage(() => {
     assert.equal(formatDateOnlyDisplay("2026-04-18"), "18 Apr 2026");
     assert.equal(
       formatCrudListDateFilterChipLabel(filter, { from: "2026-05-04", to: "2026-05-10" }),
-      "[xx] [xx] Records: 4 May 2026 to 10 May 2026"
+      "[xx] [xx] Record: 4 May 2026 to 10 May 2026"
     );
   }, "en-GB");
 });
