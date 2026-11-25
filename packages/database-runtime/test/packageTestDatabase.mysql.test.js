@@ -8,7 +8,7 @@ import knexFactory from "knex";
 import { createPackageTestKnex, requireTestDatabase } from "../src/server/testDatabases.js";
 
 // createPackageTestKnex() on MariaDB and MySQL for a database user granted only its test database and that database's
-// copies, each by name with every _ escaped, as Vibe64 Online grants them: a package test claims one of the 26 lettered
+// copies, each by name with every _ escaped, as a managed host may grant them: a package test claims one of the 26 lettered
 // copies, never a name of its own. Each test claims the copies of a database of its own named after TEST_DB_NAME, so
 // it never meets another file's. The run's DB_USER makes the users: it needs CREATE USER, and GRANT OPTION on the
 // databases named after TEST_DB_NAME.
@@ -136,7 +136,7 @@ test("in a file jskit test --databases gave a numbered copy, a package test clai
 
 test("a database user not granted the lettered copies is refused before any is made, told the 26 names and their grant", async (context) => {
   const base = `${requireTestDatabase(process.env)}_c3`;
-  // Vibe64 Online granted only the numbered copies before it granted the lettered ones.
+  // A host that grants only the numbered copies, which a jskit test --databases run needs.
   const environment = await userGrantedOnly(context, base, NUMBERED);
   await assert.rejects(createPackageTestKnex(context, { environment }), { message: `DB_USER may not create ${base}_a. ${grantHint(base)}` });
   const holder = await heldSession(context);

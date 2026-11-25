@@ -87,7 +87,8 @@ it made, after its servers stop; `BROWSER_TEST_DB_NAME` and the snapshot stay. B
 `PRODUCTION_DB_NAME` and the other test database and its copies. Provision `TEST_DB_NAME`, `BROWSER_TEST_DB_NAME` and
 their numbered copies with grants for the application account (a `<app>_%`
 grant covers them); a user who may create no copies runs one file or worker at
-a time. Two test runs at once need different database names. Test-only server
+a time. A package's own data test claims one of `TEST_DB_NAME`'s 26 lettered
+copies, `<name>_a` to `_z` (`createPackageTestKnex`), so grant those too. Two test runs at once need different database names. Test-only server
 settings that disable external effects (email, payments) go in
 `browserTestConfig({ env })`; a suite that writes data proves the server's
 identity first.

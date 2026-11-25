@@ -53,6 +53,16 @@ Local functions
 - `orderPackageMigrationDirectories(directories, packageIdOf, afterOf)`
 - `packageConstraintDirectoriesOf(packageMigrationDirectories)`
 
+### `src/server/mysqlPackageTestDatabase.js`
+Exports
+- `DESIGNATED_TEST_DATABASE`
+- `MYSQL_DATABASE_OPTIONS`
+- `claimLetteredCopy(on, base, { timeoutMs = CLAIM_TIMEOUT_MS } = {})`
+- `createMysqlPackageTestKnex(context, { knexFactory, environment, testDatabase, pool })`
+Local functions
+- `copiesOf(environment, testDatabase)`
+- `grantHint(base)`
+
 ### `src/server/providers/DatabaseProvider.js`
 Exports
 - `DatabaseProvider`
@@ -120,7 +130,6 @@ Local functions
 - `refusedPrivilege(error)`
 - `recordStatements(listen, work)`
 - `dropPackageTestData(knex, admin, statement, name)`
-- `createMysqlPackageTestKnex(context, knexFactory, environment)`
 
 ### `src/server/types.js`
 Exports

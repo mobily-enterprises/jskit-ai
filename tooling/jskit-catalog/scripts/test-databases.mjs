@@ -9,7 +9,8 @@ import { readTableResourceSources } from "./data-access.mjs";
 // from a schema snapshot, from the application's installed @jskit-ai/database-runtime and its knexfile.js, which loads
 // .env and fixes the dialect. JSKIT's catalog itself depends on no database package. What the knexfile loads into the
 // environment is read for the databases only: the test files get the environment `jskit test` was given, plus their
-// own database and its connection (DB_NAME, TEST_DB_NAME, DB_HOST, DB_PORT, DB_USER, DB_PASSWORD). A knexfile whose
+// own database and its connection (DB_NAME, TEST_DB_NAME, DB_HOST, DB_PORT, DB_USER, DB_PASSWORD), and the designated
+// database it copies (JSKIT_DESIGNATED_TEST_DB_NAME, see testDatabaseFile.js). A knexfile whose
 // schema the migrations alone do not build also exports `testDatabaseSchema` ({ files, build }, see testDatabases.js).
 const OPTION = "--databases";
 const KNEXFILES = Object.freeze(["knexfile.js", "knexfile.mjs", "knexfile.cjs"]);

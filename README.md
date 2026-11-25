@@ -34,7 +34,12 @@ npm run verify
 verify job: MariaDB), where each package data test gets a database of its own
 from `createPackageTestKnex()`, then `npm run test:sqlite`: the same data-test
 files again with `DB_CLIENT` unset, on SQLite in memory, which no other run
-covers. CI's PostgreSQL job runs them on PostgreSQL.
+covers. CI's PostgreSQL job runs them on PostgreSQL. On MariaDB, where a
+package data test claims one of `TEST_DB_NAME`'s lettered copies,
+database-runtime's claim tests make a database user granted only those copies:
+the run's database user needs `CREATE USER`, and all privileges with
+`GRANT OPTION` on the databases named after `TEST_DB_NAME`
+(`` `<TEST_DB_NAME>\_%`.* ``). CI's root has both.
 
 ## Publishing
 

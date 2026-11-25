@@ -1,7 +1,9 @@
 // Preloaded (`--import`) by `jskit test --databases` into every test file's process. When the run has disposable
 // databases (JSKIT_TEST_DATABASES names the run's directory, from testDatabaseRun() in testDatabases.js), the file takes
 // one no other file is using, for as long as it runs, as both DB_NAME and TEST_DB_NAME, with the connection it was
-// restored on (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD): it never reaches the developer's database. Every file starts
+// restored on (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD): it never reaches the developer's database. The run's designated
+// database, whose numbered copies the others are, stays named in JSKIT_DESIGNATED_TEST_DB_NAME: a package data test on
+// MySQL or MariaDB claims its lettered copies (mysqlPackageTestDatabase.js), not a copy's own. Every file starts
 // from the snapshot, rows included: a database an earlier file of the run used is restored before the next file takes
 // it, since that file may have written rows, or changed tables or the migration ledger (a migration test).
 //
@@ -64,6 +66,7 @@ const directory = process.env.JSKIT_TEST_DATABASES;
 if (isMainThread && process.env.NODE_TEST_CONTEXT && directory) {
   delete process.env.JSKIT_TEST_DATABASES;
   const { RUN_SETTINGS_FILE, restoreTestDatabase } = await import("./testDatabases.js");
+  const { DESIGNATED_TEST_DATABASE } = await import("./mysqlPackageTestDatabase.js");
   const { databases, snapshot, knexConfig } = JSON.parse(readFileSync(path.join(directory, RUN_SETTINGS_FILE), "utf8"));
   // The run restored every database as it started; one an earlier file used holds what that file left.
   const { database, used } = await claimDatabase(directory, databases);
@@ -77,6 +80,7 @@ if (isMainThread && process.env.NODE_TEST_CONTEXT && directory) {
     DB_USER: String(user),
     DB_PASSWORD: String(password ?? ""),
     DB_NAME: database,
-    TEST_DB_NAME: database
+    TEST_DB_NAME: database,
+    [DESIGNATED_TEST_DATABASE]: databases[0]
   });
 }

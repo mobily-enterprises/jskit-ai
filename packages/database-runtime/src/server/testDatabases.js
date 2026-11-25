@@ -37,6 +37,7 @@ import { parseDatabaseUrl, resolveKnexConnectionFromEnvironment, resolveKnexPool
 import { detectDialectFromClient } from "../shared/dialect.js";
 import { RUNTIME_QUERY_CHANNEL } from "./database.js";
 import { loadKnexFactory } from "./knexFactory.js";
+import { MYSQL_DATABASE_OPTIONS, createMysqlPackageTestKnex } from "./mysqlPackageTestDatabase.js";
 import {
   POSTGRES_MAINTENANCE_DATABASE,
   dropCopiesIfThrows,
@@ -52,8 +53,6 @@ const TEST_DATABASE_VARIABLES = Object.freeze(["TEST_DB_NAME", "BROWSER_TEST_DB_
 // The Staging and Production databases an application names on a server it shares with its test databases.
 const PROTECTED_DATABASE_VARIABLES = Object.freeze(["STAGING_DB_NAME", "PRODUCTION_DB_NAME"]);
 const MYSQL_ACCESS_DENIED = new Set(["ER_DBACCESS_DENIED_ERROR", "ER_ACCESS_DENIED_ERROR", "ER_SPECIFIC_ACCESS_DENIED_ERROR"]);
-// A MySQL or MariaDB test database's character set and collation: the run's databases and a package test's own.
-const MYSQL_DATABASE_OPTIONS = "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
 // A database or table the user may not use (not a wrong password, which fails the run).
 const MYSQL_REFUSED_PRIVILEGE = new Set(["ER_DBACCESS_DENIED_ERROR", "ER_SPECIFIC_ACCESS_DENIED_ERROR", "ER_TABLEACCESS_DENIED_ERROR"]);
 const POSTGRES_INSUFFICIENT_PRIVILEGE = "42501";
@@ -634,12 +633,13 @@ const PACKAGE_TEST_POOL = Object.freeze({ min: 0, max: 8 });
 /**
  * The Knex a package's own data test runs on, for a test that creates its own tables, on the run's DB_CLIENT: SQLite
  * in memory unless it is pg or mysql2; on pg, a schema of the test's own in TEST_DB_NAME, its sessions in UTC as an
- * application's are; on mysql2, a MySQL or MariaDB database of the test's own, `<TEST_DB_NAME>_t` and 8 hex digits,
- * made as the run's test databases are, with an application's mysql2 connection settings; both on the server DB_HOST,
- * DB_PORT, DB_USER and DB_PASSWORD name. So one file proves its data paths, row locks, many-row writes and upserts
- * included, on each, its files running at once, with no driver beyond the run's own. The Knex is destroyed after the
- * test, and the schema or database dropped with all in it. A pg or mysql2 run without TEST_DB_NAME fails
- * (TestDatabaseMissingError), as every data test does; `knex.client.config.client` tells a test which it got.
+ * application's are; on mysql2, the first of TEST_DB_NAME's 26 lettered copies, `<TEST_DB_NAME>_a` to `_z`, no other
+ * test holds, claimed under a lock on the database server and recreated empty (mysqlPackageTestDatabase.js), with an
+ * application's mysql2 connection settings; both on the server DB_HOST, DB_PORT, DB_USER and DB_PASSWORD name. So one
+ * file proves its data paths, row locks, many-row writes and upserts included, on each, its files running at once, with
+ * no driver beyond the run's own. The Knex is destroyed after the test, and the schema or copy dropped with all in it.
+ * A pg or mysql2 run without TEST_DB_NAME fails (TestDatabaseMissingError), as every data test does;
+ * `knex.client.config.client` tells a test which it got.
  * @param {{ after(cleanup: () => unknown): unknown }} context The test's context (node:test's `t`).
  * @param {{ environment: import("@jskit-ai/kernel/server/types").RuntimeEnv }} options The test's environment, such as
  *   `process.env`.
@@ -657,7 +657,8 @@ async function createPackageTestKnex(context, { environment }) {
     throw new Error(`Package data tests never run when APP_ENV is ${appEnvironment(environment)}.`);
   }
   if (client === "mysql2") {
-    return createMysqlPackageTestKnex(context, knexFactory, environment);
+    const testDatabase = requireTestDatabase(environment);
+    return createMysqlPackageTestKnex(context, { knexFactory, environment, testDatabase, pool: PACKAGE_TEST_POOL });
   }
   const connection = {
     ...resolveKnexConnectionFromEnvironment(environment, { client: "pg", defaultPort: 5432 }),
@@ -676,7 +677,7 @@ async function createPackageTestKnex(context, { environment }) {
   return knex;
 }
 
-// Destroys a package test's Knex, then drops its schema or database through `admin`, and destroys `admin`.
+// Destroys a package test's Knex, then drops its PostgreSQL schema through `admin`, and destroys `admin`.
 async function dropPackageTestData(knex, admin, statement, name) {
   try {
     await knex.destroy();
@@ -684,31 +685,6 @@ async function dropPackageTestData(knex, admin, statement, name) {
   } finally {
     await admin.destroy();
   }
-}
-
-// createPackageTestKnex() on a mysql2 run. The database is created without IF NOT EXISTS, so the test drops only one
-// it made. Its sessions run with MariaDB's innodb_snapshot_isolation off, the MariaDB 11.4 default (11.6 turns it on),
-// so a test reads InnoDB's REPEATABLE READ as every supported server does by default; MySQL has no such setting.
-async function createMysqlPackageTestKnex(context, knexFactory, environment) {
-  const server = { ...resolveKnexConnectionFromEnvironment(environment, { client: "mysql2", defaultPort: 3306 }), database: undefined };
-  const testDatabase = requireTestDatabase(environment);
-  const database = `${testDatabase}_t${randomBytes(4).toString("hex")}`;
-  const admin = knexFactory({ client: "mysql2", connection: server, pool: { min: 0, max: 1 } });
-  let isolation;
-  try {
-    [isolation] = await admin.raw("SHOW VARIABLES LIKE 'innodb_snapshot_isolation'");
-    await admin.raw(`CREATE DATABASE ?? ${MYSQL_DATABASE_OPTIONS}`, [database]);
-  } catch (error) {
-    await admin.destroy();
-    if (!MYSQL_ACCESS_DENIED.has(error.code)) throw error;
-    throw new Error(`A package data test on MySQL or MariaDB makes a database of its own, ${database}, which DB_USER may ` +
-      `not create: grant it CREATE and DROP on \`${testDatabase}\\_%\`.*, as TEST_DB_NAME's numbered copies need.`, { cause: error });
-  }
-  const afterCreate = (connection, done) => connection.query("SET SESSION innodb_snapshot_isolation = OFF", (error) => done(error, connection));
-  const pool = { ...PACKAGE_TEST_POOL, ...(isolation.length > 0 && { afterCreate }) };
-  const knex = knexFactory({ client: "mysql2", connection: { ...server, database }, pool });
-  context.after(() => dropPackageTestData(knex, admin, "DROP DATABASE IF EXISTS ??", database));
-  return knex;
 }
 
 /**
