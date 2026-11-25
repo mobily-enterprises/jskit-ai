@@ -271,10 +271,14 @@ export function createCodexProviderInvalidation({ inScope, withLifecycle, forget
               preserveProcessExitProof,
               requireStopped: stopOwnedRuntimes && target.record != null
             });
+        // A stop that reached the app-server and could not prove it exited fails, whatever the caller required:
+        // counted only as not stopped, a logout reported success while the old runtime could still run.
         if (
-          requireVerifiedExit &&
-          target.record &&
-          !codexAppServerRuntimeStopWasVerified(result)
+          !codexAppServerRuntimeStopWasVerified(result) && (
+            (requireVerifiedExit && target.record) ||
+            ["exact", "ambiguous"].includes(result?.identityStatus) ||
+            result?.scopeEmpty === false
+          )
         ) {
           throw Object.assign(new Error("Codex app-server process exit could not be verified."), {
             code: exitUnverifiedCode, providerKey: target.providerKey, retryable: true

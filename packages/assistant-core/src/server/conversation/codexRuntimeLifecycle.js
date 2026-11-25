@@ -203,8 +203,17 @@ export function createCodexRuntimeLifecycle({
           ...verified.results
         ].map((result) => [normalizeText(result?.providerKey), result]));
         const results = [...resultsByProvider.values()];
+        // A first stop that could not be verified stays a failure unless the verified pass settled its provider: one
+        // that pass no longer holds is not stopped again, so its runtime may still run.
+        const settled = new Set([...verified.results, ...verified.failed].map((entry) => normalizeText(entry?.providerKey)));
+        const failed = [
+          ...verified.failed,
+          ...initial.failed.filter((entry) => !settled.has(normalizeText(entry?.providerKey)))
+        ];
         return {
           ...verified,
+          failed,
+          ok: failed.length === 0,
           providerCount: Math.max(initial.providerCount, verified.providerCount),
           results,
           stopped: results.filter((result) => result?.stopped === true).length
