@@ -101,10 +101,13 @@ function foreignKeyCheckFor(cwd) {
 }
 
 /**
- * The run's databases for `count` files at once, or one file at a time on the connected database.
+ * The run's databases for `count` files at once, or one file at a time on the connected database. Its `cleanup()` ends
+ * the run: it removes the run's settings and drops its numbered copies of TEST_DB_NAME, answering what it dropped (an
+ * installed @jskit-ai/database-runtime from before that answers nothing and leaves the copies).
  * @param {number} count at most the run's test budget, and no more than its test files
  * @param {string} [cwd]
- * @returns {Promise<{ concurrency: number, env: Record<string, string>, preload: string, summary: string, cleanup(): void }>}
+ * @returns {Promise<{ concurrency: number, env: Record<string, string>, preload: string, summary: string,
+ *   cleanup(): Promise<string> | void }>}
  */
 async function testDatabaseRunFor(count, cwd = process.cwd()) {
   const knexfile = KNEXFILES.map((name) => path.join(cwd, name)).find((file) => existsSync(file));
