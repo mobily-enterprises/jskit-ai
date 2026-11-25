@@ -102,7 +102,7 @@ test("outside shutdown a Temporary turn's end still makes its checkpoint at once
 });
 
 // The run owner's runtime lifecycle, with the owner calls it makes recorded.
-function runtimeLifecycle(calls, leaveTurnsToNextServer) {
+function runtimeLifecycle(calls, leaveTurnsToNextServer, invalidations = []) {
   return createCodexRuntimeLifecycle({
     pendingWork: { conversationTurnStarts: new Map(), messageDeliveries: new Map(), reasoningPersistQueues: new Map(),
       resultFinalizations: new Map(), threadReconciliations: new Map(), notificationTasks: new Map(), deferredCheckpoints: new Set() },
@@ -111,7 +111,10 @@ function runtimeLifecycle(calls, leaveTurnsToNextServer) {
     providerSessions: { managed: new Map(), assertOpen() {}, owner: {
       lifecycleTasks: new Set(), runtimeAcquisitions: new Set(),
       beginShutdown() { calls.push("owner-shutdown"); },
-      async invalidateRuntimes() { calls.push("stop-runtimes"); return { failed: [], providerCount: 0, results: [], stopped: 0 }; }
+      async invalidateRuntimes() {
+        calls.push("stop-runtimes");
+        return invalidations.shift() || { failed: [], ok: true, providerCount: 0, results: [], stopped: 0 };
+      }
     } },
     helperLifecycle: { projectOperations: new Map(), cleanups: new Map(), mutations: new Map(), restores: new Map(), turnStarts: new Map() },
     captureContext: () => null,
@@ -137,6 +140,26 @@ test("a Codex shutdown leaves the running turns to the next server before any ru
   await shutdown;
   assert.equal(calls[0], "leave-turns");
   assert.ok(calls.indexOf("turns-recorded") < calls.lastIndexOf("stop-runtimes"), "shutdown waited for the records");
+});
+
+test("a Codex shutdown reports a runtime whose first stop could not verify its exit, unless its verified pass stopped it", async t => {
+  const unverified = { code: "codex_runtime_exit_unverified", error: "Codex app-server process exit could not be verified.",
+    providerKey: "old", retryable: true };
+  for (const [name, verifiedPass, failed] of [
+    ["nothing is left to stop it again", { failed: [], ok: true, providerCount: 0, results: [], stopped: 0 }, [unverified]],
+    ["its verified pass stopped it", {
+      failed: [], ok: true, providerCount: 1, results: [{ processExitVerified: true, providerKey: "old", stopped: true }], stopped: 1
+    }, []]
+  ]) {
+    await t.test(name, async () => {
+      const lifecycle = runtimeLifecycle([], async () => {}, [
+        { failed: [unverified], ok: false, providerCount: 1, results: [], stopped: 0 },
+        verifiedPass
+      ]);
+      const result = await lifecycle.invalidateRuntimes({ reason: "server-shutdown" }, { enabled: true });
+      assert.deepEqual({ failed: result.failed, ok: result.ok }, { failed, ok: failed.length === 0 });
+    });
+  }
 });
 
 test("a begun Codex shutdown stops nothing, and a Temporary turn that then ends on its own leaves its checkpoint to the next server", async () => {

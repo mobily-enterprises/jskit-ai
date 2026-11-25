@@ -86,6 +86,46 @@ test("an account change stops an idle Codex runtime at once and leaves a running
   assert.equal(await owner.retireStaleRuntime(keys.busy), null);
 });
 
+// A stop whose app-server group was still ambiguous at its exit deadline, as a logout's was on a loaded host.
+const UNVERIFIED_STOP = Object.freeze({
+  descendantProcessGroups: [], identityStatus: "ambiguous", pid: 9_000_001, processExitVerified: false,
+  signaledProcessGroups: [9_000_001], stopped: false
+});
+
+test("an invalidation whose stop could not verify the app-server's exit fails, never reports success while it may run", async t => {
+  for (const [name, input, remembered] of [
+    ["a logout's invalidation", { includeOwned: true, reason: "logout" }, true],
+    ["an account change's, for a provider with no owned record", ACCOUNT_CHANGE, false]
+  ]) {
+    await t.test(name, async t => {
+      const runtime = nativeRuntime({ threads: {} });
+      runtime.provider.stopRuntime = async function (options) {
+        this.stopped += 1;
+        this.stopOptions.push(options);
+        return { ...UNVERIFIED_STOP };
+      };
+      const root = path.join(os.tmpdir(), `jskit-codex-account-change-${randomUUID()}`);
+      const owner = createCodexAppServerProviderOwner({ runtimeRoot: root });
+      const providerOptions = { runtimeDir: path.join(root, "old") };
+      owner.createProvider({ providerKey: "old", providerOptions, preserveProcessExitProof: true, create: () => runtime.provider });
+      if (remembered) owner.rememberOwnedRuntime({ provider: runtime.provider, providerKey: "old", providerOptions });
+      t.after(() => owner.beginShutdown());
+
+      const result = await owner.invalidateRuntimes(input);
+
+      assert.equal(runtime.provider.stopped, 1);
+      assert.equal(result.ok, false, JSON.stringify(result));
+      assert.deepEqual(result.failed, [{
+        code: "codex_runtime_exit_unverified",
+        error: "Codex app-server process exit could not be verified.",
+        providerKey: "old",
+        retryable: true
+      }]);
+      assert.deepEqual([result.results, result.stopped], [[], 0]);
+    });
+  }
+});
+
 test("an account change stops a Codex runtime whose control connection closed while its turns were read", async t => {
   const closing = nativeRuntime({ threads: { "busy-thread": "active" }, goals: { "busy-thread": { status: "active" } } });
   let open = true;
