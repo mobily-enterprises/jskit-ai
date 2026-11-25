@@ -72,6 +72,15 @@ Local functions
 - `repairRecordedTable(knex, tableName, state, reference, keys)`
 - `dropTableLeftWithoutKey(knex, migration, tableName, keys)`
 
+### `src/server/testDatabaseCopies.js`
+Exports
+- `POSTGRES_MAINTENANCE_DATABASE`
+- `dropCopiesIfThrows(knexConfig, databases, work)`
+- `dropTestDatabaseCopies(knexConfig, databases)`
+- `endTestDatabaseRun(knexConfig, databases, directory)`
+Local functions
+- `dropUnlessInUse(knex, client, database)`
+
 ### `src/server/testDatabaseFile.js`
 Exports
 - None

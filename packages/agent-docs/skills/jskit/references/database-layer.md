@@ -383,6 +383,14 @@ the application's `knexfile.js`:
   Every file starts from the snapshot, rows included: a copy an earlier file of
   the run used is restored before the next file takes it, so no file sees what
   another wrote.
+- When the run ends, whether its test files passed, failed or were stopped
+  (Ctrl-C, `SIGTERM`), or its foreign key check failed before the first file,
+  it drops the numbered copies it made and says so
+  (`jskit test: dropped the run's 3 numbered test database(s).`); the next run
+  makes them afresh from the snapshot. `TEST_DB_NAME` and the snapshot stay, so
+  a later run in the same tree restores them instead of replaying the
+  migrations. Only the copies the run made are dropped, and none a session is
+  connected to, such as another run's: the run names each copy it kept and why.
 - The snapshot holds the schema as the engine reports it and the rows the
   migrations wrote, including the migration ledger. On MySQL and MariaDB it is
   each table's `SHOW CREATE TABLE` and rows, in
