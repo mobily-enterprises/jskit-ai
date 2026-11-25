@@ -1601,6 +1601,9 @@ Exports
 Local functions
 - `runPs(args)`
 - `unverifiedStop(inspection, fields = {})`
+- `linuxProcessStat(value = "")`
+- `readLinuxEnvironment(path)`
+- `readLinuxLiveThreadEnvironment(name)`
 
 ### `src/server/conversation/provider.js`
 Exports
