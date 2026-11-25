@@ -7,7 +7,8 @@
 // ends the run. A port that already answers is refused before anything is built or started: a server left there by an
 // earlier run would answer for this run's. Stopped by Playwright (SIGTERM), by Ctrl-C, or by the end of the stdin pipe
 // Playwright gives its webServer (a Playwright that ended without stopping it), the launcher stops its servers and
-// waits for them, within Playwright's grace, before it exits. `jskit browser-test-server` (browser-test-server.mjs) runs it
+// waits for them, then drops the numbered database copies the prepare module made, within Playwright's grace, before it
+// exits; it drops them too when its start fails. `jskit browser-test-server` (browser-test-server.mjs) runs it
 // for one server a host starts, with `terminal`: that server's output also reaches the launcher's own.
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -23,8 +24,13 @@ import { useTestAppEnvironment } from "./test-environment.mjs";
 const SETTINGS_VARIABLE = "JSKIT_BROWSER_TESTS";
 const LOG_DIRECTORY = path.join("test-results", "browser-test-servers");
 const READY_TIMEOUT_MS = 60_000;
-// Within the 10 s gracefulShutdown browser-tests.mjs gives Playwright's webServer; a server still running then is killed.
-const STOP_WAIT_MS = 9_000;
+// Within the 10 s gracefulShutdown browser-tests.mjs gives Playwright's webServer: the servers stop first (one still
+// running then is killed), since a server's sessions keep its database copy, then the copies are dropped.
+const STOP_WAIT_MS = 4_000;
+const DROP_WAIT_MS = 5_000;
+// Where database-runtime's prepareTestDatabases() keeps, in this process, each set of numbered copies it made with its
+// drop: the app's prepare module loads the app's own copy of that package, so the launcher reads them here.
+const PREPARED_COPIES = Symbol.for("@jskit-ai/database-runtime/preparedTestDatabaseCopies");
 
 const seconds = (since) => `${((performance.now() - since) / 1000).toFixed(1)}s`;
 const words = (command) => String(command).trim().split(/\s+/u).filter(Boolean);
@@ -96,17 +102,33 @@ async function waitUntilReady(url, server, name) {
 
 const servers = [];
 let stopping = false;
+// The prepare module's work, which a stop waits for (within DROP_WAIT_MS) so the copies it is making are dropped too.
+let preparing = Promise.resolve();
 const running = (server) => server.exitCode === null && server.signalCode === null;
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms, false));
 function stopServers() {
   stopping = true;
   for (const server of servers) if (running(server)) server.kill("SIGTERM");
+}
+/** Drops every set of numbered copies prepare made, once the servers have exited, and says what it did. */
+async function dropPreparedCopies(exited) {
+  await Promise.all([preparing.catch(() => {}), exited]);
+  const drops = [...(globalThis[PREPARED_COPIES]?.values() ?? [])];
+  for (const report of await Promise.all(drops.map((drop) => drop()))) if (report) console.log(`[browser-tests] ${report}.`);
+  return true;
 }
 async function stopAndExit(code) {
   if (stopping) return;
   stopServers();
   const stopped = Promise.all(servers.filter(running).map((server) => once(server, "exit")));
-  await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, STOP_WAIT_MS))]);
-  for (const server of servers) if (running(server)) server.kill("SIGKILL");
+  await Promise.race([stopped, delay(STOP_WAIT_MS)]);
+  const killed = servers.filter(running);
+  for (const server of killed) server.kill("SIGKILL");
+  const exited = Promise.all(killed.map((server) => once(server, "exit")));
+  if (!(await Promise.race([dropPreparedCopies(exited), delay(DROP_WAIT_MS)]))) {
+    console.error(`[browser-tests] The prepared test database copies were not all dropped within ${DROP_WAIT_MS / 1000}s; ` +
+      "the next run makes them afresh and drops them.");
+  }
   process.exit(code);
 }
 process.once("SIGINT", () => stopAndExit(130));
@@ -132,10 +154,13 @@ delete baseEnvironment[SETTINGS_VARIABLE];
 const baseUrls = Array.from({ length: workers }, (_, index) => `http://${host}:${basePort + index}`);
 try {
   await refuseBusyPorts(host, baseUrls.map((_, index) => basePort + index));
-  const [, workerEnvironments] = await Promise.all([
-    buildFrontend({ appRoot, build }),
-    prepareWorkers(appRoot, prepare, workers, baseUrls)
-  ]);
+  preparing = prepareWorkers(appRoot, prepare, workers, baseUrls);
+  // Both settle before a failure of either ends the start, so the copies prepare makes are all made when they are dropped.
+  const [built, prepared] = await Promise.allSettled([buildFrontend({ appRoot, build }), preparing]);
+  for (const result of [built, prepared]) if (result.status === "rejected") throw result.reason;
+  // A stop during the start drops the copies; no server starts on them.
+  if (stopping) throw new Error("The run was stopped while it started.");
+  const workerEnvironments = prepared.value;
   mkdirSync(path.join(appRoot, LOG_DIRECTORY), { recursive: true });
   mkdirSync(path.dirname(workerEnvironmentsFile), { recursive: true });
   writeFileSync(workerEnvironmentsFile, JSON.stringify(workerEnvironments.slice(0, workers)), { mode: 0o600 });

@@ -65,7 +65,9 @@ migrations are replayed into once and again only when a migration changes.
 `example/tests/e2e/databases.js` is the browser run's `prepare` module for
 `browserTestConfig({ prepare: "tests/e2e/databases.js" })` from
 `@jskit-ai/jskit-catalog/browser-tests`: each Playwright worker's server gets
-its own seeded copy of `BROWSER_TEST_DB_NAME`. The database user needs
+its own seeded copy of `BROWSER_TEST_DB_NAME`, and the launcher drops the
+numbered copies when the run stops, after its servers stop; `BROWSER_TEST_DB_NAME`
+and its `<name>_snapshot` database stay. The database user needs
 `CREATEDB`; without it, Node test files run one at a time on the connected
 database.
 

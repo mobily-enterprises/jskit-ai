@@ -43,7 +43,9 @@ Local functions
 - `refuseBusyPorts(host, ports)`
 - `waitUntilReady(url, server, name)`
 - `running(server)`
+- `delay(ms)`
 - `stopServers()`
+- `dropPreparedCopies(exited)`
 - `stopAndExit(code)`
 
 ### `scripts/browser-test-times.mjs`

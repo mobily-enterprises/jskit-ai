@@ -452,6 +452,13 @@ the app's `knexfile.js`) reaches that worker's copy. The copies (`<name>`, `<nam
 transaction each, so stale rows never survive a run and the migrations are
 replayed only when one changes. It refuses the application's database,
 `STAGING_DB_NAME`, `PRODUCTION_DB_NAME`, `TEST_DB_NAME` and their copies.
+When the run stops (Playwright's `SIGTERM`, Ctrl-C, or a start that failed), the
+launcher stops its servers, whose sessions keep their copies, then drops the
+numbered copies the `prepare` module made and says so
+(`[browser-tests] dropped the run's 3 numbered test database(s).`), all within
+the 10 s Playwright gives its webServer; `BROWSER_TEST_DB_NAME` and the snapshot
+stay. `prepareTestDatabases()` itself drops the copies it made when it throws,
+for a Node or a browser run alike.
 
 Give disposable integration and migration tests their own `TEST_DB_NAME`;
 the two names, and their copies, must differ, and the application account

@@ -78,7 +78,10 @@ Exports
 - `dropCopiesIfThrows(knexConfig, databases, work)`
 - `dropTestDatabaseCopies(knexConfig, databases)`
 - `endTestDatabaseRun(knexConfig, databases, directory)`
+- `rememberTestDatabaseCopies(knexConfig, databases)`
+- `testDatabaseNames(name, count)`
 Local functions
+- `preparedCopies()`
 - `dropUnlessInUse(knex, client, database)`
 
 ### `src/server/testDatabaseFile.js`
@@ -101,7 +104,7 @@ Exports
 - `requireTestDatabase(environment)`
 - `restoreTestDatabase(knexConfig, database, snapshot)`
 - `tableNames(knex)`
-- `testDatabaseNames(name, count)`
+- `testDatabaseNames`
 - `testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd(), checkDatabase })`
 - `testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd(), schemaFiles = [] } = {})`
 - `type TestDatabaseSchema`

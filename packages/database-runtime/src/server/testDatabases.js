@@ -37,7 +37,13 @@ import { parseDatabaseUrl, resolveKnexConnectionFromEnvironment, resolveKnexPool
 import { detectDialectFromClient } from "../shared/dialect.js";
 import { RUNTIME_QUERY_CHANNEL } from "./database.js";
 import { loadKnexFactory } from "./knexFactory.js";
-import { POSTGRES_MAINTENANCE_DATABASE, dropCopiesIfThrows, endTestDatabaseRun } from "./testDatabaseCopies.js";
+import {
+  POSTGRES_MAINTENANCE_DATABASE,
+  dropCopiesIfThrows,
+  endTestDatabaseRun,
+  rememberTestDatabaseCopies,
+  testDatabaseNames
+} from "./testDatabaseCopies.js";
 
 const SNAPSHOT_DIRECTORY = path.join("node_modules", ".cache", "jskit-test-databases");
 // Room for a `_snapshot` or copy suffix within MySQL's 64 and PostgreSQL's 63 characters.
@@ -81,15 +87,6 @@ const LOCKFILE = "package-lock.json";
 const folded = (value) => String(value ?? "").trim().toLowerCase();
 const milliseconds = (since) => Math.round(performance.now() - since);
 const ledgerOf = (knexConfig) => knexConfig.migrations?.tableName || "knex_migrations";
-
-/**
- * The databases for `count` test files or workers at once: `name`, then its numbered copies.
- * @param {string} name
- * @param {number} count
- */
-function testDatabaseNames(name, count) {
-  return Array.from({ length: count }, (_, index) => (index ? `${name}_${index}` : name));
-}
 
 /** The database the application's environment connects to: DB_NAME, else the one DATABASE_URL names. */
 function connectedDatabaseName(environment) {
@@ -409,7 +406,8 @@ function dialectOf(knexConfig) {
 /**
  * Prepares the disposable databases for up to `count` test files or browser workers at once, each holding the current
  * migrations' schema afresh, then the seed's rows when given: the database `variable` names, then the numbered copies
- * the database user may create.
+ * the database user may create. A throw drops the copies made so far; the process keeps those it returns, which a
+ * browser run's launcher drops when it stops (testDatabaseCopies.js).
  * @param {object} options
  * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig The application's Knex
  *   migration configuration (its knexfile.js), from `createKnexMigrationConfigFromApp()`.
@@ -438,16 +436,17 @@ async function prepareTestDatabases({
   const build = schema.build ?? ((knex) => knex.migrate.latest());
   const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, root, build);
   const restoreStarted = performance.now();
-  const databases = await dialect.provide(knexConfig, testDatabaseNames(name, count), snapshot);
+  const names = testDatabaseNames(name, count);
+  // A throw drops the copies made so far; the process keeps those it returns for its end (rememberTestDatabaseCopies()).
+  const databases = await dropCopiesIfThrows(knexConfig, names, () => dialect.provide(knexConfig, names, snapshot));
   const restoreMs = milliseconds(restoreStarted);
   const seedStarted = performance.now();
-  if (seed) {
-    await Promise.all(databases.map((database) => withKnex(knexConfig, database, (knex) => knex.transaction(seed))));
-  }
+  if (seed) await dropCopiesIfThrows(knexConfig, databases, () => Promise.all(databases.map((database) =>
+    withKnex(knexConfig, database, (knex) => knex.transaction(seed)))));
   const seedMs = milliseconds(seedStarted);
   const { replayed, ...stored } = snapshot;
   return {
-    databases,
+    databases: rememberTestDatabaseCopies(knexConfig, databases),
     snapshot: stored,
     summary: `${databases.length} test database(s) from ${name} ready in ${milliseconds(started)}ms: ` +
       (replayed && schema.build ? "schema built once for a new snapshot, " : "") +

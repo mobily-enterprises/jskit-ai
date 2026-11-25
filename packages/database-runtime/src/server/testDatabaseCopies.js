@@ -1,9 +1,11 @@
-// How a `jskit test --databases` run (testDatabaseRun() in testDatabases.js) ends: it drops the numbered copies of
-// TEST_DB_NAME it made, `<name>_1`, `_2`, ..., which the next run makes afresh from the snapshot anyway, however the run
-// ends (its tests passed, failed or were interrupted, or its check failed before the first file). TEST_DB_NAME itself
-// and the snapshot stay (PostgreSQL's `<name>_snapshot` database, MySQL's and MariaDB's file), so a later run in the same
-// tree restores them instead of replaying the migrations. Only the copies the run made are dropped, one at a time, and
-// none a session is connected to, such as another run's.
+// How a run's numbered copies of its test database, `<name>_1`, `_2`, ..., which the next run makes afresh from the
+// snapshot anyway, are dropped however the run ends. A `jskit test --databases` run (testDatabaseRun() in
+// testDatabases.js) drops those of TEST_DB_NAME when its tests passed, failed or were interrupted, or its check failed
+// before the first file; a browser run's launcher (jskit-catalog's browser-test-servers.mjs) drops those of
+// BROWSER_TEST_DB_NAME its prepare module made when it stops; and prepareTestDatabases() drops those it made when it
+// throws. The designated database itself and the snapshot stay (PostgreSQL's `<name>_snapshot` database, MySQL's and
+// MariaDB's file), so a later run in the same tree restores them instead of replaying the migrations. Only the copies the
+// run made are dropped, one at a time, and none a session is connected to, such as another run's.
 import { rmSync } from "node:fs";
 import { loadKnexFactory } from "./knexFactory.js";
 
@@ -13,6 +15,10 @@ const POSTGRES_MAINTENANCE_DATABASE = "postgres";
 const POSTGRES_OBJECT_IN_USE = "55006";
 // How long a drop on MySQL or MariaDB waits for a session's metadata lock before it gives up (ER_LOCK_WAIT_TIMEOUT).
 const MYSQL_LOCK_WAIT_SECONDS = 5;
+// The sets of copies prepareTestDatabases() made in this process and not yet dropped, each with its drop. A browser run's
+// launcher loads the app's own copy of this package through the app's prepare module, so it finds them under this
+// global key rather than by importing it.
+const PREPARED_COPIES = Symbol.for("@jskit-ai/database-runtime/preparedTestDatabaseCopies");
 // The sessions connected to a database, as each driver answers them; the drop's own connection uses none of the copies.
 // PostgreSQL's client sessions only: DROP DATABASE stops an autovacuum worker itself. MySQL and MariaDB list a database
 // user only its own sessions unless it has the PROCESS privilege.
@@ -20,6 +26,21 @@ const SESSIONS = Object.freeze({
   pg: { sql: "SELECT pid FROM pg_stat_activity WHERE datname = ? AND backend_type = 'client backend'", rows: (result) => result.rows },
   mysql2: { sql: "SELECT ID FROM information_schema.PROCESSLIST WHERE DB = ?", rows: ([rows]) => rows }
 });
+
+/**
+ * The databases for `count` test files or workers at once: `name`, then its numbered copies.
+ * @param {string} name
+ * @param {number} count
+ */
+function testDatabaseNames(name, count) {
+  return Array.from({ length: count }, (_, index) => (index ? `${name}_${index}` : name));
+}
+
+/** The sets of copies this process made and has not dropped, by their `databases` list. */
+function preparedCopies() {
+  globalThis[PREPARED_COPIES] ??= new Map();
+  return globalThis[PREPARED_COPIES];
+}
 
 /** Drops `database` through `knex`, a connection to its server; false when a session is connected to it. */
 async function dropUnlessInUse(knex, client, database) {
@@ -44,6 +65,7 @@ async function dropUnlessInUse(knex, client, database) {
  * @returns {Promise<string>}
  */
 async function dropTestDatabaseCopies(knexConfig, databases) {
+  preparedCopies().delete(databases);
   const { client } = knexConfig;
   const copies = databases.slice(1);
   if (copies.length < 1) return "";
@@ -73,6 +95,18 @@ async function dropTestDatabaseCopies(knexConfig, databases) {
 }
 
 /**
+ * Keeps the numbered copies among `databases` for this process's end, under the key a browser run's launcher drops
+ * them by once its servers have stopped; dropTestDatabaseCopies() of the same list drops them once.
+ * @param {{ client: "mysql2" | "pg", connection: object, pool?: object }} knexConfig
+ * @param {string[]} databases
+ * @returns {string[]} `databases`.
+ */
+function rememberTestDatabaseCopies(knexConfig, databases) {
+  if (databases.length > 1) preparedCopies().set(databases, () => dropTestDatabaseCopies(knexConfig, databases));
+  return databases;
+}
+
+/**
  * Ends a run: removes its settings directory, at once, then drops its copies.
  * @param {{ client: "mysql2" | "pg", connection: object, pool?: object }} knexConfig
  * @param {string[]} databases
@@ -85,8 +119,8 @@ function endTestDatabaseRun(knexConfig, databases, directory) {
 }
 
 /**
- * Runs `work`, a step of a run's start after its databases were made; when it throws, the run's copies are dropped
- * before the error goes on, since the run ends there.
+ * Runs `work`, a step of a run's start that makes, fills or checks `databases`; when it throws, the copies among them
+ * that exist are dropped before the error goes on, since the run ends there.
  * @template T
  * @param {{ client: "mysql2" | "pg", connection: object, pool?: object }} knexConfig
  * @param {string[]} databases
@@ -102,4 +136,11 @@ async function dropCopiesIfThrows(knexConfig, databases, work) {
   }
 }
 
-export { POSTGRES_MAINTENANCE_DATABASE, dropCopiesIfThrows, dropTestDatabaseCopies, endTestDatabaseRun };
+export {
+  POSTGRES_MAINTENANCE_DATABASE,
+  dropCopiesIfThrows,
+  dropTestDatabaseCopies,
+  endTestDatabaseRun,
+  rememberTestDatabaseCopies,
+  testDatabaseNames
+};
