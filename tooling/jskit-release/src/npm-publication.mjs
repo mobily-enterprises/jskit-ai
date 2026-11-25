@@ -134,14 +134,22 @@ async function fileState(file) {
 
 // Directory snapshots invalidate only invocation-local pack reuse. Equality with
 // npm still comes from the actual package archive, never this source snapshot.
-async function snapshotFiles(root, relative = "", files = new Map()) {
+// The tree is listed first, then its files are read and hashed eight at a time: the same snapshot, in the same order,
+// without waiting on one file's read before the next starts.
+async function snapshotFiles(root) {
+  const names = await listFiles(root, "", []);
+  const states = await inParallel(names, name => fileState(path.join(root, name)), 8);
+  return new Map(names.map((name, index) => [name, states[index]]));
+}
+
+async function listFiles(root, relative, names) {
   for (const entry of await readdir(path.join(root, relative), { withFileTypes: true })) {
     if (entry.name === "node_modules" || entry.name === ".git") continue;
     const name = path.join(relative, entry.name);
-    if (entry.isDirectory()) await snapshotFiles(root, name, files);
-    else files.set(name, await fileState(path.join(root, name)));
+    if (entry.isDirectory()) await listFiles(root, name, names);
+    else names.push(name);
   }
-  return files;
+  return names;
 }
 
 function sameSnapshot(left, right) {

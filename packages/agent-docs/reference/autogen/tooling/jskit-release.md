@@ -47,13 +47,14 @@ Exports
 - `fileState(file)`
 - `inParallel(items, work, limit = REGISTRY_CONCURRENCY)`
 - `planPublication(records, options)`
-- `snapshotFiles(root, relative = "", files = new Map())`
+- `snapshotFiles(root)`
 Local functions
 - `npmJson(args, { cwd, env = process.env, allowMissing = false } = {})`
 - `matchesIntegrity(bytes, integrity)`
 - `archiveContents(file)`
 - `archiveManifest(file)`
 - `runPackCommand(record, env)`
+- `listFiles(root, relative, names)`
 - `sameSnapshot(left, right)`
 
 ### `src/release.mjs`
