@@ -29,6 +29,97 @@ function unverifiedStop(inspection, fields = {}) {
   };
 }
 
+/** The fields of a /proc stat line the identity reads, num_threads among them, or null when it cannot be parsed. */
+function linuxProcessStat(value = "") {
+  const text = String(value || "");
+  const commandEnd = text.lastIndexOf(")");
+  if (commandEnd < 0) {
+    return null;
+  }
+  const fields = text.slice(commandEnd + 1).trim().split(/\s+/u);
+  const state = String(fields[0] || "");
+  const parentPid = Number(fields[1]);
+  const processGroupId = Number(fields[2]);
+  const startTimeTicks = String(fields[19] || "");
+  if (
+    !/^[A-Z]$/u.test(state) ||
+    !Number.isSafeInteger(parentPid) || parentPid < 0 ||
+    !Number.isSafeInteger(processGroupId) || processGroupId <= 0 ||
+    !/^\d+$/u.test(startTimeTicks)
+  ) {
+    return null;
+  }
+  return {
+    parentPid,
+    processGroupId,
+    startTimeTicks,
+    state,
+    threadCount: Number(fields[17])
+  };
+}
+
+/** An environment that only its own user may read. */
+const UNREADABLE_ENVIRONMENT = Symbol("unreadable environment");
+
+/**
+ * The environment file at `path`, UNREADABLE_ENVIRONMENT when the kernel shows it only to another user, or null
+ * when its process or thread has gone; throws for any other failure.
+ */
+async function readLinuxEnvironment(path) {
+  try {
+    return await readFile(path);
+  } catch (error) {
+    const code = String(error?.code || "");
+    // ENOENT or ESRCH: gone since its stat was read.
+    if (["ENOENT", "ESRCH"].includes(code)) {
+      return null;
+    }
+    // EACCES or EPERM: the kernel shows a process's environment only to its own user, so this is another user's
+    // process (or one that raised its privileges). It stays in the scan unreadable: in the leader's group or in a
+    // group of this runtime it makes the inspection ambiguous, and elsewhere it is not this runtime's. Every
+    // process on a host shared by several users is one, so refusing for it would refuse every inspection there.
+    if (!["EACCES", "EPERM"].includes(code)) {
+      throw error;
+    }
+    return UNREADABLE_ENVIRONMENT;
+  }
+}
+
+/**
+ * The environment of a process whose leader is a zombie while other threads remain, read from those threads, as
+ * the kernel shows a leader whose memory is released only to root: one that shows content, else one that shows
+ * none, else UNREADABLE_ENVIRONMENT when they are shown only to another user (or are exiting, their memory
+ * released). Null once no thread but the leader is left, as the process has then ended.
+ */
+async function readLinuxLiveThreadEnvironment(name) {
+  let threadIds;
+  try {
+    threadIds = (await readdir(`/proc/${name}/task`)).filter((threadId) => /^\d+$/u.test(threadId) && threadId !== name);
+  } catch (error) {
+    const code = String(error?.code || "");
+    if (["ENOENT", "ESRCH"].includes(code)) {
+      return null;
+    }
+    if (!["EACCES", "EPERM"].includes(code)) {
+      throw error;
+    }
+    return UNREADABLE_ENVIRONMENT;
+  }
+  let empty = null;
+  let unreadable = null;
+  for (const threadId of threadIds) {
+    const environment = await readLinuxEnvironment(`/proc/${name}/task/${threadId}/environ`);
+    if (environment === UNREADABLE_ENVIRONMENT) {
+      unreadable = environment;
+    } else if (environment?.length > 0) {
+      return environment;
+    } else if (environment) {
+      empty = environment;
+    }
+  }
+  return empty ?? unreadable;
+}
+
 /**
  * Process-group ownership proof used by execution hosts; callers retain their metadata contract.
  * @param {object} [options]
@@ -111,33 +202,6 @@ export function createConversationProcessIdentity({
     }
   }
 
-  function linuxProcessStat(value = "") {
-    const text = String(value || "");
-    const commandEnd = text.lastIndexOf(")");
-    if (commandEnd < 0) {
-      return null;
-    }
-    const fields = text.slice(commandEnd + 1).trim().split(/\s+/u);
-    const state = String(fields[0] || "");
-    const parentPid = Number(fields[1]);
-    const processGroupId = Number(fields[2]);
-    const startTimeTicks = String(fields[19] || "");
-    if (
-      !/^[A-Z]$/u.test(state) ||
-      !Number.isSafeInteger(parentPid) || parentPid < 0 ||
-      !Number.isSafeInteger(processGroupId) || processGroupId <= 0 ||
-      !/^\d+$/u.test(startTimeTicks)
-    ) {
-      return null;
-    }
-    return {
-      parentPid,
-      processGroupId,
-      startTimeTicks,
-      state
-    };
-  }
-
   function normalizeProcessIdentity(value = {}) {
     const normalized = isRecord(value) ? value : {};
     return {
@@ -167,9 +231,12 @@ export function createConversationProcessIdentity({
   }
 
   /**
-   * One process's record, or null when it has gone, is hidden from this user or is a zombie. A stat or environment
-   * read that fails for any other reason (out of file descriptors, say) throws: a live process left out of the scan
-   * would let its group look exited, and the inspection then refuses with that error.
+   * One process's record, or null when it has gone, is hidden from this user or has ended as a zombie. A zombie has
+   * ended only when it is its thread group's one thread (num_threads 1): a leader whose main thread called
+   * pthread_exit is a zombie while the process runs on in its other threads, so it is read through those threads and
+   * kept like any running process. A stat or environment read that fails for any other reason (out of file
+   * descriptors, say) throws: a live process left out of the scan would let its group look exited, and the
+   * inspection then refuses with that error.
    */
   async function linuxProcessRecord(name) {
     let statValue;
@@ -184,28 +251,16 @@ export function createConversationProcessIdentity({
       throw error;
     }
     const processStat = linuxProcessStat(statValue);
-    if (!processStat || processStat.state === "Z") {
+    if (!processStat || (processStat.state === "Z" && processStat.threadCount === 1)) {
       return null;
     }
-    let environment = null;
-    let environmentReadable = true;
-    try {
-      environment = await readFile(`/proc/${name}/environ`);
-    } catch (error) {
-      const code = String(error?.code || "");
-      // ENOENT or ESRCH: gone since its stat was read.
-      if (["ENOENT", "ESRCH"].includes(code)) {
-        return null;
-      }
-      // EACCES or EPERM: the kernel shows a process's environment only to its own user, so this is another user's
-      // process (or one that raised its privileges). It stays in the scan unreadable: in the leader's group or in a
-      // group of this runtime it makes the inspection ambiguous, and elsewhere it is not this runtime's. Every
-      // process on a host shared by several users is one, so refusing for it would refuse every inspection there.
-      if (!["EACCES", "EPERM"].includes(code)) {
-        throw error;
-      }
-      environmentReadable = false;
+    const environment = processStat.state === "Z"
+      ? await readLinuxLiveThreadEnvironment(name)
+      : await readLinuxEnvironment(`/proc/${name}/environ`);
+    if (environment === null) {
+      return null;
     }
+    const environmentReadable = environment !== UNREADABLE_ENVIRONMENT;
     const entries = environmentReadable ? environment.toString("utf8").split("\0") : [];
     return {
       ...processStat,

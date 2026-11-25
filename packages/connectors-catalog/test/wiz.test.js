@@ -173,15 +173,18 @@ test("Wiz cancellation and timeout terminate the scan process group and remove i
   await assert.rejects(access(run.cwd), { code: "ENOENT" });
   assert.throws(() => process.kill(run.pid, 0), { code: "ESRCH" });
   // The group's SIGKILL reaches the grandchild asynchronously, and a killed
-  // grandchild can briefly remain a zombie until the host reaps it.
+  // grandchild can briefly remain a zombie until the host reaps it. A zombie
+  // has ended only as its thread group's one thread (num_threads, field 20, is
+  // 1): with other threads counted, they still run or are still exiting.
   if (process.platform === "linux") {
+    const ended = (stat) => stat === "" || /\) Z (?:\S+ ){16}1 /u.test(stat);
     let childState;
     for (let i = 0; i < 100; i++) {
       childState = await readFile(`/proc/${run.childPid}/stat`, "utf8").catch(() => "");
-      if (childState === "" || /\) Z /u.test(childState)) break;
+      if (ended(childState)) break;
       await delay(20);
     }
-    assert.ok(childState === "" || /\) Z /u.test(childState), childState);
+    assert.ok(ended(childState), childState);
   }
   await assert.rejects(createWizScanner({ ...f.options, timeoutMs: 200 }).scan(args), { code: "connector_timeout" });
   const timeoutRun = await f.invocation(); await assert.rejects(access(timeoutRun.cwd), { code: "ENOENT" });
