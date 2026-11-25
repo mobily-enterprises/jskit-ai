@@ -87,7 +87,7 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
   const expectedIds = await knex("books")
     .where("workspace_id", 1)
     .orderBy("created_at", "desc")
-    .orderBy("id", "asc")
+    .orderBy("id", "desc")
     .pluck("id");
 
   for (const limit of [100, 200]) {
