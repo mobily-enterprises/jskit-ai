@@ -118,11 +118,13 @@ async function collectCiContractIssues({
   if (!/\bnpm_config_engine_strict:\s*["']?true["']?\s*$/mu.test(verifyWorkflow)) {
     issues.push("verify workflow must enable npm_config_engine_strict.");
   }
-  // A push to the same branch, or a new commit on the same pull request, supersedes the running verification.
+  // A new commit on the same pull request supersedes its running verification. A run on main always finishes, so main's
+  // history shows a verdict for every pushed commit.
   const concurrency = /^concurrency:[ \t]*\n((?:[ \t]+\S.*(?:\n|$))+)/mu.exec(verifyWorkflow)?.[1] || "";
-  if (!/^\s*group:.*\bgithub\.ref\b/mu.test(concurrency) || !/^\s*cancel-in-progress:\s*true\s*$/mu.test(concurrency)) {
-    issues.push("verify workflow must cancel a run that a newer one of the same branch or pull request supersedes: " +
-      "a top-level concurrency group on github.ref with cancel-in-progress: true.");
+  if (!/^\s*group:.*\bgithub\.ref\b/mu.test(concurrency) ||
+    !/^\s*cancel-in-progress:\s*\$\{\{\s*github\.event_name\s*==\s*'pull_request'\s*\}\}\s*$/mu.test(concurrency)) {
+    issues.push("verify workflow must cancel only a pull request's superseded run, so a run on main always finishes: " +
+      "a top-level concurrency group on github.ref with cancel-in-progress: ${{ github.event_name == 'pull_request' }}.");
   }
 
   return issues;
