@@ -24,7 +24,7 @@ async function assertNoStoredIdShown(page) {
 
 const openFixture = sharedBrowserFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/select-field/", import.meta.url)) });
 
-test("SelectField never shows a stored id while options load and titles unmatched values afterwards", {
+test("SelectField never shows a stored id while options load, names its loading bar, and titles unmatched values afterwards", {
   skip: process.env.JSKIT_HTTP_WEB_SELECT_FIELD_BROWSER === "1"
     ? false
     : "set JSKIT_HTTP_WEB_SELECT_FIELD_BROWSER=1 to run the select field browser regression",
@@ -43,6 +43,12 @@ test("SelectField never shows a stored id while options load and titles unmatche
     for (const label of FIELDS) {
       await expect(field(page, label).locator(".v-field--loading")).toHaveCount(1);
     }
+
+    // Each loading bar has a name for screen readers (axe aria-progressbar-name), with or without a field label.
+    for (const label of FIELDS) {
+      await expect(field(page, label).getByRole("progressbar")).toHaveAccessibleName(`Loading options for ${label}`);
+    }
+    await expect(page.getByTestId("unlabeled-field").getByRole("progressbar")).toHaveAccessibleName("Loading options");
 
     // Removing the visible chip keeps the value hidden while its options load.
     await field(page, "Extras").locator(".v-chip__close").click();

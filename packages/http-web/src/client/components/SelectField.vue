@@ -1,7 +1,9 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, useAttrs } from "vue";
 import { VAutocomplete } from "vuetify/components/VAutocomplete";
+import { VProgressLinear } from "vuetify/components/VProgressLinear";
 import { VSelect } from "vuetify/components/VSelect";
+import { useJskitText } from "../i18n.js";
 import { optionTitle, optionValue, selectionFieldState } from "../support/selectFieldSupport.js";
 
 // A v-select / v-autocomplete that never shows a stored id as text (see selectFieldSupport.js).
@@ -21,6 +23,8 @@ const props = defineProps({
 });
 const emit = defineEmits(["update:modelValue"]);
 
+const attrs = useAttrs();
+const { t } = useJskitText();
 const field = ref(null);
 const seen = new Map();
 const state = computed(() => selectionFieldState(props, seen));
@@ -31,6 +35,12 @@ function update(value) {
   // A value hidden while its options load is kept when the user edits a multiple selection.
   const hidden = state.value.hiddenValues;
   emit("update:modelValue", props.multiple && hidden.length ? [...hidden, ...[].concat(value ?? [])] : value);
+}
+
+// Vuetify's loading bar has no accessible name (axe aria-progressbar-name), so the field draws the same bar with one,
+// naming its field when it has a label. A loader slot the app passes still replaces it.
+function loaderLabel() {
+  return attrs.label ? t("jskit.http.selectField.loadingFor", { label: attrs.label }) : t("jskit.http.selectField.loading");
 }
 
 defineExpose({ focus: () => field.value?.focus() });
@@ -50,6 +60,9 @@ defineExpose({ focus: () => field.value?.focus() });
     :loading="loading"
     @update:model-value="update"
   >
+    <template v-if="!$slots.loader" #loader="{ color, isActive }">
+      <VProgressLinear :active="isActive" :color="color" height="2" indeterminate :aria-label="loaderLabel()" />
+    </template>
     <template v-for="(_, name) in $slots" #[name]="slotProps">
       <slot :name="name" v-bind="slotProps || {}" />
     </template>

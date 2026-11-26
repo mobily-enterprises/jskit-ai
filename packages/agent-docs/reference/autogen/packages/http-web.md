@@ -114,6 +114,7 @@ Local functions
 - `titleOf(item)`
 - `valueOf(item)`
 - `update(value)`
+- `loaderLabel()`
 
 ### `src/client/composables/crud/crudBindingSupport.js`
 Exports

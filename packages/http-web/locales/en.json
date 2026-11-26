@@ -113,6 +113,8 @@
         "saveFailed": "Unable to save resource."
       },
       "selectField": {
+        "loading": "Loading options",
+        "loadingFor": "Loading options for {label}",
         "unavailableOption": "Unavailable option"
       }
     }

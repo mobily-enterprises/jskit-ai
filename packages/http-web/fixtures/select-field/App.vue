@@ -50,6 +50,7 @@ window.releaseOptions = () => {
         item-value="value"
         :loading="loading"
       />
+      <SelectField data-testid="unlabeled-field" :items="services" :loading="loading" />
       <pre data-testid="select-field-models">{{ JSON.stringify({ service, retired, serviceIds }) }}</pre>
     </v-main>
   </v-app>
