@@ -4,8 +4,15 @@
 // before the first file; a browser run's launcher (jskit-catalog's browser-test-servers.mjs) drops those of
 // BROWSER_TEST_DB_NAME its prepare module made when it stops; and prepareTestDatabases() drops those it made when it
 // throws. The designated database itself and the snapshot stay (PostgreSQL's `<name>_snapshot` database, MySQL's and
-// MariaDB's file), so a later run in the same tree restores them instead of replaying the migrations. Only the copies the
-// run made are dropped, one at a time, and none a session is connected to, such as another run's.
+// MariaDB's file), so a later run in the same tree restores them instead of replaying the migrations. A run ends by
+// dropping only the copies it made, one at a time, and none a session is connected to, such as another run's.
+//
+// A run that never reached its end (killed with SIGKILL, stopped at a command's time limit, on a machine that went down)
+// leaves its copies. So each run starts by dropping the numbered copies of its database it will not make itself,
+// `<name>_<count>` and up, which an earlier run left (dropLeftTestDatabaseCopies): none a session is connected to, and
+// only names JSKIT gives a copy (`<name>_1`, `_2`, ...; never `<name>_snapshot`, or a project's own lettered fixture
+// copies such as `<name>_a`). The copies it makes itself are made afresh anyway. Two runs at once on one database name
+// are not supported: they would share those copies.
 import { rmSync } from "node:fs";
 import { loadKnexFactory } from "./knexFactory.js";
 
@@ -19,6 +26,11 @@ const MYSQL_LOCK_WAIT_SECONDS = 5;
 // launcher loads the app's own copy of this package through the app's prepare module, so it finds them under this
 // global key rather than by importing it.
 const PREPARED_COPIES = Symbol.for("@jskit-ai/database-runtime/preparedTestDatabaseCopies");
+// The databases a server lists: PostgreSQL's every one, MySQL's and MariaDB's those the user has a privilege on.
+const DATABASES = Object.freeze({
+  pg: { sql: "SELECT datname AS name FROM pg_database", rows: (result) => result.rows },
+  mysql2: { sql: "SELECT SCHEMA_NAME AS name FROM information_schema.SCHEMATA", rows: ([rows]) => rows }
+});
 // The sessions connected to a database, as each driver answers them; the drop's own connection uses none of the copies.
 // PostgreSQL's client sessions only: DROP DATABASE stops an autovacuum worker itself. MySQL and MariaDB list a database
 // user only its own sessions unless it has the PROCESS privilege.
@@ -95,6 +107,51 @@ async function dropTestDatabaseCopies(knexConfig, databases) {
 }
 
 /**
+ * Drops the numbered copies of `name` an earlier run left, `<name>_<count>` and up: every one on the server that no
+ * session is connected to. It answers what it did, for the run's summary, or "" when it found none, and never throws:
+ * a copy it could not drop is named with the reason, and the run goes on.
+ * @param {{ client: "mysql2" | "pg", connection: object, pool?: object }} knexConfig
+ * @param {string} name the run's designated database (letters, digits and _ only)
+ * @param {number} count how many databases the run makes: `name`, then `<name>_1` to `<name>_<count - 1>`
+ * @returns {Promise<string>}
+ */
+async function dropLeftTestDatabaseCopies(knexConfig, name, count) {
+  const { client } = knexConfig;
+  const copy = new RegExp(`^${name}_([1-9]\\d*)$`, "u");
+  const dropped = [];
+  const kept = [];
+  let knex;
+  try {
+    knex = loadKnexFactory()({
+      ...knexConfig,
+      connection: { ...knexConfig.connection, database: client === "pg" ? POSTGRES_MAINTENANCE_DATABASE : undefined },
+      pool: { ...knexConfig.pool, min: 0, max: 1 }
+    });
+    if (client === "mysql2") await knex.raw(`SET SESSION lock_wait_timeout = ${MYSQL_LOCK_WAIT_SECONDS}`);
+    const { sql, rows } = DATABASES[client];
+    const left = rows(await knex.raw(sql)).map((row) => String(row.name))
+      .filter((database) => Number(copy.exec(database)?.[1]) >= count).sort();
+    for (const database of left) {
+      try {
+        if (await dropUnlessInUse(knex, client, database)) dropped.push(database);
+        else kept.push(`${database}, which a session is connected to`);
+      } catch (error) {
+        kept.push(`${database} (${error.code || error.message})`);
+      }
+    }
+  } catch (error) {
+    return `could not drop the numbered test database(s) earlier runs left: ${error.code || error.message}`;
+  } finally {
+    await knex?.destroy();
+  }
+  if (dropped.length + kept.length < 1) return "";
+  return [
+    dropped.length ? `dropped ${dropped.length} numbered test database(s) earlier runs left (${dropped.join(", ")})` : "",
+    kept.length ? `kept ${kept.join("; ")}` : ""
+  ].filter(Boolean).join("; ");
+}
+
+/**
  * Keeps the numbered copies among `databases` for this process's end, under the key a browser run's launcher drops
  * them by once its servers have stopped; dropTestDatabaseCopies() of the same list drops them once.
  * @param {{ client: "mysql2" | "pg", connection: object, pool?: object }} knexConfig
@@ -139,6 +196,7 @@ async function dropCopiesIfThrows(knexConfig, databases, work) {
 export {
   POSTGRES_MAINTENANCE_DATABASE,
   dropCopiesIfThrows,
+  dropLeftTestDatabaseCopies,
   dropTestDatabaseCopies,
   endTestDatabaseRun,
   rememberTestDatabaseCopies,

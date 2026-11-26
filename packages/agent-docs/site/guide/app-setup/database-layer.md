@@ -389,6 +389,15 @@ the application's `knexfile.js`:
   a later run in the same tree restores them instead of replaying the
   migrations. Only the copies the run made are dropped, and none a session is
   connected to, such as another run's: the run names each copy it kept and why.
+- A run that never reached its end (killed with `SIGKILL`, stopped at a
+  command's time limit, or on a machine that went down) leaves its copies. So
+  every run, a browser run's `prepare` module included, starts by dropping the
+  numbered copies of its database it will not make itself (`<name>_<count>` and
+  up), none a session is connected to, and its summary says so
+  (`dropped 1 numbered test database(s) earlier runs left (shop_test_7)`): a
+  killed run's copies last until the next run starts, never longer. Only names
+  JSKIT gives a copy count: `<name>_snapshot` and a project's own lettered
+  copies stay. Two runs at once on one database name still are not supported.
 - The snapshot holds the schema as the engine reports it and the rows the
   migrations wrote, including the migration ledger. On MySQL and MariaDB it is
   each table's `SHOW CREATE TABLE` and rows, in

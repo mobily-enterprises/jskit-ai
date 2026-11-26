@@ -41,6 +41,7 @@ import { MYSQL_DATABASE_OPTIONS, createMysqlPackageTestKnex } from "./mysqlPacka
 import {
   POSTGRES_MAINTENANCE_DATABASE,
   dropCopiesIfThrows,
+  dropLeftTestDatabaseCopies,
   endTestDatabaseRun,
   rememberTestDatabaseCopies,
   testDatabaseNames
@@ -417,8 +418,10 @@ function dialectOf(knexConfig) {
 /**
  * Prepares the disposable databases for up to `count` test files or browser workers at once, each holding the current
  * migrations' schema afresh, then the seed's rows when given: the database `variable` names, then the numbered copies
- * the database user may create. A throw drops the copies made so far; the process keeps those it returns, which a
- * browser run's launcher drops when it stops (testDatabaseCopies.js).
+ * the database user may create. It first drops the numbered copies an earlier run that never reached its end left
+ * and this one will not make, none a session is connected to (dropLeftTestDatabaseCopies()). A throw drops the copies
+ * made so far; the process keeps those it returns, which a browser run's launcher drops when it stops
+ * (testDatabaseCopies.js).
  * @param {object} options
  * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig The application's Knex
  *   migration configuration (its knexfile.js), from `createKnexMigrationConfigFromApp()`.
@@ -446,6 +449,8 @@ async function prepareTestDatabases({
   const { key, migrations } = await testDatabaseSnapshotKey(knexConfig, { appRoot: root, schemaFiles: schema.files });
   const build = schema.build ?? ((knex) => knex.migrate.latest());
   const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, root, build);
+  // An earlier run that never reached its end left its copies; those this run will not make itself go first.
+  const swept = await dropLeftTestDatabaseCopies(knexConfig, name, count);
   const restoreStarted = performance.now();
   const names = testDatabaseNames(name, count);
   // A throw drops the copies made so far; the process keeps those it returns for its end (rememberTestDatabaseCopies()).
@@ -463,7 +468,7 @@ async function prepareTestDatabases({
       (replayed && schema.build ? "schema built once for a new snapshot, " : "") +
       (replayed && !schema.build ? `${migrations.length} migrations replayed once for a new snapshot, ` : "") +
       (replayed ? "" : "stored snapshot, ") +
-      `restore ${restoreMs}ms${seed ? `, seed ${seedMs}ms` : ""}`
+      `restore ${restoreMs}ms${seed ? `, seed ${seedMs}ms` : ""}${swept ? `; ${swept}` : ""}`
   };
 }
 
