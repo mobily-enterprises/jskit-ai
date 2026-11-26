@@ -20,7 +20,7 @@ const scopesByActor = (actorIds, scopesOf) => new Map(actorIds.map((actorId) => 
 // `profileSyncs` those that asked the provider to sync the profile, and
 // `sessionRefreshes` those that let it refresh the session. Sessions in
 // `expired` answer that they need a refresh.
-async function signedInSockets(t, { audiences = createAudienceContributors(), requireAuthentication = true } = {}) {
+async function signedInSockets(t, { audiences = createAudienceContributors(), requireAuthentication = true, realtime = {} } = {}) {
   const httpServer = createServer();
   const io = createSocketIoServer({ httpServer });
   const sessions = new Map();
@@ -29,7 +29,7 @@ async function signedInSockets(t, { audiences = createAudienceContributors(), re
   const profileSyncs = [];
   const sessionRefreshes = [];
   const authService = {
-    realtime: { requireAuthentication },
+    realtime: { requireAuthentication, ...realtime },
     async authenticateRequest(request, { syncProfile = true, refreshSession = true } = {}) {
       checks.push(request.cookies.session);
       if (syncProfile) profileSyncs.push(request.cookies.session);
@@ -97,6 +97,9 @@ test("invalid authorization configuration fails closed at startup", () => {
     authenticateRequest() {}, realtime: { authorizeEvent: true }
   } }), /authorizeEvent must be a function/u);
   assert.throws(() => createRealtimeDelivery({ io, logger, authService: null }), /mayContribute/u);
+  assert.throws(() => registerSocketAudienceBootstrap({ io: { use() {}, on() {} }, logger, audiences, authService: {
+    authenticateRequest() {}, realtime: { holdSocket: true }
+  } }), /holdSocket must be a function/u);
 });
 
 test("real sockets authorize each conversation delivery and disconnect a revoked session", async (t) => {
@@ -180,6 +183,49 @@ test("guarded delivery checks only the sockets that can receive an event, once p
   await f.publish({ userId: 1 });
   await Promise.all(disconnected);
   assert.equal(aliceTab.received.length + aliceOtherTab.received.length, received);
+});
+
+test("a socket its auth service holds until its login ends is authenticated at its handshake, not once per publish", async (t) => {
+  // The service's holds: each login's close callbacks, as a session store holding connections keeps them.
+  const holds = new Map();
+  const authorized = [];
+  const f = await signedInSockets(t, { realtime: {
+    holdSocket(request, close) {
+      const session = request.cookies.session;
+      holds.set(session, [...(holds.get(session) || []), close]);
+      return () => holds.set(session, (holds.get(session) || []).filter((held) => held !== close));
+    },
+    authorizeEvent({ actor }) {
+      authorized.push(actor.id);
+      return true;
+    }
+  } });
+  f.sessions.set("alice", "1").set("bob", "2");
+  const [aliceTab, aliceOtherTab] = [await f.connect("alice"), await f.connect("alice")];
+  const bob = await f.connect("bob");
+
+  async function checksFor(publishes) {
+    f.checks.length = 0;
+    authorized.length = 0;
+    for (let index = 0; index < publishes; index += 1) await f.publish({ userId: 1 });
+    await afterMarker(f, 1, aliceTab.client, aliceOtherTab.client);
+    return { checks: f.checks.length, authorized: authorized.length };
+  }
+  const one = await checksFor(1);
+  const many = await checksFor(20);
+  assert.equal(many.checks, one.checks, `20 publishes authenticated ${many.checks} times, 1 publish ${one.checks}`);
+  assert.equal(one.checks, 0);
+  assert.equal(many.authorized, 2 * 21, "Each delivery is still authorized, with the held actor");
+  assert.equal(aliceTab.received.length, 21);
+  assert.equal(holds.get("alice").length, 2);
+
+  // The login ending closes its sockets at once, with no publish, and leaves other logins connected.
+  const disconnected = [arrival(aliceTab.client, "disconnect"), arrival(aliceOtherTab.client, "disconnect")];
+  for (const close of holds.get("alice")) close();
+  await Promise.all(disconnected);
+  assert.deepEqual(holds.get("alice"), [], "A disconnected socket releases its hold");
+  await afterMarker(f, 2, bob.client);
+  assert.equal(bob.client.connected, true);
 });
 
 test("membership changes and revoked logins take effect on the very next publish", async (t) => {
