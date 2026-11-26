@@ -3911,6 +3911,48 @@ test("a live conversation's history folds only what was appended, and reading ma
   assert.deepEqual(await read(streaming), await fresh(streaming));
 });
 
+test("a live conversation lets its parsed history go ten minutes after its last read unless a turn runs, and then reads it whole again", async t => {
+  const { mkdir: makeDirectory, mkdtemp: makeTemporary, rm: remove, writeFile: write } = await import("node:fs/promises");
+  const { ownClaudeHistory } = await import("../src/server/conversation/claudeHistory.js");
+  const root = await makeTemporary(path.join(os.tmpdir(), "claude-history-idle-"));
+  t.after(() => remove(root, { recursive: true, force: true }));
+  const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await makeDirectory(directory, { recursive: true });
+  const conversationId = "7b1f9a52-1c1e-4d0b-9a55-3c8e2f4d6a11";
+  const lines = [];
+  for (let step = 0; step < 50; step++) {
+    lines.push(JSON.stringify({ type: "user", uuid: `u${step}`, ...(step ? { parentUuid: `a${step - 1}` } : {}), message: { content: `Request ${step}` } }),
+      JSON.stringify({ type: "assistant", uuid: `a${step}`, parentUuid: `u${step}`, message: { id: `api-a${step}`, content: [{ type: "text", text: `Answer ${step}` }] } }));
+  }
+  await write(path.join(directory, `${conversationId}.jsonl`), `${lines.join("\n")}\n`);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  // As claudeTurn's entry owns it: busy while a turn is in flight.
+  const entry = { id: conversationId };
+  let turnRunning = false;
+  const own = () => ownClaudeHistory(entry, { busy: () => turnRunning });
+  const parsed = t.mock.method(JSON, "parse");
+  async function read() {
+    parsed.mock.resetCalls();
+    const result = await readClaudeHistory({ configRoot: root, workdir: root, conversationId, history: own() });
+    return { result, parsed: parsed.mock.callCount() };
+  }
+  const minute = 60_000;
+  const first = await read();
+  assert.equal(first.parsed, 100);
+  const kept = own();
+  t.mock.timers.tick(9 * minute);
+  assert.equal((await read()).parsed, 0, "read within ten minutes of its last read, it is kept");
+  turnRunning = true;
+  t.mock.timers.tick(25 * minute);
+  assert.equal((await read()).parsed, 0, "a turn in flight keeps it, however long nothing reads it");
+  turnRunning = false;
+  t.mock.timers.tick(10 * minute);
+  assert.notEqual(own(), kept, "ten idle minutes after its last read, the entry holds none of it");
+  const again = await read();
+  assert.equal(again.parsed, 100);
+  assert.deepEqual(again.result, first.result);
+});
+
 test("live Claude history parses only frames appended since the previous read", async t => {
   const { appendFile, mkdir: makeDirectory, mkdtemp: makeTemporary, rename: move, rm: remove, writeFile: write } = await import("node:fs/promises");
   const root = await makeTemporary(path.join(os.tmpdir(), "claude-incremental-"));
