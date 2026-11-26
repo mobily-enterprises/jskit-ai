@@ -231,8 +231,11 @@ An application adopts it once, at the upgrade that brings `jskit test`:
 1. Its test scripts run `jskit test` with their own files or globs, for
    example `"test": "jskit test"`, never `node --test` or
    `--test-concurrency`.
-2. `playwright.config.*` sets `workers: testConcurrency()` and the Vitest
-   config sets `maxWorkers: testConcurrency()`, with
+2. `playwright.config.*` is `browserTestConfig()`, or sets
+   `workers: browserTestWorkers()` with
+   `import { browserTestWorkers } from "@jskit-ai/jskit-catalog/browser-tests";`
+   (half the budget: each worker drives a browser), and the Vitest config sets
+   `maxWorkers: testConcurrency()`, with
    `import { testConcurrency } from "@jskit-ai/jskit-catalog/test-budget";`,
    and no script passes `--workers`, `-j` or `--maxWorkers`.
 3. Files that collide when run together get their own port, temporary

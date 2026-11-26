@@ -4,7 +4,9 @@ import { fileExists, toPosixPath } from "./files.mjs";
 
 // The test-run part of plain `jskit check`: every test run uses the machine's test budget, so a suite neither runs one
 // file at a time nor overwhelms the machine. A package script runs node's test runner through `jskit test`, passes no
-// fixed worker count, and the Playwright and Vitest configs its scripts use set their workers from testConcurrency().
+// fixed worker count, and the configs its scripts use set their workers from the budget: Vitest's from
+// testConcurrency(), Playwright's from browserTestWorkers(), half of it, since each worker drives a browser and often
+// its own app server, about two threads (browserTestConfig() does that itself).
 // The one exception is a test file's own first line, `// jskit-test: alone - <reason>`, which `jskit test` honours.
 // A Playwright config those scripts use bounds its whole run (globalTimeout) and, when it starts the app (webServer),
 // does so through browserTestConfig(): the production build, and a server, port and database for each worker.
@@ -76,12 +78,14 @@ const RUNNERS = Object.freeze({
     rule: "test/playwright-workers",
     configNames: ["playwright"],
     setting: "workers",
+    budget: { module: BROWSER_TESTS_MODULE, call: "browserTestWorkers" },
     fixedArgument: FIXED_PLAYWRIGHT_WORKERS
   },
   vitest: {
     rule: "test/vitest-workers",
     configNames: ["vitest", "vite"],
     setting: "maxWorkers",
+    budget: { module: BUDGET_MODULE, call: "testConcurrency" },
     fixedArgument: FIXED_VITEST_WORKERS
   }
 });
@@ -125,8 +129,8 @@ function checkPlaywrightIsolation({ file, source, report }) {
 
 // A config sets the runner's workers from the budget, and Vitest's never turns file parallelism off.
 async function checkRunnerConfig({ root, configPath, directory, runner, report }) {
-  const { rule, setting, configNames } = RUNNERS[runner];
-  const wanted = `set \`${setting}: testConcurrency()\` from ${BUDGET_MODULE}`;
+  const { rule, setting, configNames, budget } = RUNNERS[runner];
+  const wanted = `set \`${setting}: ${budget.call}()\` from ${budget.module}`;
   if (!configPath || !(await fileExists(configPath))) {
     const missing = configPath || path.join(directory, `${configNames[0]}.config.*`);
     report({ file: toPosixPath(path.relative(root, missing)), line: 1, rule,
@@ -141,8 +145,13 @@ async function checkRunnerConfig({ root, configPath, directory, runner, report }
       report({ file, line: lineOf(source, "workers:"), rule,
         message: "playwright's workers are set over browserTestConfig()'s; drop them, so the machine's test budget sets them." });
     }
-  } else if (!source.includes(BUDGET_MODULE) || !new RegExp(`\\b${setting}\\s*:\\s*testConcurrency\\(\\s*\\)`, "u").test(source)) {
-    report({ file, line: lineOf(source, `${setting}:`), rule, message: `${runner} runs at a fixed or default worker count; ${wanted}.` });
+  } else if (!source.includes(budget.module) || !new RegExp(`\\b${setting}\\s*:\\s*${budget.call}\\(\\s*\\)`, "u").test(source)) {
+    // A Playwright worker drives a browser, and its own app server where the config starts one: two of the budget.
+    const message = runner === "playwright"
+      ? "playwright's workers are not browserTestWorkers(): each worker drives a browser, and its own app server where it " +
+        `starts one, about two threads, so it takes half the test budget (1 on a managed target); ${wanted}.`
+      : `${runner} runs at a fixed or default worker count; ${wanted}.`;
+    report({ file, line: lineOf(source, `${setting}:`), rule, message });
   }
   if (runner === "playwright") checkPlaywrightIsolation({ file, source, report });
   if (runner === "vitest" && /\bfileParallelism\s*:\s*false\b/u.test(source)) {
@@ -178,7 +187,7 @@ async function checkTestRuns({ projectRoot, manifests }) {
           const args = runnerArguments(tokens, runner);
           if (!args) continue;
           if (args.some((token) => RUNNERS[runner].fixedArgument.test(token))) {
-            at(RUNNERS[runner].rule, `passes ${runner} a fixed worker count; drop it, so the config's testConcurrency() sets it.`);
+            at(RUNNERS[runner].rule, `passes ${runner} a fixed worker count; drop it, so the config's ${RUNNERS[runner].budget.call}() sets it.`);
           }
           const configPath = await findConfig(directory, configOption(args), RUNNERS[runner].configNames);
           configs.set(`${runner}\0${configPath || directory}`, { runner, configPath, directory });
