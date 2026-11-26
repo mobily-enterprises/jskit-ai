@@ -67,6 +67,166 @@ test("an authenticator sets up, proves sessions, refuses wrong, used and expired
   });
 });
 
+const PASSWORD = "correct horse battery staple";
+const CODE_INVALID = Object.freeze({ status: 400, code: "auth.local.secondFactor.codeInvalid" });
+const CODE_USED = Object.freeze({ status: 400, code: "auth.local.secondFactor.codeUsed" });
+const RECOVERY_CODE_INVALID = Object.freeze({ status: 400, code: "auth.local.secondFactor.recoveryCodeInvalid" });
+const PROOF_REQUIRED = Object.freeze({ status: 400, code: "auth.local.secondFactor.proofRequired" });
+const NOT_SET_UP = Object.freeze({ status: 409, code: "auth.local.secondFactor.notSetUp" });
+const ACCOUNT_NOT_FOUND = Object.freeze({ status: 404, code: "auth.local.secondFactor.accountNotFound" });
+
+/** A refusal while the account waits after wrong codes, for `seconds`. */
+function lockedFor(seconds) {
+  return (error) => {
+    assert.equal(error.status, 429);
+    assert.equal(error.code, "auth.local.secondFactor.locked");
+    assert.equal(error.headers["retry-after"], String(seconds));
+    return true;
+  };
+}
+
+/** Six digits that are none of the codes accepted now. */
+function wrongCode(secret) {
+  const accepted = new Set([-1, 0, 1].map((offset) => codeAt(secret, offset)));
+  let guess = 0;
+  while (accepted.has(String(guess).padStart(6, "0"))) {
+    guess += 1;
+  }
+  return String(guess).padStart(6, "0");
+}
+
+/**
+ * A file-backed service where Ada has an authenticator, confirmed one step ago, and two sessions (the second never
+ * proved its second factor), and Bob has none.
+ */
+async function enrolledAda(t) {
+  t.mock.timers.enable({ apis: ["Date"], now: SCENARIO_START });
+  const { events, options } = secondFactorServiceOptions();
+  const service = createLocalAuthService({ ...options, backend: createLocalFileBackend({ storeDir: await storeDirFor(t) }) });
+  await service.register({ email: "ada@example.com", password: PASSWORD });
+  await service.register({ email: "bob@example.com", password: PASSWORD });
+  const signIn = async (email) => {
+    const cookies = sessionCookies((await service.login({ email, password: PASSWORD })).session);
+    return () => ({ cookies, ip: "203.0.113.7" });
+  };
+  const ada = await signIn("ada@example.com");
+  const adaPhone = await signIn("ada@example.com");
+  const bob = await signIn("bob@example.com");
+  const adaId = (await service.authenticateRequest(ada())).actor.providerUserId;
+  const bobId = (await service.authenticateRequest(bob())).actor.providerUserId;
+  const { secret } = await service.startSecondFactorSetup(ada());
+  const { recoveryCodes } = await service.confirmSecondFactorSetup(ada(), { code: codeAt(secret) });
+  t.mock.timers.tick(30_000);
+  return { service, events, ada, adaPhone, bob, adaId, bobId, secret, recoveryCodes };
+}
+
+test("verifySecondFactorOf accepts the named account's current code once, answers the verification and marks no session", async (t) => {
+  const { service, events, adaPhone, adaId, secret } = await enrolledAda(t);
+  const typed = codeAt(secret);
+  const at = new Date().toISOString();
+  assert.deepEqual(await service.verifySecondFactorOf({ userId: adaId, proof: { code: ` ${typed.slice(0, 3)} ${typed.slice(3)} ` } }), {
+    verifiedAt: at,
+    method: "code",
+    recoveryCodesLeft: 10
+  });
+  assert.equal((await service.getSecondFactorStatus(adaPhone())).verifiedAt, null, "no session proved anything");
+  // The code is used up for every path: the same one again, here or by a session, is refused.
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: typed } }), CODE_USED);
+  await assert.rejects(service.verifySecondFactor(adaPhone(), { code: typed }), CODE_USED);
+  assert.deepEqual(events.at(-3), { type: "verified", userId: adaId, ip: "", at, method: "code", recoveryCodesLeft: 10 });
+});
+
+test("verifySecondFactorOf refuses a wrong code or recovery code, and a proof that is not exactly one of them", async (t) => {
+  const { service, events, adaId, secret, recoveryCodes } = await enrolledAda(t);
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: wrongCode(secret) } }), CODE_INVALID);
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: "12345" } }), CODE_INVALID);
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { recoveryCode: "abcde-fghjk" } }), RECOVERY_CODE_INVALID);
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: {} }), PROOF_REQUIRED);
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId }), PROOF_REQUIRED);
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: codeAt(secret), recoveryCode: recoveryCodes[0] } }),
+    PROOF_REQUIRED);
+  await assert.rejects(service.verifySecondFactorOf({ proof: { code: codeAt(secret) } }), TypeError);
+  const failures = events.filter((event) => event.type === "failed");
+  assert.deepEqual(failures.map((event) => [event.userId, event.ip, event.reason]), [
+    [adaId, "", "codeInvalid"],
+    [adaId, "", "codeInvalid"],
+    [adaId, "", "recoveryCodeInvalid"]
+  ]);
+  const everyEvent = JSON.stringify(events);
+  for (const shown of [secret, ...recoveryCodes]) {
+    assert.equal(everyEvent.includes(shown), false, "no event carries a secret or a code");
+  }
+});
+
+test("verifySecondFactorOf and a session's verification count the same wrong codes: failing through one locks the other", async (t) => {
+  const { service, ada, adaPhone, adaId, bob, bobId, secret, recoveryCodes } = await enrolledAda(t);
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: wrongCode(secret) } }), CODE_INVALID);
+  }
+  await assert.rejects(service.verifySecondFactor(ada(), { code: codeAt(secret) }), lockedFor(30));
+  await assert.rejects(service.verifySecondFactor(adaPhone(), { recoveryCode: recoveryCodes[0] }), lockedFor(30));
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: codeAt(secret) } }), lockedFor(30));
+
+  // After the wait a right code here forgets the failures; then wrong codes in a session lock this call.
+  t.mock.timers.tick(30_000);
+  assert.equal((await service.verifySecondFactorOf({ userId: adaId, proof: { code: codeAt(secret) } })).method, "code");
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await assert.rejects(service.verifySecondFactor(ada(), { code: wrongCode(secret) }), CODE_INVALID);
+  }
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: codeAt(secret) } }), lockedFor(30));
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { recoveryCode: recoveryCodes[0] } }), lockedFor(30));
+
+  // Failures through both add up to one count.
+  t.mock.timers.tick(30_000);
+  assert.equal((await service.verifySecondFactor(ada(), { code: codeAt(secret) })).method, "code");
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await assert.rejects(service.verifySecondFactor(ada(), { code: wrongCode(secret) }), CODE_INVALID);
+  }
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { recoveryCode: "abcde-fghjk" } }), RECOVERY_CODE_INVALID);
+  }
+  await assert.rejects(service.verifySecondFactor(ada(), { code: codeAt(secret) }), lockedFor(30));
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: codeAt(secret) } }), lockedFor(30));
+
+  // Another account's attempts count apart.
+  const { secret: bobSecret } = await service.startSecondFactorSetup(bob());
+  await service.confirmSecondFactorSetup(bob(), { code: codeAt(bobSecret) });
+  t.mock.timers.tick(30_000);
+  assert.equal((await service.verifySecondFactorOf({ userId: bobId, proof: { code: codeAt(bobSecret) } })).method, "code");
+});
+
+test("verifySecondFactorOf uses a recovery code up once, shared with the session's recovery codes", async (t) => {
+  const { service, ada, adaId, recoveryCodes } = await enrolledAda(t);
+  const [first, second] = recoveryCodes;
+  const at = new Date().toISOString();
+  assert.deepEqual(await service.verifySecondFactorOf({ userId: adaId, proof: { recoveryCode: ` ${first.toUpperCase()} ` } }), {
+    verifiedAt: at,
+    method: "recoveryCode",
+    recoveryCodesLeft: 9
+  });
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { recoveryCode: first } }), RECOVERY_CODE_INVALID);
+  await assert.rejects(service.verifySecondFactor(ada(), { recoveryCode: first }), RECOVERY_CODE_INVALID);
+  assert.equal((await service.verifySecondFactor(ada(), { recoveryCode: second })).recoveryCodesLeft, 8);
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { recoveryCode: second } }), RECOVERY_CODE_INVALID);
+  assert.equal((await service.getSecondFactorStatus(ada())).recoveryCodesLeft, 8);
+});
+
+test("verifySecondFactorOf refuses an unknown account, an account without an authenticator and a waiting one, each with its own code", async (t) => {
+  const { service, bob, adaId, bobId, secret } = await enrolledAda(t);
+  await assert.rejects(service.verifySecondFactorOf({ userId: "usr_missing", proof: { code: "123456" } }), ACCOUNT_NOT_FOUND);
+  await assert.rejects(service.verifySecondFactorOf({ userId: bobId, proof: { code: "123456" } }), NOT_SET_UP);
+  const { secret: started } = await service.startSecondFactorSetup(bob());
+  await assert.rejects(service.verifySecondFactorOf({ userId: bobId, proof: { code: codeAt(started) } }), NOT_SET_UP,
+    "a setup nobody confirmed is no authenticator");
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: wrongCode(secret) } }), CODE_INVALID);
+  }
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: codeAt(secret) } }), lockedFor(30));
+  // After the wait the account's code is accepted again.
+  t.mock.timers.tick(30_000);
+  assert.equal((await service.verifySecondFactorOf({ userId: adaId, proof: { code: codeAt(secret) } })).method, "code");
+});
+
 test("the file store keeps a factor and its session's proof across restarts, and another key cannot open it", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: SCENARIO_START });
   const storeDir = await storeDirFor(t);
@@ -104,6 +264,8 @@ test("a production server has a second factor only with its key, at least 32 cha
   assert.equal(service.getCapabilities().features.secondFactor, false);
   assert.throws(() => service.getSecondFactorStatus({ cookies: {} }), { status: 501, code: "AUTH_OPERATION_UNSUPPORTED" });
   assert.throws(() => service.listSecondFactors({ userIds: [] }), { status: 501, code: "AUTH_OPERATION_UNSUPPORTED" });
+  assert.throws(() => service.verifySecondFactorOf({ userId: "usr_1", proof: { code: "123456" } }),
+    { status: 501, code: "AUTH_OPERATION_UNSUPPORTED" });
 
   const resolve = (env) => resolveLocalAuthConfig({
     appRoot: os.tmpdir(),
