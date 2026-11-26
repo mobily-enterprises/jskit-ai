@@ -18,9 +18,11 @@ const SLOWEST_TESTS = fileURLToPath(new URL("./browser-test-times.mjs", import.m
 const SETTINGS_VARIABLE = "JSKIT_BROWSER_TESTS";
 const READY = /^jskit browser tests: \d+ server\(s\) ready/mu;
 const HOST = "127.0.0.1";
-// A whole run's default bound: a suite that would take hours stops instead, and says so. A suite measured to need
-// longer passes its own globalTimeout, with the measurement beside it.
-const GLOBAL_TIMEOUT_MS = 20 * 60_000;
+// A whole run's default bound, as work: 80 worker-minutes, so 20 minutes on 4 workers and 80 on one, never under 20
+// minutes, so a run with fewer browsers is not cut short for the host's size. A suite that would take hours stops
+// instead, and says so. A suite measured to need longer passes its own globalTimeout, with the measurement beside it.
+const WORKER_MINUTES_MS = 80 * 60_000;
+const MIN_GLOBAL_TIMEOUT_MS = 20 * 60_000;
 // A click, fill or navigation waiting on something that never comes (a stale locator) fails in seconds, with its own
 // error, instead of holding the test until its 60 s timeout. Over 652 passing app tests the slowest action or page
 // load took 9.0 s, and expect already waits 10 s.
@@ -128,7 +130,8 @@ function preparedWorkerEnvironment(file, index) {
  *   out or ends sessions signs in on its own first, so the worker's shared session lives on.
  * @param {Record<string, string>} [options.env] Environment every server gets, such as its test-only drivers.
  * @param {string} [options.health] The path that answers 200 once a server is ready.
- * @param {number} [options.globalTimeout] The whole run's bound in milliseconds (20 minutes); never 0.
+ * @param {number} [options.globalTimeout] The whole run's bound in milliseconds (80 worker-minutes, never under 20
+ *   minutes); never 0.
  * @param {number} [options.actionTimeout] One click, fill or other action's bound in milliseconds (15 s); never 0.
  * @param {number} [options.navigationTimeout] One navigation's bound in milliseconds (30 s); never 0.
  * @param {Record<string, string | undefined>} [options.environment] Read, and given a worker's prepared environment,
@@ -144,13 +147,13 @@ function browserTestConfig({
   signIn = "",
   env = {},
   health = "/api/health",
-  globalTimeout = GLOBAL_TIMEOUT_MS,
+  globalTimeout,
   actionTimeout = ACTION_TIMEOUT_MS,
   navigationTimeout = NAVIGATION_TIMEOUT_MS,
   environment = process.env,
   cwd = process.cwd()
 } = {}) {
-  if (!Number.isInteger(globalTimeout) || globalTimeout < 1) {
+  if (globalTimeout !== undefined && (!Number.isInteger(globalTimeout) || globalTimeout < 1)) {
     throw new Error("browserTestConfig() needs a globalTimeout of at least 1 ms; a run is always bounded.");
   }
   for (const [name, value] of Object.entries({ actionTimeout, navigationTimeout })) {
@@ -160,6 +163,7 @@ function browserTestConfig({
   }
   const managed = managedBaseUrl(environment);
   const workers = browserTestWorkers({ env: environment });
+  const runTimeout = globalTimeout ?? Math.max(MIN_GLOBAL_TIMEOUT_MS, Math.ceil(WORKER_MINUTES_MS / workers));
   let basePort = positiveInteger(environment.PLAYWRIGHT_PORT) || port;
   if (!basePort && !managed) {
     // Playwright's workers load this config again: they take the ports the run took, which only the run finds.
@@ -193,7 +197,7 @@ function browserTestConfig({
   return {
     testDir,
     workers,
-    globalTimeout,
+    globalTimeout: runTimeout,
     timeout: 60_000,
     expect: { timeout: 10_000 },
     // Every run ends with its 10 slowest tests and their times.

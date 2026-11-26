@@ -263,8 +263,8 @@ application:
    from `@jskit-ai/jskit-catalog/browser-tests`, with `server`, `build`, `env`
    or `port` only where its own differ from `node ./bin/server.js`,
    `npm run build` and free ports (`port` only for a port its host must
-   use), `globalTimeout` only for a suite measured to need more than 20
-   minutes, and `actionTimeout` or `navigationTimeout` only
+   use), `globalTimeout` only for a suite measured to need more than its
+   default (80 worker-minutes, never under 20 minutes), and `actionTimeout` or `navigationTimeout` only
    for an action or page measured to need more than 15 or 30 seconds (a stale
    locator should fail in seconds, not minutes). Settings a config adds (projects, a globalSetup
    that proves the server's identity, `timezoneId`) spread over the result:

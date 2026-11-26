@@ -1091,7 +1091,8 @@ and Vitest's `maxWorkers` come from `testConcurrency()`.**
   spec file's tests run in order in one worker. With `PLAYWRIGHT_BASE_URL`, the
   tests use that managed target as its host serves it. A local run takes free
   ports of its own, so two runs on one machine never meet. Every run is bounded
-  by a `globalTimeout` (20 minutes, or the suite's own measured bound) and ends
+  by a `globalTimeout` (80 worker-minutes, never under 20 minutes: 20 on 4
+  workers, 80 on one; or the suite's own measured bound) and ends
   with its 10 slowest tests. Each action and navigation is bounded too
   (`actionTimeout` 15 s, `navigationTimeout` 30 s): a stale locator should
   fail in seconds, not minutes, so a test waiting on something that never

@@ -37,7 +37,8 @@ test("each local worker reaches its own server's port, and the run is bounded an
   // Half the budget: each worker drives a browser and its own server.
   assert.equal(config.workers, 2);
   assert.equal(config.testDir, "./tests/e2e");
-  assert.equal(config.globalTimeout, 20 * 60_000);
+  // 80 worker-minutes on 2 workers.
+  assert.equal(config.globalTimeout, 40 * 60_000);
   assert.equal(config.timeout, 60_000);
   assert.deepEqual(config.reporter, [["list"], [TIMES_REPORTER]]);
   assert.match(config.webServer.command, /browser-test-servers\.mjs"$/u);
@@ -110,7 +111,7 @@ test("a managed target starts no server and runs one worker unless the runner se
   assert.equal(config.webServer, undefined);
   assert.equal(config.workers, 1);
   assert.equal(config.use.baseURL, "https://preview.example.test");
-  assert.equal(config.globalTimeout, 20 * 60_000);
+  assert.equal(config.globalTimeout, 80 * 60_000);
   assert.equal(browserTestConfig({ environment: { ...environment, PLAYWRIGHT_WORKERS: "3" } }).workers, 3);
   assert.equal(browserTestConfig({ environment: { ...environment, PLAYWRIGHT_STORAGE_STATE: "/tmp/state.json" } }).use.storageState,
     "/tmp/state.json");
@@ -139,6 +140,18 @@ test("a local run takes free ports of its own, so a second run on the machine ne
   assert.equal(browserTestConfig({ environment: { PLAYWRIGHT_PORT: "4183" } }).use.baseURL, "http://127.0.0.1:4183");
   assert.throws(() => browserTestConfig({ environment: { TEST_PARALLEL_INDEX: "1" } }),
     /A Playwright worker found no PLAYWRIGHT_PORT: the run's own configuration sets it before its workers start\./u);
+});
+
+test("a run's default bound is 80 worker-minutes, never under 20 minutes, and a measured suite's own bound wins", () => {
+  const bound = (environment) => browserTestConfig({ environment: { PLAYWRIGHT_PORT: "4183", ...environment } }).globalTimeout;
+  assert.equal(bound({ PLAYWRIGHT_WORKERS: "1" }), 80 * 60_000);
+  assert.equal(bound({ PLAYWRIGHT_WORKERS: "2" }), 40 * 60_000);
+  assert.equal(bound({ PLAYWRIGHT_WORKERS: "3" }), 80 * 60_000 / 3);
+  assert.equal(bound({ PLAYWRIGHT_WORKERS: "4" }), 20 * 60_000);
+  assert.equal(bound({ PLAYWRIGHT_WORKERS: "8" }), 20 * 60_000);
+  assert.equal(bound({ PLAYWRIGHT_BASE_URL: "https://preview.example.test" }), 80 * 60_000);
+  assert.equal(browserTestConfig({ globalTimeout: 45 * 60_000, environment: { PLAYWRIGHT_WORKERS: "1", PLAYWRIGHT_PORT: "4183" } }).globalTimeout,
+    45 * 60_000);
 });
 
 test("the command line's --workers starts that many servers, and a percentage is refused", () => {

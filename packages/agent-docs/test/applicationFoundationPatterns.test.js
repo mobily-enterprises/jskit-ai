@@ -169,7 +169,7 @@ test("foundation browser configurations serve the production build, a server per
     });
 
     const managed = await load({ PLAYWRIGHT_BASE_URL: "http://127.0.0.1:4321", V64_TEST_CONCURRENCY: "3" });
-    assert.deepEqual(managed, { webServer: null, baseURL: "http://127.0.0.1:4321", workers: 1, globalTimeout: 20 * 60_000 });
+    assert.deepEqual(managed, { webServer: null, baseURL: "http://127.0.0.1:4321", workers: 1, globalTimeout: 80 * 60_000 });
 
     const local = await load({ V64_TEST_CONCURRENCY: "6" });
     assert.match(local.webServer.command, /^node "[^"]*\/browser-test-servers\.mjs"$/u);
@@ -181,7 +181,7 @@ test("foundation browser configurations serve the production build, a server per
       { workers: 3, server: "node ./bin/server.js", build: "npm run build" }
     );
     assert.equal(local.baseURL, `http://127.0.0.1:${settings.basePort}`);
-    assert.equal(local.globalTimeout, 20 * 60_000);
+    assert.equal(local.globalTimeout, 80 * 60_000 / 3);
     const packageJson = await readExamplePackageJson(patternName);
     assert.equal(packageJson.scripts?.build, "vite build");
     assert.equal(packageJson.scripts?.server, "node ./bin/server.js");
