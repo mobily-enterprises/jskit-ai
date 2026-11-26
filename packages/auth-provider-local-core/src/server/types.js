@@ -141,7 +141,8 @@
  * recoveryCodeInvalid or locked), the recovery codes replaced, the
  * authenticator removed by its person, or reset by the application for the
  * account `byUserId` names. `userId` is the local account's id, `ip` the
- * request's address ("" for a reset), `at` an ISO time.
+ * request's address ("" for a reset, and for a proof the application checked
+ * with verifySecondFactorOf, which has no request), `at` an ISO time.
  * @typedef {object} AuthLocalSecondFactorEvent
  * @property {"setupStarted" | "setupConfirmed" | "verified" | "failed" | "recoveryCodesReplaced" | "removed" | "reset"} type
  * @property {string} userId

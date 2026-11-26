@@ -35,6 +35,7 @@ const AUTH_OPERATION_FEATURES = Object.freeze({
   startSecondFactorSetup: "secondFactor",
   confirmSecondFactorSetup: "secondFactor",
   verifySecondFactor: "secondFactor",
+  verifySecondFactorOf: "secondFactor",
   replaceSecondFactorRecoveryCodes: "secondFactor",
   removeSecondFactor: "secondFactor",
   listSecondFactors: "secondFactor",
