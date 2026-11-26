@@ -1115,7 +1115,9 @@ and Vitest's `maxWorkers` come from `testConcurrency()`.**
   file's own bound in `test-time-bounds.json`, with the measurement in the
   commit that raises it; a file that got slow is fixed instead. A file still
   running at twice its bound, or sooner at ten times the time it last finished
-  in (at least two minutes), is stopped and fails the run by name, so the other
+  all its tests in (at least two minutes; a run filtered by
+  `--test-name-pattern`, `--test-skip-pattern` or `--test-only` records no
+  time), is stopped and fails the run by name, so the other
   files still finish and report: look for what it leaves open (a server, child
   process, timer or socket) or a test without a timeout. A file with its own
   bound is stopped at twice that bound.

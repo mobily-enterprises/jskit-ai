@@ -463,7 +463,7 @@ Exports
 - `FILE_TIMES`
 - `checkTestTimes({ bounds, files, tests, wallMs, stopped = [] })`
 - `fileStop({ bound, recorded })`
-- `reportTestTimes({ cwd, collected, directory, wallMs })`
+- `reportTestTimes({ cwd, collected, directory, wallMs, filtered = false })`
 - `writeFileStops({ cwd, files, directory })`
 Local functions
 - `seconds(ms)`

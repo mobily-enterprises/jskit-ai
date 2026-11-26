@@ -237,6 +237,15 @@ test("jskit test records each file's time and fails a run whose file went past t
     const recorded = JSON.parse(await readFile(path.join(root, FILE_TIMES), "utf8"));
     assert.deepEqual(Object.keys(recorded).sort(), ["test/one.test.js", "test/two.test.js"]);
 
+    // A run of only the tests a name picks says nothing about how long a whole file takes, so every file keeps the
+    // time its last whole run took: otherwise the next whole run is stopped at ten times a single test's time.
+    const whole = { ...recorded, "test/one.test.js": 123_456 };
+    await writeFile(path.join(root, FILE_TIMES), JSON.stringify(whole));
+    for (const filter of [["--test-name-pattern", "one"], ["--test-skip-pattern=two"]]) {
+      await execFileAsync(process.execPath, [CLI_PATH, "test", ...filter], { cwd: root, env });
+      assert.deepEqual(JSON.parse(await readFile(path.join(root, FILE_TIMES), "utf8")), whole, filter.join(" "));
+    }
+
     // A bound of 1 ms: no file runs that fast, so the run fails though every test passed.
     await writeFile(path.join(root, "test-time-bounds.json"), JSON.stringify({ files: { "test/two.test.js": 1 } }));
     const failure = await execFileAsync(process.execPath, [CLI_PATH, "test"], { cwd: root, env }).then(() => null, (error) => error);

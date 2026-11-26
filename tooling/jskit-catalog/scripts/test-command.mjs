@@ -31,6 +31,8 @@ const OTHER_RUNNER_IMPORT = /\b(?:from|import|require)\s*\(?\s*["'](?:vitest|@pl
 const MARKER = /^\s*\/\/\s*jskit-test:(.*)$/u;
 const ALONE = /^\s*alone\s+-\s+(\S.*)$/u;
 const SHARD = "--test-shard";
+// A run of only some of its files' tests, by name or `only`, says nothing about how long a whole file takes.
+const TEST_FILTER = /^--test-(?:name-pattern|skip-pattern|only)(?:=|$)/u;
 const REPORTER = "--test-reporter";
 const DESTINATION = "--test-reporter-destination";
 const TIME_REPORTER = new URL("./test-time-report.mjs", import.meta.url).href;
@@ -235,7 +237,8 @@ async function runTests(args) {
     }
     const times = interrupted
       ? null
-      : reportTestTimes({ cwd: process.cwd(), collected, directory: timesDirectory, wallMs: performance.now() - started });
+      : reportTestTimes({ cwd: process.cwd(), collected, directory: timesDirectory, wallMs: performance.now() - started,
+        filtered: nodeArgs.some((argument) => TEST_FILTER.test(argument)) });
     if (times) process.stderr.write(times.report);
     if (times?.overruns.length > 0 && exitCode === 0) exitCode = 1;
   } finally {

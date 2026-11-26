@@ -122,14 +122,16 @@ function checkTestTimes({ bounds, files, tests, wallMs, stopped = [] }) {
 
 /**
  * Reads what the runs' reporters wrote and which files test-file-stop.mjs stopped, records each finished file's time
- * for the next command (a stopped file, or one that skipped a test, keeps the time it last finished all its tests in,
- * since the next stop is reckoned from it), and checks the times. A run whose
- * reporters were replaced (inside another node --test run) wrote nothing, and has no report unless a file was stopped.
- * @param {{ cwd: string, collected: string[], directory: string, wallMs: number }} options `collected`: the reporters'
- *   destination files; `directory`: where the stopped files are written
+ * for the next command (a stopped file, one that skipped a test, and every file of a run filtered to some of its tests
+ * keep the time they last finished all their tests in, since the next stop is reckoned from it), and checks the times.
+ * A run whose reporters were replaced (inside another node --test run) wrote nothing, and has no report unless a file
+ * was stopped.
+ * @param {{ cwd: string, collected: string[], directory: string, wallMs: number, filtered?: boolean }} options
+ *   `collected`: the reporters' destination files; `directory`: where the stopped files are written; `filtered`: the run
+ *   ran only the tests a name pattern or `only` picked
  * @returns {{ overruns: string[], report: string } | null}
  */
-function reportTestTimes({ cwd, collected, directory, wallMs }) {
+function reportTestTimes({ cwd, collected, directory, wallMs, filtered = false }) {
   const runs = collected.filter((file) => existsSync(file) && readFileSync(file, "utf8").trim())
     .map((file) => JSON.parse(readFileSync(file, "utf8")));
   const stopped = readdirSync(directory).filter((name) => name.startsWith(STOPPED_PREFIX)).sort()
@@ -137,7 +139,7 @@ function reportTestTimes({ cwd, collected, directory, wallMs }) {
   const files = Object.assign({}, ...runs.map((run) => run.files));
   if (Object.keys(files).length === 0 && stopped.length === 0) return null;
   const unrepresentative = new Set([...stopped.map((stop) => stop.file), ...runs.flatMap((run) => run.skipped ?? [])]);
-  const finished = Object.fromEntries(Object.entries(files).filter(([name]) => !unrepresentative.has(name)));
+  const finished = filtered ? {} : Object.fromEntries(Object.entries(files).filter(([name]) => !unrepresentative.has(name)));
   const record = path.join(cwd, FILE_TIMES);
   const recorded = existsSync(record) ? JSON.parse(readFileSync(record, "utf8")) : {};
   mkdirSync(path.dirname(record), { recursive: true });
