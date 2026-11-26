@@ -2874,7 +2874,8 @@
                 "@jskit-ai/shell-web/client/types"
               ],
               "exclude": [
-                "@jskit-ai/shell-web/client"
+                "@jskit-ai/shell-web/client",
+                "@jskit-ai/shell-web/client/ui"
               ]
             },
             "singleton": true
