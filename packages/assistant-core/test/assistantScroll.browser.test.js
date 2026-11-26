@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { expect } from "../../../tooling/testUtils/browserExpect.mjs";
+import { expect, expectMenuClosed } from "../../../tooling/testUtils/browserExpect.mjs";
 import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
@@ -922,7 +922,8 @@ test("long goal objectives keep Start reachable on short phone, tablet and deskt
       await page.screenshot({ path: `/tmp/jskit-goal-long-objective-${width}.png` });
       await start.click();
       const running = page.getByRole("button", { name: "Goal running", exact: true });
-      await expect(running).toHaveAttribute("aria-expanded", "false");
+      // Start closes the menu; reopen it once it has left the page (expectMenuClosed says why).
+      await expectMenuClosed(running);
       await running.click();
       await expect(page.locator(".assistant-goal__details").getByText(objective, { exact: true })).toHaveText(objective);
       await expect(page.getByRole("button", { name: "Pause goal", exact: true })).toBeInViewport();
@@ -1048,7 +1049,8 @@ test("a stopped goal's chip says why in a few words on one line, at desktop and 
       await page.getByRole("button", { name: "Set goal", exact: true }).click();
       await page.getByRole("textbox", { name: "Goal objective" }).fill("Complete the shared assistant.");
       await page.getByRole("button", { name: "Start goal", exact: true }).click();
-      await expect(page.getByRole("button", { name: "Goal running", exact: true })).toHaveAttribute("aria-expanded", "false");
+      // Start closes the menu, which each stop below opens again.
+      await expectMenuClosed(page.getByRole("button", { name: "Goal running", exact: true }));
       for (const [stop, chipText, details] of [
         ["Stop goal at usage limit", "Goal paused: usage limit",
           /The AI account reached its usage limit, which resets at \S+ \d\d:\d\d\. The goal does not continue by itself/u],

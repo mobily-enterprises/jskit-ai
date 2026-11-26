@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { expect } from "../../../tooling/testUtils/browserExpect.mjs";
+import { expect, expectMenuClosed } from "../../../tooling/testUtils/browserExpect.mjs";
 import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 // A test takes at most 14 s on a heavily loaded test host (most under 8 s); 60 s stops a hung one long before the file.
@@ -163,7 +163,8 @@ test("optional goal controls follow declared command semantics and budgets witho
     await expect(start).toBeEnabled();
     await start.click();
     await expect(f.primary.getByRole("button", { name: "Goal running", exact: true })).toBeVisible();
-    await expect(f.primary.getByRole("button", { name: "Goal running", exact: true })).toHaveAttribute("aria-expanded", "false");
+    // Start closes the menu; reopen it once it has left the page (expectMenuClosed says why).
+    await expectMenuClosed(f.primary.getByRole("button", { name: "Goal running", exact: true }));
     await f.primary.getByRole("button", { name: "Goal running", exact: true }).click();
     const pause = f.page.getByRole("button", { name: "Pause goal", exact: true });
     await expect(pause).toBeEnabled();
@@ -180,6 +181,8 @@ test("optional goal controls follow declared command semantics and budgets witho
     await expect(cancel).toBeEnabled();
     await cancel.click();
     await expect(f.primary.getByRole("button", { name: "Set goal", exact: true })).toBeVisible();
+    // Cancel closes the menu, which the next round opens again.
+    await expectMenuClosed(f.primary.getByRole("button", { name: "Set goal", exact: true }));
     const commandsSent = (await requests()).slice(-4).map(request => request.input);
     assert.deepEqual(commandsSent.map(command => command.action), ["set", "pause", "resume", "cancel"]);
     assert.ok(commandsSent[0].messageId);
@@ -208,10 +211,10 @@ test("a paused goal stays cancellable while a message is sending or its delivery
     await f.primary.getByRole("button", { name: "Set goal", exact: true }).click();
     await f.page.getByRole("textbox", { name: "Goal objective" }).fill(objective);
     await f.page.getByRole("button", { name: "Start goal", exact: true }).click();
-    // As in the commands test: the running goal can show before Start has closed its menu, so wait for it to close.
+    // As in the commands test: Start closes the menu, so reopen it once it has left the page.
     const running = f.primary.getByRole("button", { name: "Goal running", exact: true });
     await expect(running).toBeVisible();
-    await expect(running).toHaveAttribute("aria-expanded", "false");
+    await expectMenuClosed(running);
     await running.click();
     await f.page.getByRole("button", { name: "Pause goal", exact: true }).click();
     await expect(f.primary.getByRole("button", { name: "Goal paused", exact: true })).toBeVisible();
@@ -351,7 +354,7 @@ test("the first native goal preserves absent identity and later controls capture
   // A native control starts no turn here, so the active goal says nothing is working on it yet.
   const notRunning = f.primary.getByRole("button", { name: "Goal not running", exact: true });
   await expect(notRunning).toBeVisible();
-  await expect(notRunning).toHaveAttribute("aria-expanded", "false");
+  await expectMenuClosed(notRunning);
   await notRunning.click();
   const pause = f.page.getByRole("button", { name: "Pause goal", exact: true });
   await expect(pause).toBeEnabled();
@@ -465,6 +468,7 @@ test("a Start accepted behind the running turn stays Starting… until its goal 
   await expect(objective).toHaveValue("Start after the current turn");
   await f.page.keyboard.press("Escape");
   await expect(control("Starting…")).toBeVisible();
+  await expectMenuClosed(control("Starting…"));
   assert.equal(await f.page.evaluate(() => window.conversationFixture.current().changeGoal("set", { objective: "A second start" })), false);
   await f.command("start-queued-goal", { id: "chat:1" });
   await f.notify("chat:1");
@@ -475,7 +479,7 @@ test("a Start accepted behind the running turn stays Starting… until its goal 
   await control("Goal running").click();
   await f.page.getByRole("button", { name: "Cancel goal", exact: true }).click();
   // A successful Cancel closes the menu, as Start does; Set goal opens it again.
-  await expect(control("Set goal")).toHaveAttribute("aria-expanded", "false");
+  await expectMenuClosed(control("Set goal"));
   await control("Set goal").click();
   await objective.fill("Never takes effect");
   await start.click();
@@ -502,7 +506,7 @@ test("Cancel stays available while a Resume waits behind the running turn and en
   await control("Set goal").click();
   await f.page.getByRole("textbox", { name: "Goal objective" }).fill("Resume after the current turn");
   await f.page.locator(".assistant-goal__form button[type=submit]").click();
-  await expect(control("Goal running")).toHaveAttribute("aria-expanded", "false");
+  await expectMenuClosed(control("Goal running"));
   await control("Goal running").click();
   await menu("Pause goal").click();
   await expect(control("Goal paused")).toBeVisible();
@@ -533,7 +537,7 @@ test("a Resume the server refuses after its message reached the chat shows the s
   await control("Set goal").click();
   await f.page.getByRole("textbox", { name: "Goal objective" }).fill("Refused after its message arrived");
   await f.page.locator(".assistant-goal__form button[type=submit]").click();
-  await expect(control("Goal running")).toHaveAttribute("aria-expanded", "false");
+  await expectMenuClosed(control("Goal running"));
   await control("Goal running").click();
   await menu("Pause goal").click();
   await expect(control("Goal paused")).toBeVisible();
@@ -1713,10 +1717,8 @@ test("canonical model controls use the supplied reactive owner and disappear wit
   assert.deepEqual(await f.page.evaluate(() => window.conversationFixture.modelState()), {
     selected: "large", applied: "large", saving: false, selections: ["large"]
   });
-  // A finished Apply closes the menu. Reopen it once it has finished closing: Vuetify 4.3 ignores a click on the
-  // activator while the menu's close transition still runs.
-  await expect(choose).toHaveAttribute("aria-expanded", "false");
-  await expect(f.page.locator(".assistant-model-control")).toBeHidden();
+  // A finished Apply closes the menu; reopen it once it has left the page (expectMenuClosed says why).
+  await expectMenuClosed(choose);
   await choose.click();
   await f.page.evaluate(() => window.conversationFixture.modelError("Reconnect the application catalogue."));
   await expect(f.page.getByText("Reconnect the application catalogue.", { exact: true })).toBeVisible();

@@ -16,4 +16,19 @@ const expect = Object.assign((actual, messageOrOptions) => playwrightExpect(actu
     : { intervals: [POLL_INTERVAL_MS], ...messageOrOptions })
 });
 
-export { expect };
+/**
+ * Waits until the menu that `activator` opens has closed and left the page, so a click on the activator opens it
+ * again. Vuetify 4.3 ignores a click on a menu's activator for 50 ms after the menu closes, so a click as soon as
+ * aria-expanded turns "false" (after an action that closes the menu itself, such as the goal menu's Start) can be
+ * lost, leaving the menu shut. The closed menu leaves the page when its close animation ends, later than that: at
+ * least 85 ms for a menu's own transition and 100 ms for scale-transition.
+ * @param {import("@playwright/test").Locator} activator
+ */
+async function expectMenuClosed(activator) {
+  await expect(activator).toHaveAttribute("aria-expanded", "false");
+  const menu = await activator.getAttribute("aria-controls");
+  if (!menu) throw new Error("expectMenuClosed needs a menu activator, which names its menu in aria-controls.");
+  await expect(activator.page().locator(`[id="${menu}"]`)).toHaveCount(0);
+}
+
+export { expect, expectMenuClosed };

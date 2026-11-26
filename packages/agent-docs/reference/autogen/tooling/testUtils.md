@@ -17,6 +17,7 @@ Use this on demand; do not load the full index at startup.
 ### `browserExpect.mjs`
 Exports
 - `expect`
+- `expectMenuClosed(activator)`
 
 ### `browserFixture.mjs`
 Exports
