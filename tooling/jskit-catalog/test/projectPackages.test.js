@@ -877,6 +877,62 @@ test("jskit CLI updates a project through its npm-style executable symlink", asy
   });
 });
 
+test("jskit CLI update names the updated packages it could not compare instead of counting their migrations as new", async () => {
+  await withProject(async (projectRoot) => {
+    const executablePath = path.join(projectRoot, "jskit");
+    await symlink(new URL("../scripts/jskit.mjs", import.meta.url), executablePath);
+    const catalog = await readJson(new URL("../catalog/packages.json", import.meta.url));
+    const kernelVersion = catalog.release.packages["@jskit-ai/kernel"];
+    const catalogVersion = catalog.release.packages["@jskit-ai/jskit-catalog"];
+    await writeJson(path.join(projectRoot, "package.json"), {
+      name: "example-app",
+      private: true,
+      dependencies: { "@jskit-ai/kernel": "0.0.1" }
+    });
+    // A checkout never installed: its lock records kernel 0.0.1, and node_modules does not exist.
+    await writeJson(path.join(projectRoot, "package-lock.json"), {
+      name: "example-app",
+      lockfileVersion: 3,
+      packages: { "": { name: "example-app" }, "node_modules/@jskit-ai/kernel": { version: "0.0.1" } }
+    });
+    const lock = {
+      name: "example-app",
+      lockfileVersion: 3,
+      packages: {
+        "": { name: "example-app" },
+        "node_modules/@jskit-ai/jskit-catalog": { version: catalogVersion },
+        "node_modules/@jskit-ai/kernel": { version: kernelVersion }
+      }
+    };
+    const kernelManifest = {
+      name: "@jskit-ai/kernel",
+      version: kernelVersion,
+      jskit: { migrations: { directories: ["migrations"] } }
+    };
+    const fakeNpm = `#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const kernel = path.join(process.cwd(), "node_modules/@jskit-ai/kernel");
+fs.mkdirSync(path.join(kernel, "migrations"), { recursive: true });
+fs.writeFileSync(path.join(kernel, "package.json"), ${JSON.stringify(JSON.stringify(kernelManifest))});
+fs.writeFileSync(path.join(kernel, "migrations/kernel_initial.cjs"), "module.exports = {};\\n");
+fs.writeFileSync(path.join(process.cwd(), "package-lock.json"), ${JSON.stringify(JSON.stringify(lock))});
+`;
+
+    let stdout = "";
+    await withFakeNpm(projectRoot, fakeNpm, async () => {
+      ({ stdout } = await execFileAsync(executablePath, ["update", "--root", projectRoot]));
+    });
+
+    assert.doesNotMatch(stdout, /new package migration/u);
+    assert.ok(stdout.includes(
+      "The update could not tell whether 1 updated package(s) add migrations, since node_modules did not hold their " +
+      "previous versions; run npm run db:migrate before the app serves requests:\n" +
+      `- @jskit-ai/kernel 0.0.1 -> ${kernelVersion}\n`
+    ), stdout);
+  });
+});
+
 test("additional manifests are updated once, keep host scripts, and need no root lock installation", async () => {
   await withProject(async (projectRoot) => {
     await writeJson(path.join(projectRoot, "package.json"), {
