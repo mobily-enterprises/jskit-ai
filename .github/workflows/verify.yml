@@ -72,7 +72,9 @@ jobs:
 
   browser-contracts:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The job took 7.7 min with 28 browser test files (run 45681839305); the 10 it now runs too took 2.2 to 3.4 min on
+    # a test host at the same two files at a time. 20 minutes stops a hang, not the job's own work.
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
