@@ -1,6 +1,7 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { postgresTestFiles } from "./test-postgres.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
@@ -59,11 +60,28 @@ async function testTargetIssue(workflowName, relativeTarget, { repoRoot, pathExi
   if (GLOB_CHARACTERS.test(directory) || /[?[\]{}]/u.test(pattern)) {
     return `${workflowName} runs test target "${relativeTarget}", a pattern the CI check cannot read; name the files, or use * in the file name only.`;
   }
-  // The pattern has no ?, [ ] or { }, so only the other regular-expression characters need escaping.
-  const parts = pattern.split("*").map((part) => part.replace(/[.+^$()|\\]/gu, "\\$&"));
-  const matcher = new RegExp(`^${parts.join("[^/]*")}$`, "u");
+  const matcher = fileNameMatcher(pattern);
   const names = await listDirectory(path.resolve(repoRoot, directory));
   return names.some((name) => matcher.test(name)) ? null : `${workflowName} runs test target "${relativeTarget}", which matches no file.`;
+}
+
+// A file name pattern with `*` only: the pattern has no ?, [ ] or { }, so only the other regular-expression characters
+// need escaping.
+function fileNameMatcher(pattern) {
+  const parts = pattern.split("*").map((part) => part.replace(/[.+^$()|\\]/gu, "\\$&"));
+  return new RegExp(`^${parts.join("[^/]*")}$`, "u");
+}
+
+// Whether a readable test target names, or its `*` matches, a file test:postgres picks: a data test named by hand in
+// a workflow is a list a new data test file is left out of, as CI's PostgreSQL job once left out six.
+async function namesPickedDataTest(relativeTarget, pickedDataTestFiles, { repoRoot, listDirectory }) {
+  if (!GLOB_CHARACTERS.test(relativeTarget)) {
+    return pickedDataTestFiles.has(path.posix.normalize(relativeTarget));
+  }
+  const directory = path.posix.normalize(path.posix.dirname(relativeTarget));
+  const matcher = fileNameMatcher(path.posix.basename(relativeTarget));
+  const names = await listDirectory(path.resolve(repoRoot, directory));
+  return names.some((name) => matcher.test(name) && pickedDataTestFiles.has(path.posix.join(directory, name)));
 }
 
 async function collectCiContractIssues({
@@ -78,7 +96,8 @@ async function collectCiContractIssues({
       return false;
     }
   },
-  listDirectory = async (directoryPath) => readdir(directoryPath).catch(() => [])
+  listDirectory = async (directoryPath) => readdir(directoryPath).catch(() => []),
+  pickedDataTestFiles = new Set(postgresTestFiles(repoRoot))
 } = {}) {
   const issues = [];
   const scripts = packageJson?.scripts && typeof packageJson.scripts === "object"
@@ -99,6 +118,11 @@ async function collectCiContractIssues({
         const issue = await testTargetIssue(workflowName, relativeTarget, { repoRoot, pathExists, listDirectory });
         if (issue) {
           issues.push(issue);
+        } else if (await namesPickedDataTest(relativeTarget, pickedDataTestFiles, { repoRoot, listDirectory })) {
+          issues.push(
+            `${workflowName} runs data test target "${relativeTarget}" by hand; run \`npm run verify\`, ` +
+            "`npm run test:sqlite` or `npm run test:postgres`, which pick every data test file themselves, so none is left out."
+          );
         }
       }
     }

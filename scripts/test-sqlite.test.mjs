@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { sqliteTestFiles } from "./test-sqlite.mjs";
+import { runKnexTestFiles } from "./test-sqlite.mjs";
 
 test("test:sqlite runs the package test files whose data tests take the run's Knex, and none a dialect of its own runs", () => {
-  const files = sqliteTestFiles();
+  const files = runKnexTestFiles();
   for (const file of [
     "packages/resource-runtime/test/lockPolicy.test.js",
     "packages/resource-runtime/test/lockWhereOrder.test.js",

@@ -103,3 +103,36 @@ test("CI contract verification reads a * in a test target's file name, and no ot
     ]);
   }
 });
+
+test("CI contract verification refuses a data test file a workflow names by hand, by name or by a * pattern", async () => {
+  const check = (target) => collectCiContractIssues({
+    packageJson: { engines: { node: "^24.0.0" }, scripts: {} },
+    workflows: { "x.yml": `steps:\n  - run: npx jskit test ${target}\n` },
+    pathExists: async () => true,
+    listDirectory: async () => ["store.postgres.test.js", "records.test.js", "page.browser.test.js", "store.mysql.test.js"],
+    pickedDataTestFiles: new Set(["packages/example/test/store.postgres.test.js", "packages/example/test/records.test.js"])
+  }).then((issues) => issues.filter((issue) => issue.startsWith("x.yml")));
+  const refusal = (target) => `x.yml runs data test target "${target}" by hand; run \`npm run verify\`, ` +
+    "`npm run test:sqlite` or `npm run test:postgres`, which pick every data test file themselves, so none is left out.";
+
+  for (const target of [
+    "packages/example/test/store.postgres.test.js",
+    "./packages/example/test/records.test.js",
+    "packages/example/test/*.postgres.test.js",
+    "packages/example/test/*.test.js"
+  ]) {
+    assert.deepEqual(await check(target), [refusal(target)], target);
+  }
+  for (const target of ["packages/example/test/page.browser.test.js", "packages/example/test/*.browser.test.js", "packages/example/test/store.mysql.test.js"]) {
+    assert.deepEqual(await check(target), [], target);
+  }
+});
+
+test("CI contract verification refuses this repository's PostgreSQL files and data tests on the run's Knex named by hand", async () => {
+  const targets = ["packages/resource-runtime/test/*.postgres.test.js", "packages/crud-core/test/crudOnHandles.test.js"];
+  const issues = await collectCiContractIssues({
+    packageJson: { engines: { node: "^24.0.0" }, scripts: {} },
+    workflows: { "x.yml": `steps:\n  - run: npx jskit test ${targets.join(" ")} packages/database-runtime-mysql/test/testDatabases.mysql.test.js\n` }
+  });
+  assert.deepEqual(issues.filter((issue) => issue.startsWith("x.yml")).map((issue) => issue.match(/"([^"]+)"/u)[1]), targets);
+});
