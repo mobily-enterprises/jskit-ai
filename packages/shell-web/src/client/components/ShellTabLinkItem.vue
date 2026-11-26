@@ -17,7 +17,8 @@ import ShellSectionTabLinkItem from "./ShellSectionTabLinkItem.vue";
 
 // A Material 3 navigation bar destination: its icon and its label below, which @jskit-ai/material-web's material.css
 // draws as it draws every v-bottom-navigation's buttons (the icon in its 64x32 indicator); the active one's icon is
-// the filled one. It is one only in ShellLayout's navigation bar; placed anywhere else (a page's section tabs), it is
+// the filled one. The label is the destination's shortLabel, else its label: a phone gives each destination about 68px,
+// and a label wider than its slot ends in an ellipsis there, never cut at both ends by the centred button. It is one only in ShellLayout's navigation bar; placed anywhere else (a page's section tabs), it is
 // a section tab, ShellSectionTabLinkItem, which a page.section-nav names itself. In the bar it is a text button, so
 // no app's filled-button defaults fill it.
 const props = defineProps(shellNavigationLinkProps);
@@ -25,7 +26,7 @@ const props = defineProps(shellNavigationLinkProps);
 const presentation = inject(SHELL_NAVIGATION_PRESENTATION_KEY, NO_SHELL_NAVIGATION_PRESENTATION);
 const inNavigationBar = computed(() => presentation.value === "bar");
 const { t } = useJskitText();
-const { resolvedLabel, resolvedTarget, resolvedIcon } = useShellNavigationLink(props);
+const { resolvedShortLabel, resolvedTarget, resolvedIcon } = useShellNavigationLink(props);
 /** @type {{ aliases?: Record<string, unknown> }} */
 const iconOptions = inject(VUETIFY_ICONS_KEY, NO_VUETIFY_ICONS);
 const link = useLink({ to: computed(() => (resolvedTarget.value.sameOrigin && resolvedTarget.value.href) || "/") });
@@ -54,7 +55,7 @@ const displayIcon = computed(() =>
     stacked
   >
     <v-icon v-if="displayIcon" :icon="displayIcon" />
-    <span class="tab-link-item__label">{{ resolvedLabel || t("jskit.shell.layout.tab") }}</span>
+    <span class="tab-link-item__label">{{ resolvedShortLabel || t("jskit.shell.layout.tab") }}</span>
   </v-btn>
 </template>
 
@@ -66,8 +67,14 @@ const displayIcon = computed(() =>
   padding-inline: 0;
 }
 
+/* The button's content, which clips, is the slot's width; the label is at most that, so its ellipsis shows. */
+.tab-link-item :deep(.v-btn__content) {
+  max-width: 100%;
+  min-width: 0;
+}
+
 .tab-link-item__label {
-  max-width: 5.5rem;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

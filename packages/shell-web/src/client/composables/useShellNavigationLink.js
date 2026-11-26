@@ -14,6 +14,12 @@ const shellNavigationLinkProps = Object.freeze({
     type: [String, Object],
     default: ""
   },
+  // The label in the navigation bar, where a phone gives each destination about 68px; as `label`, and `label` when
+  // empty. Menus, the rail and the drawer show `label`.
+  shortLabel: {
+    type: [String, Object],
+    default: ""
+  },
   to: {
     type: String,
     default: ""
@@ -53,6 +59,7 @@ function useShellNavigationLink(props) {
   const { context: placementContext } = useWebPlacementContext();
   const { text } = useJskitText();
   const resolvedLabel = computed(() => text(props.label));
+  const resolvedShortLabel = computed(() => text(props.shortLabel) || resolvedLabel.value);
 
   const resolvedTo = computed(() => {
     const currentSurfaceId = resolveSurfaceIdFromPlacementPathname(placementContext.value, route.path);
@@ -81,6 +88,7 @@ function useShellNavigationLink(props) {
 
   return {
     resolvedLabel,
+    resolvedShortLabel,
     resolvedTarget,
     resolvedIcon
   };
