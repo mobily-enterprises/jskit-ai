@@ -211,6 +211,16 @@ const placements = [
   }
 ];
 
+// `?barLabel=short` names Suppliers "Supplier directory", too wide for a phone's navigation bar, with "Suppliers" as its
+// label there; `?barLabel=long` gives it the long label alone.
+const barLabel = new URLSearchParams(window.location.search).get("barLabel");
+if (barLabel === "short" || barLabel === "long") {
+  Object.assign(placements.find(({ id }) => id === "fixture.home.suppliers").props, {
+    label: "Supplier directory",
+    ...(barLabel === "short" ? { shortLabel: "Suppliers" } : {})
+  });
+}
+
 // `?topRight=3` gives the top app bar three items of its own, as an app's tools, status and avatar; the status draws a
 // surface of its own on the page too.
 const statusPlacements = [

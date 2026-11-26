@@ -322,6 +322,63 @@ test("the shared smoke case passes a phone shell whose destinations are all in t
   await page.close();
 });
 
+// A phone's navigation bar gives each destination about 68px. mobilynet's "Metal servers" showed there as "etal server" on
+// every console page: the label ran wider than its slot and the centred button cut both its ends. A destination's
+// shortLabel is its label in the bar; a longer label ends in an ellipsis inside its slot; and the shared smoke case,
+// which apps' own checks run, refuses a bar label that is cut or ends in an ellipsis, naming it and the fix.
+test("a navigation bar destination shows its shortLabel, a longer label ends in an ellipsis inside its slot, and the shared smoke case refuses a cut or shortened one", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 120_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const compact = DEFAULT_VIEWPORTS.find(({ name }) => name === "compact");
+  const expanded = DEFAULT_VIEWPORTS.find(({ name }) => name === "expanded");
+  const page = await browser.newPage({ baseURL: vite.baseURL });
+  const bar = page.getByTestId("jskit-shell-bottom-nav");
+  const fixWords = /give its destination a shortLabel/u;
+
+  // The short label is the bar's; the shared smoke case passes; the drawer of a wider window shows the whole label.
+  await runAdaptiveShellSmokeCase({ page, expect, smokePath: "/home?barLabel=short", viewport: compact });
+  await expect(bar.getByRole("link", { name: "Suppliers", exact: true })).toBeVisible();
+  await expect(bar.getByText("Supplier directory")).toHaveCount(0);
+  await page.setViewportSize({ width: expanded.width, height: expanded.height });
+  await expect(page.getByTestId("jskit-shell-drawer").getByRole("link", { name: "Supplier directory", exact: true })).toBeVisible();
+
+  // The long label alone ends in an ellipsis inside its own slot, and the shared smoke case names it.
+  await page.setViewportSize({ width: compact.width, height: compact.height });
+  await page.goto("/home?barLabel=long");
+  const longLabel = bar.getByRole("link", { name: "Supplier directory", exact: true }).locator(".tab-link-item__label");
+  await expect(longLabel).toBeVisible();
+  assert.deepEqual(await longLabel.evaluate((label) => {
+    const slot = label.closest(".v-btn").getBoundingClientRect();
+    const box = label.getBoundingClientRect();
+    return {
+      insideItsSlot: box.left >= slot.left - 0.5 && box.right <= slot.right + 0.5,
+      endsInEllipsis: window.getComputedStyle(label).textOverflow === "ellipsis" && label.scrollWidth > label.clientWidth
+    };
+  }), { insideItsSlot: true, endsInEllipsis: true });
+  await assert.rejects(
+    runAdaptiveShellSmokeCase({ page, expect, smokePath: "/home?barLabel=long", viewport: compact }),
+    (error) => /"Supplier directory" ends in an ellipsis in the navigation bar/u.test(error.message) && fixWords.test(error.message)
+  );
+  await page.close();
+
+  // A label the bar cuts without an ellipsis, as before: the shared smoke case names it too.
+  const cutPage = await browser.newPage({ baseURL: vite.baseURL });
+  await cutPage.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      const style = document.createElement("style");
+      style.textContent = ".tab-link-item__label { max-width: 5.5rem !important; text-overflow: clip !important; }";
+      document.head.append(style);
+    });
+  });
+  await assert.rejects(
+    runAdaptiveShellSmokeCase({ page: cutPage, expect, smokePath: "/home?barLabel=long", viewport: compact }),
+    (error) => /"Supplier directory" is cut in the navigation bar/u.test(error.message) && fixWords.test(error.message)
+  );
+  await cutPage.close();
+});
+
 // Material 3 runs the rail and the standard drawer the window's full height beside the top app bar: their menu control
 // shares the page title's row, the destinations start right below it, and an inner page keeps its Up arrow in the bar.
 // A phone keeps its navigation bar and its modal drawer, opened from the app bar over everything.
