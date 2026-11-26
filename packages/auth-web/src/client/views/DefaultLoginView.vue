@@ -365,7 +365,7 @@
 <script setup>
 import { useDisplay } from "vuetify";
 import AuthScreen from "./AuthScreen.vue";
-import { useLoginView } from "../runtime/useLoginView.js";
+import { useLoginView } from "../composables/useLoginView.js";
 import { useJskitText } from "../i18n.js";
 
 const props = defineProps({

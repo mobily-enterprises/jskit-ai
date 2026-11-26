@@ -1068,6 +1068,14 @@
                 "summary": "Exports auth web client provider, default auth views, the second-factor step-up composable, and route/provider registration surface."
               },
               {
+                "subpath": "./client/composables",
+                "summary": "The auth screens' behavior without their look, one composable a path: useLoginView, useResetPasswordView, useEmailChangeView, useSignOutView, useSecondFactorProof, useSecondFactorSettings and useSecondFactorStepUp. The Default views render them in Material 3; an app with its own design system renders them in its own."
+              },
+              {
+                "subpath": "./client/runtime/secondFactorRequests",
+                "summary": "The second-factor requests a proof form submits: verifySecondFactor, confirmSecondFactorSetup, replaceSecondFactorRecoveryCodes, removeSecondFactor, readSecondFactor and startSecondFactorSetup."
+              },
+              {
                 "subpath": "./client/types",
                 "summary": "Types of the guard runtime, the OAuth launch client and the client.auth capability."
               },
@@ -4419,6 +4427,36 @@
       "files": [
         ".env.example",
         "package.json"
+      ]
+    },
+    {
+      "id": "auth/own-design-sign-in",
+      "title": "Sign-in screens in an app's own design",
+      "summary": "Write the sign-in screen and the second-factor prompt in an application's own design system, with plain markup and the app's CSS, on the composables behind JSKIT's Material views, keeping every sign-in behavior.",
+      "keywords": [
+        "auth",
+        "custom design",
+        "design system",
+        "login",
+        "own look",
+        "second factor",
+        "sign in",
+        "step up",
+        "style",
+        "without vuetify"
+      ],
+      "requires": [
+        "@jskit-ai/auth-web",
+        "@jskit-ai/kernel"
+      ],
+      "packageId": "@jskit-ai/auth-web",
+      "packageVersion": "0.2.58",
+      "documentPath": "patterns/own-design-sign-in/PATTERN.md",
+      "examplePath": "patterns/own-design-sign-in/example",
+      "files": [
+        "src/components/ConfirmItsYouDialog.vue",
+        "src/theme/tokens.css",
+        "src/views/auth/LoginView.vue"
       ]
     },
     {

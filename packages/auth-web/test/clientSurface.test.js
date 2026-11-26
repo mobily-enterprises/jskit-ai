@@ -1,10 +1,21 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import packageJson from "../package.json" with { type: "json" };
 
 const packageMetadata = packageJson.jskit;
+// The auth screens' behavior without their look, which the Default views render in Material 3 and an app with its own
+// design system renders in its own.
+const PUBLIC_COMPOSABLES = Object.freeze([
+  "useLoginView",
+  "useResetPasswordView",
+  "useEmailChangeView",
+  "useSignOutView",
+  "useSecondFactorProof",
+  "useSecondFactorSettings",
+  "useSecondFactorStepUp"
+]);
 import {
   useSignOut as fromRuntimeUseSignOut,
   createSignOutAction as fromRuntimeCreateSignOutAction,
@@ -45,18 +56,18 @@ test("auth-web removes copied client wrapper modules", () => {
   }
 });
 
-test("auth-web runtime/useLoginView composes login view state, validation, and actions", () => {
-  const runtimeUseLoginViewPath = fileURLToPath(new URL("../src/client/runtime/useLoginView.js", import.meta.url));
-  const runtimeUseLoginViewSource = readFileSync(runtimeUseLoginViewPath, "utf8");
+test("auth-web's useLoginView composes login view state, validation, and actions", () => {
+  const useLoginViewPath = fileURLToPath(new URL("../src/client/composables/useLoginView.js", import.meta.url));
+  const useLoginViewSource = readFileSync(useLoginViewPath, "utf8");
 
-  assert.match(runtimeUseLoginViewSource, /import\s+\{\s*useLoginViewState\s*\}\s+from\s+"..\/composables\/loginView\/useLoginViewState\.js";/);
-  assert.match(runtimeUseLoginViewSource, /import\s+\{\s*useLoginViewValidation\s*\}\s+from\s+"..\/composables\/loginView\/useLoginViewValidation\.js";/);
-  assert.match(runtimeUseLoginViewSource, /import\s+\{\s*useLoginViewActions\s*\}\s+from\s+"..\/composables\/loginView\/useLoginViewActions\.js";/);
-  assert.match(runtimeUseLoginViewSource, /const\s+state\s*=\s*useLoginViewState\(/);
-  assert.match(runtimeUseLoginViewSource, /const\s+validation\s*=\s*useLoginViewValidation\(\s*\{\s*state\s*\}\s*\)/);
-  assert.match(runtimeUseLoginViewSource, /const\s+actions\s*=\s*useLoginViewActions\(/);
-  assert.doesNotMatch(runtimeUseLoginViewSource, /useDefaultLoginView/);
-  assert.match(runtimeUseLoginViewSource, /export\s+\{\s*useLoginView\s*\};/);
+  assert.match(useLoginViewSource, /import\s+\{\s*useLoginViewState\s*\}\s+from\s+"\.\/loginView\/useLoginViewState\.js";/);
+  assert.match(useLoginViewSource, /import\s+\{\s*useLoginViewValidation\s*\}\s+from\s+"\.\/loginView\/useLoginViewValidation\.js";/);
+  assert.match(useLoginViewSource, /import\s+\{\s*useLoginViewActions\s*\}\s+from\s+"\.\/loginView\/useLoginViewActions\.js";/);
+  assert.match(useLoginViewSource, /const\s+state\s*=\s*useLoginViewState\(/);
+  assert.match(useLoginViewSource, /const\s+validation\s*=\s*useLoginViewValidation\(\s*\{\s*state\s*\}\s*\)/);
+  assert.match(useLoginViewSource, /const\s+actions\s*=\s*useLoginViewActions\(/);
+  assert.doesNotMatch(useLoginViewSource, /useDefaultLoginView/);
+  assert.match(useLoginViewSource, /export\s+\{\s*useLoginView\s*\};/);
 });
 
 test("auth-web client capability includes mobile callback completion", () => {
@@ -153,7 +164,7 @@ test("default login view gates password login controls by provider capabilities"
   assert.match(validationSource, /state\.isLogin\.value && !state\.canUsePasswordLogin\.value/);
 });
 
-test("auth-web package exports only minimal client runtime/view subpaths", () => {
+test("auth-web package exports its views, the composables behind them, and minimal client runtime subpaths", () => {
   const packageJson = JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};
 
@@ -186,6 +197,11 @@ test("auth-web package exports only minimal client runtime/view subpaths", () =>
     "./src/client/runtime/oauthCallbackRuntime.js"
   );
   assert.equal(exportsMap["./client/runtime/useSignOut"], "./src/client/runtime/useSignOut.js");
+  assert.equal(exportsMap["./client/runtime/secondFactorRequests"], "./src/client/runtime/secondFactorRequests.js");
+  // Each public composable is src/client/composables/<name>.js, exported as ./client/composables/<name>.
+  for (const name of PUBLIC_COMPOSABLES) {
+    assert.equal(exportsMap[`./client/composables/${name}`], `./src/client/composables/${name}.js`, name);
+  }
   assert.equal(exportsMap["./client/composables/useDefaultLoginView"], undefined);
   assert.equal(exportsMap["./client/composables/useDefaultSignOutView"], undefined);
   assert.equal(exportsMap["./client/runtime/useLoginView"], undefined);
@@ -194,7 +210,7 @@ test("auth-web package exports only minimal client runtime/view subpaths", () =>
 });
 
 test("default reset password view preserves recovery session-pair callback tokens", () => {
-  const viewPath = fileURLToPath(new URL("../src/client/composables/useDefaultResetPasswordView.js", import.meta.url));
+  const viewPath = fileURLToPath(new URL("../src/client/composables/useResetPasswordView.js", import.meta.url));
   const viewSource = readFileSync(viewPath, "utf8");
 
   assert.match(viewSource, /readPasswordRecoveryCallbackPayloadFromUrl\(window\.location\.href\)/);
@@ -207,8 +223,61 @@ test("default reset password view preserves recovery session-pair callback token
 });
 
 test("default login view hands its OAuth buttons the launch client", () => {
-  const viewPath = fileURLToPath(new URL("../src/client/runtime/useLoginView.js", import.meta.url));
+  const viewPath = fileURLToPath(new URL("../src/client/composables/useLoginView.js", import.meta.url));
   const viewSource = readFileSync(viewPath, "utf8");
 
   assert.match(viewSource, /oauthLaunchClient: useAuthOAuthLaunchClient\(\)/);
+});
+
+// One owner of each screen's behavior: the Material views and the second-factor components import the very file the
+// package exports, so an app's own view and JSKIT's default run the same code.
+test("the Material auth views consume the public composables, not copies of them", () => {
+  const exportsMap = packageJson.exports;
+  const consumers = [
+    ["DefaultLoginView", "useLoginView"],
+    ["DefaultResetPasswordView", "useResetPasswordView"],
+    ["DefaultEmailChangeView", "useEmailChangeView"],
+    ["DefaultSignOutView", "useSignOutView"],
+    ["SecondFactorProofForm", "useSecondFactorProof"],
+    ["SecondFactorSettings", "useSecondFactorSettings"]
+  ];
+  for (const [view, composable] of consumers) {
+    const source = readFileSync(fileURLToPath(new URL(`../src/client/views/${view}.vue`, import.meta.url)), "utf8");
+    const imported = source.match(new RegExp(`import \\{ ${composable} \\} from "([^"]+)";`, "u"))?.[1];
+    assert.ok(imported, `${view} imports ${composable}`);
+    const importedFile = new URL(imported, new URL(`../src/client/views/${view}.vue`, import.meta.url)).href;
+    const exportedFile = new URL(exportsMap[`./client/composables/${composable}`], new URL("../", import.meta.url)).href;
+    assert.equal(importedFile, exportedFile, `${view} renders the exported ${composable}`);
+  }
+  const prompt = readFileSync(fileURLToPath(new URL("../src/client/views/SecondFactorPrompt.vue", import.meta.url)), "utf8");
+  assert.match(prompt, /import \{ verifySecondFactor \} from "\.\.\/runtime\/secondFactorRequests\.js";/u);
+});
+
+// An app without Vuetify's plugin, or with its own design system, calls these composables: nothing behind them reads
+// Vuetify (the Material views read the window size from Vuetify themselves).
+test("the public composables and the code behind them import nothing from Vuetify", () => {
+  const files = [
+    ...PUBLIC_COMPOSABLES.map((name) => `../src/client/composables/${name}.js`),
+    ...readdirSync(fileURLToPath(new URL("../src/client/composables/loginView/", import.meta.url))).map((name) => `../src/client/composables/loginView/${name}`),
+    "../src/client/runtime/secondFactorRequests.js"
+  ];
+  for (const file of files) {
+    assert.doesNotMatch(readFileSync(fileURLToPath(new URL(file, import.meta.url)), "utf8"), /from "vuetify/u, file);
+  }
+});
+
+// The own-design-sign-in pattern is an application's code: it reaches auth-web only through the subpaths the package
+// exports, and draws its screens with plain elements, no Vuetify component or Material class.
+test("the own-design-sign-in pattern uses only auth-web's exported subpaths and no Vuetify", () => {
+  const exportsMap = packageJson.exports;
+  const example = new URL("../patterns/own-design-sign-in/example/src/", import.meta.url);
+  for (const file of ["views/auth/LoginView.vue", "components/ConfirmItsYouDialog.vue"]) {
+    const source = readFileSync(fileURLToPath(new URL(file, example)), "utf8");
+    const imports = [...source.matchAll(/from "(@jskit-ai\/auth-web[^"]*)"/gu)].map((match) => match[1]);
+    assert.ok(imports.length > 0, file);
+    for (const specifier of imports) {
+      assert.ok(Object.hasOwn(exportsMap, specifier.replace("@jskit-ai/auth-web", ".")), `${file} imports ${specifier}`);
+    }
+    assert.doesNotMatch(source, /from "vuetify|<v-[a-z]|class="(?:[^"]*\s)?v-/u, file);
+  }
 });

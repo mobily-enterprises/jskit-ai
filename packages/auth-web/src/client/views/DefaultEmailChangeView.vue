@@ -28,12 +28,12 @@
 <script setup>
 import { useDisplay } from "vuetify";
 import AuthScreen from "./AuthScreen.vue";
-import { useDefaultEmailChangeView } from "../composables/useDefaultEmailChangeView.js";
+import { useEmailChangeView } from "../composables/useEmailChangeView.js";
 import { useJskitText } from "../i18n.js";
 
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
 const { t } = useJskitText();
-const { status, message } = useDefaultEmailChangeView();
+const { status, message } = useEmailChangeView();
 </script>
 
 <style scoped>

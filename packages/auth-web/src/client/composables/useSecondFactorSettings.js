@@ -1,9 +1,9 @@
 import { computed, onMounted, ref } from "vue";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
-import { pageClipboard, saveTextFile } from "../../browser.js";
-import { useJskitText } from "../../i18n.js";
-import { qrCodePath } from "../../lib/qrCode.js";
-import { readSecondFactor, startSecondFactorSetup } from "../../runtime/secondFactorRequests.js";
+import { pageClipboard, saveTextFile } from "../browser.js";
+import { useJskitText } from "../i18n.js";
+import { qrCodePath } from "../lib/qrCode.js";
+import { readSecondFactor, startSecondFactorSetup } from "../runtime/secondFactorRequests.js";
 
 const SOURCE = "auth-web.second-factor-settings";
 const RECOVERY_CODES_FILE = "recovery-codes.txt";
@@ -17,10 +17,10 @@ function useSecondFactorSettings() {
   const { serverMessage, t } = useJskitText();
   const errorRuntime = useShellWebErrorRuntime();
   const load = ref("loading");
-  /** @type {import("vue").Ref<import("../../types.js").SecondFactorStatus | null>} */
+  /** @type {import("vue").Ref<import("../types.js").SecondFactorStatus | null>} */
   const status = ref(null);
   const step = ref("status");
-  /** @type {import("vue").Ref<import("../../types.js").SecondFactorSetup | null>} */
+  /** @type {import("vue").Ref<import("../types.js").SecondFactorSetup | null>} */
   const setup = ref(null);
   /** @type {import("vue").Ref<string[]>} */
   const recoveryCodes = ref([]);
@@ -64,7 +64,7 @@ function useSecondFactorSettings() {
   }
 
   /** Shows new recovery codes, once, and reads the state again behind them. */
-  function showRecoveryCodes(/** @type {import("../../types.js").SecondFactorRecoveryCodes} */ result) {
+  function showRecoveryCodes(/** @type {import("../types.js").SecondFactorRecoveryCodes} */ result) {
     recoveryCodes.value = result.recoveryCodes;
     setup.value = null;
     step.value = "codes";

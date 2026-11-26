@@ -4,8 +4,8 @@ import { createApp } from "vue";
 import { encode } from "uqr";
 import { SECOND_FACTOR_REQUIRED } from "@jskit-ai/auth-core/shared/authSecondFactor";
 import { SHELL_WEB_ERROR_RUNTIME_KEY } from "@jskit-ai/shell-web/client/error";
-import { useSecondFactorProof } from "../src/client/composables/secondFactor/useSecondFactorProof.js";
-import { useSecondFactorStepUp } from "../src/client/composables/secondFactor/useSecondFactorStepUp.js";
+import { useSecondFactorProof } from "../src/client/composables/useSecondFactorProof.js";
+import { useSecondFactorStepUp } from "../src/client/composables/useSecondFactorStepUp.js";
 import { qrCodePath } from "../src/client/lib/qrCode.js";
 
 const QUIET_ZONE = 4;

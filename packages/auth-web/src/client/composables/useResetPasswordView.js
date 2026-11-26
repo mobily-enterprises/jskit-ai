@@ -12,8 +12,13 @@ import {
 } from "./loginView/validationHelpers.js";
 import { useJskitText } from "../i18n.js";
 
-/** The password reset page: it exchanges the recovery link on mount, then sets the new password. */
-export function useDefaultResetPasswordView() {
+/**
+ * The password reset page without its look: it exchanges the recovery link on mount (`status` "checking", then "ready"
+ * or "error"), then sets the new password (`submitReset`, then "done"). `DefaultResetPasswordView` renders it in
+ * Material 3; an app with its own design system renders it in its own
+ * (`@jskit-ai/auth-web/client/composables/useResetPasswordView`).
+ */
+export function useResetPasswordView() {
   const { serverMessage, t } = useJskitText();
   const status = ref("checking");
   const loading = ref(false);

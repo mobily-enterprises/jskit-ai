@@ -49,12 +49,12 @@
 <script setup>
 import { useDisplay } from "vuetify";
 import AuthScreen from "./AuthScreen.vue";
-import { useDefaultSignOutView } from "../composables/useDefaultSignOutView.js";
+import { useSignOutView } from "../composables/useSignOutView.js";
 import { useJskitText } from "../i18n.js";
 
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
 const { t } = useJskitText();
-const { status, errorMessage, retrySignOut, goToLogin } = useDefaultSignOutView();
+const { status, errorMessage, retrySignOut, goToLogin } = useSignOutView();
 </script>
 
 <style scoped>

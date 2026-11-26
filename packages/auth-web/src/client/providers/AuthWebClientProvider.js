@@ -2,7 +2,7 @@ import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import DefaultLoginView from "../views/DefaultLoginView.vue";
 import AuthProfileWidget from "../views/AuthProfileWidget.vue";
 import AuthProfileMenuLinkItem from "../views/AuthProfileMenuLinkItem.vue";
-import { useLoginView } from "../runtime/useLoginView.js";
+import { useLoginView } from "../composables/useLoginView.js";
 import { createAuthClient, NO_AUTH_REALTIME } from "../runtime/authClient.js";
 
 const AuthWebClientProvider = defineProvider({

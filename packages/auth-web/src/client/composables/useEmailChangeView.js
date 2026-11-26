@@ -2,8 +2,12 @@ import { onMounted, ref } from "vue";
 import { confirmEmailChangeLink } from "../runtime/emailChangeLink.js";
 import { useJskitText } from "../i18n.js";
 
-/** The email change page: it confirms the link it was opened with once, then says what happened. */
-export function useDefaultEmailChangeView() {
+/**
+ * The email change page without its look: it confirms the link it was opened with once (`status` "checking", then
+ * "done" or "error"), and `message` says what happened. `DefaultEmailChangeView` renders it in Material 3; an app with
+ * its own design system renders it in its own (`@jskit-ai/auth-web/client/composables/useEmailChangeView`).
+ */
+export function useEmailChangeView() {
   const { serverMessage, t } = useJskitText();
   const status = ref("checking");
   const message = ref("");

@@ -1,6 +1,6 @@
 import { computed, ref } from "vue";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
-import { useJskitText } from "../../i18n.js";
+import { useJskitText } from "../i18n.js";
 
 // Refusals of what the person typed (a wrong, used or missing code, or an account waiting after wrong codes) show
 // beside the field; any other failure is reported as a failed command.
@@ -11,7 +11,7 @@ const SOURCE = "auth-web.second-factor";
  * A form for a code from the authenticator app or one of the recovery codes: what the person typed, the refusal shown
  * beside the field, and the submission, which hands `submit`'s answer to `onDone`.
  * @param {{
- *   submit: (proof: import("../../types.js").SecondFactorProof) => Promise<unknown>,
+ *   submit: (proof: import("../types.js").SecondFactorProof) => Promise<unknown>,
  *   onDone: (result: unknown) => void
  * }} options
  */

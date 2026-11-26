@@ -120,7 +120,7 @@
 <script setup>
 import { nextTick, ref } from "vue";
 import SecondFactorProofForm from "./SecondFactorProofForm.vue";
-import { useSecondFactorSettings } from "../composables/secondFactor/useSecondFactorSettings.js";
+import { useSecondFactorSettings } from "../composables/useSecondFactorSettings.js";
 import { useJskitText } from "../i18n.js";
 import {
   confirmSecondFactorSetup,

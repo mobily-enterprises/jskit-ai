@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createRenderer, defineComponent } from "vue";
 import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/placement";
-import { useDefaultSignOutView } from "../src/client/composables/useDefaultSignOutView.js";
+import { useSignOutView } from "../src/client/composables/useSignOutView.js";
 import { AUTH_GUARD_RUNTIME_INJECTION_KEY } from "../src/client/runtime/inject.js";
 import { clearAuthCsrfTokenCache } from "../src/client/runtime/authHttpClient.js";
 
@@ -75,7 +75,7 @@ async function signOutAt(t, search) {
   const app = renderer.createApp(
     defineComponent({
       setup() {
-        useDefaultSignOutView();
+        useSignOutView();
         return () => null;
       }
     })

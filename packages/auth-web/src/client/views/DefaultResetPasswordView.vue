@@ -65,7 +65,7 @@
 <script setup>
 import { useDisplay } from "vuetify";
 import AuthScreen from "./AuthScreen.vue";
-import { useDefaultResetPasswordView } from "../composables/useDefaultResetPasswordView.js";
+import { useResetPasswordView } from "../composables/useResetPasswordView.js";
 import { useJskitText } from "../i18n.js";
 
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
@@ -82,7 +82,7 @@ const {
   confirmPasswordError,
   canSubmit,
   submitReset
-} = useDefaultResetPasswordView();
+} = useResetPasswordView();
 </script>
 
 <style scoped>

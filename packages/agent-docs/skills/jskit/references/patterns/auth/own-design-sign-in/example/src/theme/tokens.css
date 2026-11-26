@@ -1,0 +1,35 @@
+/*
+ * The app's own design tokens, imported once by its entry (src/main.js). Its screens, the sign-in screen among them,
+ * read these names and never a colour of their own. src/theme/ is where an app keeps its colour values; the light
+ * values apply by default and the dark ones when the person's system asks for dark.
+ */
+:root {
+  --ds-font: "Inter", system-ui, sans-serif;
+  --ds-radius: 8px;
+  --ds-radius-large: 16px;
+  --ds-page: #f4f1ea;
+  --ds-panel: #fffdf8;
+  --ds-text: #1f1b16;
+  --ds-text-muted: #5c544a;
+  --ds-line: #cbc2b5;
+  --ds-accent: #a4380f;
+  --ds-on-accent: #ffffff;
+  --ds-danger: #a1121f;
+  --ds-danger-soft: #fde7e7;
+  --ds-scrim: #1f1b1699;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ds-page: #17140f;
+    --ds-panel: #221e18;
+    --ds-text: #eee7dc;
+    --ds-text-muted: #c1b8ab;
+    --ds-line: #554d42;
+    --ds-accent: #ffb59a;
+    --ds-on-accent: #5a1a00;
+    --ds-danger: #ffb4ab;
+    --ds-danger-soft: #3d1210;
+    --ds-scrim: #000000b3;
+  }
+}

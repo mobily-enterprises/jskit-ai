@@ -63,6 +63,15 @@ Let people sign in with the accounts they already have in an accounts hub or ano
 - Owner: `@jskit-ai/auth-provider-oidc-core@0.2.63`
 - Requires: `@jskit-ai/auth-provider-oidc-core`, `@jskit-ai/auth-web`
 
+## [Sign-in screens in an app's own design](/patterns/auth/own-design-sign-in)
+
+Write the sign-in screen and the second-factor prompt in an application's own design system, with plain markup and the app's CSS, on the composables behind JSKIT's Material views, keeping every sign-in behavior.
+
+- Id: `auth/own-design-sign-in`
+- Keywords: `auth`, `custom design`, `design system`, `login`, `own look`, `second factor`, `sign in`, `step up`, `style`, `without vuetify`
+- Owner: `@jskit-ai/auth-web@0.2.58`
+- Requires: `@jskit-ai/auth-web`, `@jskit-ai/kernel`
+
 ## [Supabase authentication](/patterns/auth/supabase-auth)
 
 Add Supabase authentication through normal npm composition, explicit environment values, and app-owned auth policy.

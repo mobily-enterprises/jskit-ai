@@ -101,29 +101,33 @@ Exports
 Local functions
 - `validationFieldMessages(validationResult)`
 
-### `src/client/composables/secondFactor/useSecondFactorProof.js`
+### `src/client/composables/useEmailChangeView.js`
+Exports
+- `useEmailChangeView()`
+
+### `src/client/composables/useLoginView.js`
+Exports
+- `useLoginView({ fallbackReturnTo = "/" } = {})`
+
+### `src/client/composables/useResetPasswordView.js`
+Exports
+- `useResetPasswordView()`
+
+### `src/client/composables/useSecondFactorProof.js`
 Exports
 - `useSecondFactorProof({ submit, onDone })`
 
-### `src/client/composables/secondFactor/useSecondFactorSettings.js`
+### `src/client/composables/useSecondFactorSettings.js`
 Exports
 - `useSecondFactorSettings()`
 
-### `src/client/composables/secondFactor/useSecondFactorStepUp.js`
+### `src/client/composables/useSecondFactorStepUp.js`
 Exports
 - `useSecondFactorStepUp()`
 
-### `src/client/composables/useDefaultEmailChangeView.js`
+### `src/client/composables/useSignOutView.js`
 Exports
-- `useDefaultEmailChangeView()`
-
-### `src/client/composables/useDefaultResetPasswordView.js`
-Exports
-- `useDefaultResetPasswordView()`
-
-### `src/client/composables/useDefaultSignOutView.js`
-Exports
-- `useDefaultSignOutView()`
+- `useSignOutView()`
 Local functions
 - `readReturnToPathFromLocation({ allowedOrigins = [] } = {})`
 - `navigateToPath(path, { replace = true } = {})`
@@ -287,10 +291,6 @@ Exports
 - `replaceSecondFactorRecoveryCodes(proof)`
 - `startSecondFactorSetup()`
 - `verifySecondFactor(proof)`
-
-### `src/client/runtime/useLoginView.js`
-Exports
-- `useLoginView({ fallbackReturnTo = "/" } = {})`
 
 ### `src/client/runtime/useSignOut.js`
 Exports
@@ -463,6 +463,16 @@ Exports
 
 ### fixtures
 
+### `fixtures/own-design-sign-in/main.js`
+Exports
+- None
+
+### `fixtures/own-design-sign-in/vite.config.mjs`
+Exports
+- None
+Local functions
+- `patternSource(pattern, file)`
+
 ### `fixtures/sign-in/main.js`
 Exports
 - None
@@ -529,3 +539,15 @@ Exports
 ### `patterns/auth-surface/example/src/views/auth/SignOutView.vue`
 Exports
 - None
+
+### `patterns/own-design-sign-in/example/src/components/ConfirmItsYouDialog.vue`
+Exports
+- None
+Local functions
+- `switchCodeKind()`
+
+### `patterns/own-design-sign-in/example/src/views/auth/LoginView.vue`
+Exports
+- None
+Local functions
+- `providerName(providerId)`

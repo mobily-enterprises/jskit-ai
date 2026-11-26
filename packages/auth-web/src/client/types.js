@@ -107,7 +107,7 @@
  * @property {string} verifiedAt
  */
 
-/** @typedef {ReturnType<typeof import("./composables/secondFactor/useSecondFactorStepUp.js").useSecondFactorStepUp>} SecondFactorStepUp */
+/** @typedef {ReturnType<typeof import("./composables/useSecondFactorStepUp.js").useSecondFactorStepUp>} SecondFactorStepUp */
 
 /** @typedef {ReturnType<typeof import("./composables/loginView/useLoginViewState.js").useLoginViewState>} LoginViewState */
 

@@ -149,6 +149,9 @@ config.surfaceDefinitions.auth = {
 
 Change provider, routes, labels, page wrappers, permitted login methods, profile
 placements, and post-auth destinations while retaining the runtime contracts.
+An app with its own design system, not Material 3, replaces the view wrappers
+with its own views on the composables behind the default views, keeping these
+pages: see [Sign-in screens in an app's own design](/patterns/auth/own-design-sign-in).
 
 ## Verification
 

@@ -25,7 +25,13 @@ function navigateToPath(path, { replace = true } = {}) {
   window.location.assign(path);
 }
 
-export function useDefaultSignOutView() {
+/**
+ * The sign-out page without its look: it signs out on mount (`status` "pending", then "success", which opens sign-in
+ * with the page's returnTo, or "error" with `errorMessage`, also reported to the shell's error runtime), and offers
+ * `retrySignOut` and `goToLogin`. `DefaultSignOutView` renders it in Material 3; an app with its own design system
+ * renders it in its own (`@jskit-ai/auth-web/client/composables/useSignOutView`).
+ */
+export function useSignOutView() {
   const { serverMessage, t } = useJskitText();
   const authGuardRuntime = useRequiredAuthGuardRuntime();
   const { context: placementContext } = useWebPlacementContext();

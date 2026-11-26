@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import { useSecondFactorProof } from "../composables/secondFactor/useSecondFactorProof.js";
+import { useSecondFactorProof } from "../composables/useSecondFactorProof.js";
 import { useJskitText } from "../i18n.js";
 
 const props = defineProps({

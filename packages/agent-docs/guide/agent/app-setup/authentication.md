@@ -303,7 +303,9 @@ const refund = () => run(() => api.refund(orderId));
 
 `isSecondFactorRequired(error)` from `@jskit-ai/auth-core/shared/authSecondFactor`
 tells that refusal apart elsewhere, such as a page that asks for the second
-factor before it shows anything.
+factor before it shows anything. An app with its own design system builds the
+prompt and the settings in its own look on the composables behind these
+components, as "Sign-in screens in an app's own design" below says.
 
 **Codes.** A code is accepted within one 30-second step either side of the
 server's clock, and only once: no code of an accepted step or an earlier one
@@ -1057,11 +1059,66 @@ page's own `?code=` or `?error=` still reads as a callback; name such a filter
 otherwise.
 
 Never restyle the views' own classes (`.login-screen`, `.auth-card`) or wrap
-them in a frame of the app's; the brand slot is the one way in.
+them in a frame of the app's; the brand slot is the one way into the Material
+views. An app with its own design system writes its own views instead (below).
 
 Initial load errors stay inside the affected surface. Failed login, reset, and
 other transient mutations use the application toast and do not shift the form.
 Loading uses skeletons when content geometry is known.
+
+## Sign-in screens in an app's own design
+
+An app with its own design system writes its own sign-in screens with these
+composables; Material stays JSKIT's default. Each `Default*View` is a Material
+3 rendering of one composable, and the composable holds everything the screen
+does. An app's own view calls the same composable, so it keeps every sign-in
+behavior with its own markup and CSS, and needs no Vuetify. Each comes from its
+own path, so a page loads only what it uses:
+
+| Screen | Composable | Material view |
+|---|---|---|
+| Sign in, register, forgot password, one-time code, confirm your email | `useLoginView({ fallbackReturnTo })` from `@jskit-ai/auth-web/client/composables/useLoginView` | `DefaultLoginView` |
+| Password reset | `useResetPasswordView()` from `@jskit-ai/auth-web/client/composables/useResetPasswordView` | `DefaultResetPasswordView` |
+| Email change link | `useEmailChangeView()` from `@jskit-ai/auth-web/client/composables/useEmailChangeView` | `DefaultEmailChangeView` |
+| Sign out | `useSignOutView()` from `@jskit-ai/auth-web/client/composables/useSignOutView` | `DefaultSignOutView` |
+| A code or recovery code form | `useSecondFactorProof({ submit, onDone })` from `@jskit-ai/auth-web/client/composables/useSecondFactorProof` | `SecondFactorPrompt`, `SecondFactorDialog` |
+| The authenticator settings | `useSecondFactorSettings()` from `@jskit-ai/auth-web/client/composables/useSecondFactorSettings` | `SecondFactorSettings` |
+| A request asking for a fresh code | `useSecondFactorStepUp()` from `@jskit-ai/auth-web/client/composables/useSecondFactorStepUp` (also from `@jskit-ai/auth-web/client`) | `SecondFactorDialog` |
+
+A proof form submits one of the second-factor requests from
+`@jskit-ai/auth-web/client/runtime/secondFactorRequests`: `verifySecondFactor`
+for a prompt, and `confirmSecondFactorSetup`,
+`replaceSecondFactorRecoveryCodes` and `removeSecondFactor` for the settings,
+which read with `readSecondFactor` and start with `startSecondFactorSetup`.
+
+`useLoginView()` returns the mode (`isLogin`, `isRegister`, `isForgot`,
+`isOtp`, `isEmailConfirmationPending`) with `switchMode(mode)`, what the
+provider offers (`canUsePasswordLogin`, `canRegister`,
+`canRequestPasswordRecovery`, `canUseOtp`, `canUseOAuth`, ...), the fields as
+refs (`email`, `password`, `confirmPassword`, `otpCode`, `setupCode`,
+`confirmationCode`) with their error messages (`emailErrorMessages`, ...,
+shown once a field is touched or a submit was tried), `submitAuth`,
+`canSubmit`, `submitLabel`, `authTitle` and `authSubtitle`, the provider
+buttons (`oauthProviders`, `oauthProviderButtonLabel(provider)`,
+`startOAuthSignIn(id)`, `oauthRetryProvider`), the remembered account, the
+paused sign-in (`signInPausedMinutes`) and `redirectingSignedIn`, true while a
+browser already signed in is sent on, when the view shows no form. It handles
+invitations, the returnTo landing, a provider's callback and the session check
+on mount and on return to the page, as for `DefaultLoginView`. A refusal sets
+`errorMessage` (news such as a sent code sets `infoMessage`), which an own view
+shows beside the form; it also reaches the shell's error runtime, as from the
+Material view, whose host presents it. `oauthProviderIcon` is the Material view's
+icon alias; an own view picks its icon from `provider.id`. Text comes from
+`useJskitText()` of `@jskit-ai/kernel/client`, whose `jskit.auth.*` messages
+are the ones the Material views show, so the app's translations apply.
+
+The `auth/auth-surface` pattern still supplies the auth surface, the pages,
+the brand and the managed-preview login; the `auth/own-design-sign-in` pattern
+replaces its `src/views/auth/LoginView.vue` with a plain HTML and CSS view on
+`useLoginView()` and adds a second-factor prompt in the app's design (a native
+`<dialog>` on `useSecondFactorProof()`) for `useSecondFactorStepUp()`. The app
+renders `AppBrand.vue` there in its own style, and keeps its colours in
+`src/theme/`.
 
 ## Verification
 

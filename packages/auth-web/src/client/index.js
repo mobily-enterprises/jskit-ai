@@ -10,7 +10,7 @@ export { default as DefaultResetPasswordView } from "./views/DefaultResetPasswor
 export { default as DefaultEmailChangeView } from "./views/DefaultEmailChangeView.vue";
 export { default as AuthProfileWidget } from "./views/AuthProfileWidget.vue";
 export { default as AuthProfileMenuLinkItem } from "./views/AuthProfileMenuLinkItem.vue";
-export { useSecondFactorStepUp } from "./composables/secondFactor/useSecondFactorStepUp.js";
+export { useSecondFactorStepUp } from "./composables/useSecondFactorStepUp.js";
 export { useAuthStore } from "./stores/useAuthStore.js";
 export { useAuthGuardRuntime } from "./runtime/inject.js";
 export {

@@ -16,7 +16,7 @@ import DefaultResetPasswordView from "../../src/client/views/DefaultResetPasswor
 import DefaultSignOutView from "../../src/client/views/DefaultSignOutView.vue";
 import SecondFactorDialog from "../../src/client/views/SecondFactorDialog.vue";
 import SecondFactorSettings from "../../src/client/views/SecondFactorSettings.vue";
-import { useSecondFactorStepUp } from "../../src/client/composables/secondFactor/useSecondFactorStepUp.js";
+import { useSecondFactorStepUp } from "../../src/client/composables/useSecondFactorStepUp.js";
 import { authHttpRequest } from "../../src/client/runtime/authHttpClient.js";
 import { AuthWebClientProvider } from "../../src/client/providers/AuthWebClientProvider.js";
 import { useAuthStore } from "../../src/client/stores/useAuthStore.js";

@@ -2,13 +2,20 @@ import { onMounted } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
-import { useAuthGuardRuntime, useAuthOAuthLaunchClient } from "./inject.js";
-import { useLoginViewState } from "../composables/loginView/useLoginViewState.js";
-import { useLoginViewValidation } from "../composables/loginView/useLoginViewValidation.js";
-import { useLoginViewActions } from "../composables/loginView/useLoginViewActions.js";
-import { useSessionRecheckOnShow } from "../composables/loginView/useSessionRecheckOnShow.js";
+import { useAuthGuardRuntime, useAuthOAuthLaunchClient } from "../runtime/inject.js";
+import { useLoginViewState } from "./loginView/useLoginViewState.js";
+import { useLoginViewValidation } from "./loginView/useLoginViewValidation.js";
+import { useLoginViewActions } from "./loginView/useLoginViewActions.js";
+import { useSessionRecheckOnShow } from "./loginView/useSessionRecheckOnShow.js";
 
-/** @param {{ fallbackReturnTo?: string }} [options] where a sign-in lands without a usable returnTo */
+/**
+ * Everything the sign-in page does, without its look: the modes (sign in, register, forgot password, one-time code,
+ * confirm your email), the fields and their errors, the provider buttons, the remembered account, invitations, the
+ * returnTo landing and the session check on mount and on return to the page. `DefaultLoginView` renders it in
+ * Material 3; an app with its own design system renders it in its own (`@jskit-ai/auth-web/client/composables/useLoginView`).
+ * Call it in a component's setup. A refusal sets `errorMessage` and is also reported to the shell's error runtime.
+ * @param {{ fallbackReturnTo?: string }} [options] where a sign-in lands without a usable returnTo
+ */
 function useLoginView({ fallbackReturnTo = "/" } = {}) {
   const { context: placementContext } = useWebPlacementContext();
   const queryClient = useQueryClient();
@@ -85,6 +92,8 @@ function useLoginView({ fallbackReturnTo = "/" } = {}) {
     resendRegisterConfirmationEmail: actions.resendRegisterConfirmationEmail,
     oauthProviders: state.oauthProviders,
     loading: state.loading,
+    // The provider's Material Symbols alias ("$google"), for DefaultLoginView's buttons; an app's own view picks its
+    // own icon from `provider.id`.
     oauthProviderIcon: actions.oauthProviderIcon,
     startOAuthSignIn: actions.startOAuthSignIn,
     oauthProviderButtonLabel: actions.oauthProviderButtonLabel,

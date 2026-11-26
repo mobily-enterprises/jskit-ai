@@ -25,6 +25,14 @@
     "./client/runtime/authHttpClient": "./src/client/runtime/authHttpClient.js",
     "./client/runtime/oauthCallbackRuntime": "./src/client/runtime/oauthCallbackRuntime.js",
     "./client/runtime/useSignOut": "./src/client/runtime/useSignOut.js",
+    "./client/runtime/secondFactorRequests": "./src/client/runtime/secondFactorRequests.js",
+    "./client/composables/useLoginView": "./src/client/composables/useLoginView.js",
+    "./client/composables/useResetPasswordView": "./src/client/composables/useResetPasswordView.js",
+    "./client/composables/useEmailChangeView": "./src/client/composables/useEmailChangeView.js",
+    "./client/composables/useSignOutView": "./src/client/composables/useSignOutView.js",
+    "./client/composables/useSecondFactorProof": "./src/client/composables/useSecondFactorProof.js",
+    "./client/composables/useSecondFactorSettings": "./src/client/composables/useSecondFactorSettings.js",
+    "./client/composables/useSecondFactorStepUp": "./src/client/composables/useSecondFactorStepUp.js",
     "./test/playwright": "./src/test/playwright.js",
     "./locales/en.json": "./locales/en.json"
   },
@@ -83,6 +91,14 @@
           {
             "subpath": "./client",
             "summary": "Exports auth web client provider, default auth views, the second-factor step-up composable, and route/provider registration surface."
+          },
+          {
+            "subpath": "./client/composables",
+            "summary": "The auth screens' behavior without their look, one composable a path: useLoginView, useResetPasswordView, useEmailChangeView, useSignOutView, useSecondFactorProof, useSecondFactorSettings and useSecondFactorStepUp. The Default views render them in Material 3; an app with its own design system renders them in its own."
+          },
+          {
+            "subpath": "./client/runtime/secondFactorRequests",
+            "summary": "The second-factor requests a proof form submits: verifySecondFactor, confirmSecondFactorSetup, replaceSecondFactorRecoveryCodes, removeSecondFactor, readSecondFactor and startSecondFactorSetup."
           },
           {
             "subpath": "./client/types",
