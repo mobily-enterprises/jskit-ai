@@ -19,9 +19,9 @@ Tried since, all passing:
 5. The same 10-file run, instrumented, on the desktop and on usone: 128/128 each.
 6. Stress on usone: 10 copies of the goal tests at once, 2 rounds each (20 runs, load average 39.75),
    each recording what changed the menu's open state. 20/20 passed, nothing recorded.
-7. Deliberate phase order, a DIAG test: opened the menu, then pressed Pause after 0, 20, 60, 120,
-   200 and 400 ms, each with a 0, 60 or 250 ms reopen wait (18 timings). The menu stayed
-   expanded and Pause was present in every one.
+7. Deliberate phase order, a DIAG test: Start goal, then once "Goal running" showed, pressed the
+   chip with a real mouse down/up 0, 20, 60, 120, 200 or 400 ms later, holding the press 0, 60 or
+   250 ms (18 timings), and checked 700 ms after: the menu was expanded with Pause in all 18.
 8. Deliberate late reads, a DIAG test: held the goal and conversation reads during a Set
    (normal order [conversation, goal, goal, conversation, conversation]), held at the 2nd, 4th
    and 5th read, and with a socket notification on top. When the hold came before the
