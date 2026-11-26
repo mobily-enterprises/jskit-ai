@@ -140,6 +140,11 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
   // Steers written into a running loop that Claude has not begun reading. Claude
   // Code reads queued input only when the running tool call returns.
   const waitingSteers = new Set();
+  // A message Claude read while its loop still worked on an earlier input (a
+  // steer it folded in after a tool call) and has not answered yet. The first
+  // text Claude writes after reading it answers that person, even when a tool
+  // call follows it: it is a reply, never progress.
+  let owedReply = "";
   let steeringClient = null;
   const tasks = new Set();
   const stopState = createClaudeStopState();
@@ -187,6 +192,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     messages.clear();
     pendingAssistantMessages.clear();
     assistantRoles.clear();
+    owedReply = "";
     result = "";
     outcome = null;
     steeringBackground.clear();
@@ -343,10 +349,26 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     return conversationTurn;
   }
 
+  // The role of the text in an API message a tool call ends: progress, except
+  // the first text written after Claude read a message it owes a reply (see
+  // owedReply), whether it streamed before this frame or sits in it (ownText).
+  function toolMessageRole(apiMessageId, ownText = false) {
+    const decided = assistantRoles.get(apiMessageId);
+    if (decided) return decided;
+    const pending = pendingAssistantMessages.get(apiMessageId) || [];
+    if (!owedReply || !(pending.some(block => block.userId === owedReply) || ownText && currentCommandId === owedReply)) {
+      return "commentary";
+    }
+    owedReply = "";
+    return "assistant";
+  }
+
   async function flushAssistantMessages(apiMessageId, role, emit) {
     assistantRoles.set(apiMessageId, role);
     const pending = pendingAssistantMessages.get(apiMessageId) || [];
     pendingAssistantMessages.delete(apiMessageId);
+    // A final answer that follows the owed message answers it too.
+    if (owedReply && role === "assistant" && pending.some(block => block.userId === owedReply)) owedReply = "";
     for (const block of pending) {
       await publishMessage({ ...block, role }, emit);
       if (block.outputId) {
@@ -408,6 +430,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
       // Native notifications have their own lifecycle UUIDs, including work
       // folded into this input. They must not steal its receipt/result owner.
       if ((frame.state === "started" || frame.type === "user") && inFlight.has(uuid)) {
+        // Claude reads a message that joins its running loop (its replay
+        // arrives while an earlier input has begun and has no result yet) only
+        // after a tool call returns; it answers there and works on.
+        if (startedInputs.size && !startedInputs.has(uuid)) owedReply = uuid;
         currentCommandId = uuid;
         startedInputs.add(uuid);
         stopState.loopStarted();
@@ -499,17 +525,20 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
           await emit({ type: "message-complete", messageId: id });
         }
       } else if (event.type === "message_delta" && event.delta?.stop_reason) {
-        await flushAssistantMessages(messageId, event.delta.stop_reason === "tool_use" ? "commentary" : "assistant", emit);
+        await flushAssistantMessages(messageId, event.delta.stop_reason === "tool_use" ? toolMessageRole(messageId) : "assistant", emit);
       }
     } else if (frame.type === "assistant") {
       const apiMessageId = frame.message?.id;
       if (apiMessageId && frame.message.content?.some(block => block.type === "tool_use")) {
-        await flushAssistantMessages(apiMessageId, "commentary", emit);
+        const ownText = frame.message.content.some(block => block.type === "text" && block.text?.trim());
+        await flushAssistantMessages(apiMessageId, toolMessageRole(apiMessageId, ownText), emit);
       }
       for (const block of frame.message?.content || []) steeringBackground.called(block);
       for (const block of claudeMessageBlocks(frame)) {
         block.userId = currentCommandId;
         checkOutput(block.text, block.role);
+        // Text beside its tool call in one frame answers the owed message as streamed text would.
+        if (block.role === "commentary" && apiMessageId && assistantRoles.get(apiMessageId) === "assistant") block.role = "assistant";
         const live = liveClaudeBlock(messages, messageId, frame, block.role);
         if (live) {
           block.outputId = live.id;
@@ -526,13 +555,15 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
         } else await publishMessage(block, emit);
       }
       if (apiMessageId && frame.message.stop_reason) {
-        await flushAssistantMessages(apiMessageId, frame.message.stop_reason === "tool_use" ? "commentary" : "assistant", emit);
+        await flushAssistantMessages(apiMessageId, frame.message.stop_reason === "tool_use" ? toolMessageRole(apiMessageId) : "assistant", emit);
       }
     } else if (frame.type === "result") {
       const failed = frame.is_error || frame.subtype !== "success";
       const interrupted = ["aborted_streaming", "aborted_tools"].includes(frame.terminal_reason);
       const role = failed || interrupted ? "commentary" : "assistant";
       for (const id of pendingAssistantMessages.keys()) await flushAssistantMessages(id, role, emit);
+      // The loop that read the owed message has ended; a later loop answers its own input.
+      owedReply = "";
       const output = typeof frame.structured_output === "object" ? JSON.stringify(frame.structured_output) : String(frame.result || "");
       checkOutput(output);
       const message = !failed ? "" : claudeResultError(frame, output);
@@ -588,6 +619,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     inFlight.clear();
     startedInputs.clear();
     waitingSteers.clear();
+    owedReply = "";
     steeringClient = null;
     if (!processLives) tasks.clear();
     retainStoppedClaudeMessages(messages, pendingAssistantMessages);
