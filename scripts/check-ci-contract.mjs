@@ -1,6 +1,7 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { load as loadYaml } from "js-yaml";
 import { browserTestFiles } from "./test-browser.mjs";
 import { postgresTestFiles } from "./test-postgres.mjs";
 
@@ -30,6 +31,18 @@ function collectMatrixMajors(workflowSource = "") {
 
 function sameNumbers(left, right) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+// GitHub runs none of the jobs of a workflow it cannot read, and the push shows no check at all: from 73f61d8a0, two step
+// names with an unquoted ": " left verify.yml and publish-packages.yml unread.
+function workflowYamlIssue(workflowName, workflowSource = "") {
+  try {
+    loadYaml(String(workflowSource), { filename: workflowName });
+    return null;
+  } catch (error) {
+    const line = Number.isInteger(error.mark?.line) ? error.mark.line + 1 : 0;
+    return `${workflowName}:${line} is not valid YAML, so GitHub runs none of its jobs: ${error.reason || error.message}.`;
+  }
 }
 
 function collectNpmScriptReferences(workflowSource = "") {
@@ -115,6 +128,10 @@ async function collectCiContractIssues({
     : {};
 
   for (const [workflowName, workflowSource] of Object.entries(workflows || {})) {
+    const yamlIssue = workflowYamlIssue(workflowName, workflowSource);
+    if (yamlIssue) {
+      issues.push(yamlIssue);
+    }
     for (const scriptName of collectNpmScriptReferences(workflowSource)) {
       if (!Object.hasOwn(scripts, scriptName)) {
         issues.push(`${workflowName} runs missing root package script "${scriptName}".`);

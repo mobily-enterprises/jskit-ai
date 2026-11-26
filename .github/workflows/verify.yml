@@ -138,12 +138,12 @@ jobs:
           JSKIT_MATERIAL_WEB_BROWSER: "1"
         run: npm run test:browser
 
-      - name: Verify shared assistant conversation UI: scrolling, message delivery and the transcript theme
+      - name: "Verify shared assistant conversation UI: scrolling, message delivery and the transcript theme"
         env:
           JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION: "1"
         run: npm run test:browser
 
-      - name: Verify the ready-made assistant: its lifecycle, conversation binding and the settings pane's app bar Save
+      - name: "Verify the ready-made assistant: its lifecycle, conversation binding and the settings pane's app bar Save"
         env:
           JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION: "1"
         run: npm run test:browser

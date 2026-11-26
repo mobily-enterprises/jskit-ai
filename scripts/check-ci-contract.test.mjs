@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import {
   collectCiContractIssues,
@@ -44,6 +44,31 @@ test("CI contract verification accepts current scripts, test targets, and runtim
   });
 
   assert.deepEqual(issues, []);
+});
+
+test("CI contract verification refuses a workflow GitHub cannot read, naming its file and line", async () => {
+  const check = (verifyWorkflow) => collectCiContractIssues({
+    packageJson: { engines: { node: "^24.0.0 || ^26.0.0" }, scripts: { verify: "node verify.mjs" } },
+    workflows: { "verify.yml": verifyWorkflow },
+    pathExists: async () => true,
+    listDirectory: async (directoryPath) => (directoryPath.endsWith("packages/example/test") ? ["store.postgres.test.js"] : []),
+    browserTests: []
+  });
+  const named = (name) => VALID_VERIFY_WORKFLOW.replace("      - run: npm run verify\n", `      - name: ${name}\n        run: npm run verify\n`);
+  const unquoted = named("Verify the conversation UI: scrolling and focus");
+  const line = unquoted.split("\n").findIndex((text) => text.includes("Verify the conversation UI")) + 1;
+  const issues = await check(unquoted);
+  assert.equal(issues.length, 1);
+  assert.match(issues[0], new RegExp(`^verify\\.yml:${line} is not valid YAML, so GitHub runs none of its jobs: `, "u"));
+  assert.deepEqual(await check(named("\"Verify the conversation UI: scrolling and focus\"")), []);
+});
+
+test("CI contract verification reads every workflow of this repository as YAML", async () => {
+  const workflows = Object.fromEntries(readdirSync(".github/workflows").filter((name) => /\.ya?ml$/u.test(name))
+    .map((name) => [name, readFileSync(`.github/workflows/${name}`, "utf8")]));
+  assert.ok(Object.keys(workflows).length >= 2);
+  const issues = await collectCiContractIssues({ packageJson: JSON.parse(readFileSync("package.json", "utf8")), workflows });
+  assert.deepEqual(issues.filter((issue) => issue.includes("is not valid YAML")), []);
 });
 
 test("CI contract verification reports stale scripts, files, and runtime matrices", async () => {
