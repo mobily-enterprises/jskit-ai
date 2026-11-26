@@ -457,13 +457,21 @@ test("shell-web packageMetadata pre-optimizes package subpaths reached through d
   ]);
 
   assert.deepEqual(packageMetadata?.metadata?.client?.optimizeDeps?.exclude, [
-    "@jskit-ai/shell-web/client"
+    "@jskit-ai/shell-web/client",
+    "@jskit-ai/shell-web/client/ui"
   ]);
 });
 
 test("all public shell JavaScript helpers are ready in a cold dependency scan", async () => {
-  // The provider loads application-owned /src modules. It and Vue components stay source.
-  const sourceEntries = new Set(["./client", "./client/providers/ShellWebClientProvider"]);
+  // The client entry and the UI kit export Vue components, which a dependency scan cannot prebundle, so each stays
+  // source by its own name in the exclude, never through another entry's prefix. The provider loads application-owned
+  // /src modules; the client bootstrap keeps it source by its own subpath, as the client entry is.
+  const vueEntries = ["./client", "./client/ui"];
+  const sourceEntries = new Set([...vueEntries, "./client/providers/ShellWebClientProvider"]);
+  for (const entry of vueEntries) {
+    assert.ok(packageMetadata.metadata.client.optimizeDeps.exclude.includes(`${packageJson.name}${entry.slice(1)}`),
+      `${packageJson.name}${entry.slice(1)} exports Vue components, so it stays source by its own name in the exclude.`);
+  }
   const helpers = Object.entries(packageJson.exports)
     .filter(([entry, target]) => entry.startsWith("./client/") && target.endsWith(".js") && !sourceEntries.has(entry))
     .map(([entry]) => `${packageJson.name}${entry.slice(1)}`)
