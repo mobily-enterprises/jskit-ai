@@ -1427,6 +1427,9 @@ for (const action of ["stop", "actor", "denied"]) {
       window.conversationFixture.target("chat:2");
     });
     await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current()?.identity.conversationId)).toBe("chat:2");
+    // Send refuses a message until the conversation has been read: on a loaded host chat:2's first read can still be on
+    // its way, and the first send would then be refused and never reach the server.
+    await expect.poll(() => f.page.evaluate(() => window.deferredBinding.runtime.value.available.value)).toBe(true);
     await f.command("mode", { mode: "hold" });
     await f.page.evaluate(() => {
       window.firstDeferred = window.deferredBinding.runtime.value.send({ message: "First in-flight request" }, { messageId: "first-held" });
