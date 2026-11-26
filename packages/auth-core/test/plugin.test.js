@@ -413,3 +413,28 @@ test("a bearer route signs in by the Authorization header alone, takes no CSRF t
   assert.equal(cookieRoute.statusCode, 403, "a cookie route still asks for its CSRF token");
   assert.equal(cookieRoute.headers["www-authenticate"], undefined);
 });
+
+test("a route that takes cookies is never signed in by a bearer answer, whatever the provider does", async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  await authPolicyPlugin({
+    // A provider that signs in by the Authorization header on every route, as no cookie route may be.
+    async resolveActor(request) {
+      return String(request.headers.authorization || "") === "Bearer good"
+        ? { authenticated: true, actor: { id: "7" }, credentials: "bearer", via: { userId: "1", name: "Mercbot" } }
+        : { authenticated: false, actor: null };
+    },
+    hasPermission() {
+      return true;
+    }
+  }, { appEnv: "test" })(app);
+  app.get("/api/me", { config: { authPolicy: "required" } }, (request) => ({ user: request.user?.id, via: request.actingVia }));
+  app.get("/api/mcp", { config: { authPolicy: "required", credentials: "bearer" } }, (request) => ({ user: request.user.id }));
+
+  const cookieRoute = await app.inject({ method: "GET", url: "/api/me", headers: { authorization: "Bearer good" } });
+  assert.equal(cookieRoute.statusCode, 401, cookieRoute.body);
+  assert.equal(cookieRoute.json().code, "auth.session.required");
+  assert.equal(cookieRoute.headers["www-authenticate"], undefined, "a cookie route challenges no bearer");
+  const bearerRoute = await app.inject({ method: "GET", url: "/api/mcp", headers: { authorization: "Bearer good" } });
+  assert.equal(bearerRoute.statusCode, 200, "the same answer signs in the route that takes it");
+});

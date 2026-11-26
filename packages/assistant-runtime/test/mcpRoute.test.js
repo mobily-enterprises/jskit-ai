@@ -34,12 +34,12 @@ const booksList = Object.freeze({
 
 // The MCP endpoint as an application serves it: its action and route beside one application action, on Fastify,
 // with the signed-in user "3" unless `signedIn` is false.
-async function mcpApp(t, { appConfig = config, signedIn = true } = {}) {
+async function mcpApp(t, { appConfig = config, signedIn = true, moreActions = [] } = {}) {
   const app = Fastify();
   t.after(() => app.close());
   const actions = createActionCatalogue();
   const mcp = createAssistantMcp({ actions, config: appConfig });
-  actions.register({ contributorId: "test.books", domain: "demo", actions: [booksList] });
+  actions.register({ contributorId: "test.books", domain: "demo", actions: [booksList, ...moreActions] });
   actions.register({ contributorId: "test.mcp", domain: "assistant", actions: createAssistantMcpActions({ mcp }) });
   if (signedIn) {
     actions.registerContextContributor({ id: "test.actor", contribute: () => ({ actor: { id: "3" } }) });
@@ -126,4 +126,29 @@ test("the endpoint signs in by a service key alone, answers GET and DELETE witho
   for (const method of ["GET", "DELETE"]) assert.equal(routes.get(method).auth, "public", method);
   const limited = routesOf({ ...config, assistantMcp: { surfaceId: "admin", rateLimit: { max: 120, timeWindow: "1 minute" } } });
   assert.deepEqual(limited.get("POST").rateLimit, { max: 120, timeWindowMs: 60_000 });
+});
+
+test("the endpoint never offers the actions that change how a person signs in, which a key's caller may not manage", async (t) => {
+  const signInAction = (id) => ({
+    ...booksList,
+    id,
+    kind: "command",
+    permission: { require: "authenticated" },
+    output: schema({ ok: { type: "boolean", required: true } }),
+    execute: async () => ({ ok: true })
+  });
+  const app = await mcpApp(t, {
+    moreActions: [
+      signInAction("auth.logout"),
+      signInAction("settings.security.sessions.logout_others"),
+      signInAction("settings.security.password_method.toggle"),
+      signInAction("settings.security.oauth.unlink"),
+      signInAction("settings.preferences.update")
+    ]
+  });
+  const listed = await post(app, { jsonrpc: "2.0", id: 1, method: "tools/list" });
+  assert.deepEqual(listed.json().result.tools.map((tool) => tool.name).sort(), ["demo_books_list", "settings_preferences_update"],
+    "the person's other settings stay tools");
+  const called = await post(app, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "settings_security_sessions_logout_others", arguments: {} } });
+  assert.match(called.json().error.message, /Unknown tool/u);
 });
