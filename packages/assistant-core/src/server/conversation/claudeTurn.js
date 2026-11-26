@@ -2,7 +2,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { randomUUID } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { setTimeout as delay } from "node:timers/promises";
-import { claudeNativeMessageId, readClaudeHistory, requireClaudeSessionId, retireClaudeConversationHistory } from "./claudeHistory.js";
+import { claudeNativeMessageId, ownClaudeHistory, readClaudeHistory, requireClaudeSessionId, retireClaudeConversationHistory } from "./claudeHistory.js";
 import { claudeTurnFailure, createClaudeConversationTurn } from "./claudeNativeTurn.js";
 import { bindClaudeConversationAccount, claudeCodeArguments, createClaudeAccountQueries } from "./claudeProcess.js";
 import { createClaudeCommandRun } from "./claudeCommandRun.js";
@@ -330,8 +330,8 @@ export function createClaudeConversationOwner({
     return entry.nativeTurn.readFinalAssistantResult(conversationId, turnId);
   }
 
-  function readHistory(entry, options) {
-    return readClaudeHistory({ configRoot, workdir: entry.nativeWorkdir, conversationId: entry.id, ...options });
+  function readHistory(entry, options) { // A live conversation's own parsed history: reading others never re-parses it.
+    return readClaudeHistory({ configRoot, workdir: entry.nativeWorkdir, conversationId: entry.id, ...options, history: ownClaudeHistory(entry) });
   }
 
   function savedState(saved, conversationId) {
