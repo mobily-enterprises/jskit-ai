@@ -369,6 +369,11 @@ Local functions
 - `createWorkspaceMatcher(workspaces)`
 - `collectNestedPackageJsonPaths(directory, results = [])`
 
+### `scripts/project-migrations.mjs`
+Exports
+- `installedPackageMigrations(root)`
+- `packageMigrationChanges(before, after, previousVersions)`
+
 ### `scripts/project-packages.mjs`
 Exports
 - `CATALOG_PACKAGE_ID`
@@ -393,7 +398,6 @@ Local functions
 - `alignLockManifestRecord(lockRecord, manifest, localPackageNames)`
 - `preparePackageLockForInstall(projectRoot, manifests, packageLockPath)`
 - `findImports(root, packageIds)`
-- `installedPackageMigrations(root)`
 - `approveInstallScripts(manifest, declared)`
 
 ### `scripts/test-budget.mjs`

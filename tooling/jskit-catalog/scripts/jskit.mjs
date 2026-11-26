@@ -326,6 +326,14 @@ async function main(argv = process.argv.slice(2)) {
         `${result.addedMigrations.map((entry) => `- ${entry}`).join("\n")}\n`
       );
     }
+    if (result.uncomparedPackages.length > 0) {
+      process.stdout.write(
+        `The update could not tell whether ${result.uncomparedPackages.length} updated package(s) add migrations, since ` +
+        `node_modules did not hold their previous versions; run npm run db:migrate before the app serves requests:\n` +
+        `${result.uncomparedPackages.map(({ packageId, previousVersion, version }) =>
+          `- ${packageId} ${previousVersion} -> ${version}`).join("\n")}\n`
+      );
+    }
     if (!options.install) {
       process.stdout.write(
         "Skipped npm install; run it before jskit check. If it installs new package migrations, run npm run db:migrate " +

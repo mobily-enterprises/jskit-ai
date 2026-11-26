@@ -312,6 +312,78 @@ test("a project update lists the package migrations its install added, which the
   });
 });
 
+test("an update without a previous install counts as new only the migrations of packages its previous lock lacked", async () => {
+  // A fresh checkout or worktree: package-lock.json records the packages, node_modules was never installed.
+  const catalog = {
+    ...CATALOG,
+    release: {
+      ...CATALOG.release,
+      packages: { ...CATALOG.release.packages, "@jskit-ai/workspaces-core": "0.1.2" }
+    }
+  };
+  await withProject(async (projectRoot) => {
+    await writeJson(path.join(projectRoot, "package.json"), {
+      name: "example-app",
+      private: true,
+      dependencies: {
+        "@jskit-ai/assistant-runtime": "0.1.3",
+        "@jskit-ai/shell-web": "0.1.4",
+        "@jskit-ai/workspaces-core": "0.1.2"
+      }
+    });
+    await writeJson(path.join(projectRoot, "package-lock.json"), {
+      name: "example-app",
+      lockfileVersion: 3,
+      packages: {
+        "": { name: "example-app" },
+        "node_modules/@jskit-ai/assistant-runtime": { version: "0.1.3" },
+        "node_modules/@jskit-ai/shell-web": { version: "0.1.4" }
+      }
+    });
+    const writeInstalled = async (name, version, migrations) => {
+      const installed = path.join(projectRoot, "node_modules", "@jskit-ai", name);
+      await writeJson(path.join(installed, "package.json"), {
+        name: `@jskit-ai/${name}`,
+        version,
+        jskit: { migrations: { directories: ["migrations"] } }
+      });
+      for (const file of migrations) {
+        await mkdir(path.dirname(path.join(installed, file)), { recursive: true });
+        await writeFile(path.join(installed, file), "module.exports = {};\n", "utf8");
+      }
+    };
+
+    const result = await updateProject({
+      projectRoot,
+      catalog,
+      async installProject() {
+        // A new version whose earlier files are not on disk, the same version, and a package the app never had.
+        await writeInstalled("assistant-runtime", "0.1.7", ["migrations/assistant_initial.cjs"]);
+        await writeInstalled("shell-web", "0.1.4", ["migrations/shell_initial.cjs"]);
+        await writeInstalled("workspaces-core", "0.1.2", ["migrations/workspaces_initial.cjs"]);
+        await writeJson(path.join(projectRoot, "package-lock.json"), {
+          name: "example-app",
+          lockfileVersion: 3,
+          packages: {
+            "": { name: "example-app" },
+            "node_modules/@jskit-ai/assistant-runtime": { version: "0.1.7" },
+            "node_modules/@jskit-ai/jskit-catalog": { version: "0.1.9" },
+            "node_modules/@jskit-ai/shell-web": { version: "0.1.4" },
+            "node_modules/@jskit-ai/workspaces-core": { version: "0.1.2" }
+          }
+        });
+        return { async commit() {}, async rollback() {} };
+      }
+    });
+
+    assert.deepEqual(result.addedMigrations, ["@jskit-ai/workspaces-core: migrations/workspaces_initial.cjs"]);
+    // Its previous version's files were never installed here, so whether it adds one is not known, and not counted.
+    assert.deepEqual(result.uncomparedPackages, [
+      { packageId: "@jskit-ai/assistant-runtime", previousVersion: "0.1.3", version: "0.1.7" }
+    ]);
+  });
+});
+
 test("default project update isolates a stale installed cohort before npm resolves the new graph", async () => {
   await withProject(async (projectRoot) => {
     await writeStaleInstalledProject(projectRoot);

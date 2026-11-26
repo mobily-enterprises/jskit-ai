@@ -2,6 +2,7 @@ import { readdir, readFile, realpath, rename, rm, writeFile } from "node:fs/prom
 import path from "node:path";
 import { fileExists, toPosixPath } from "./files.mjs";
 import { readOptionalFile, restoreProjectFiles, runNpmInstall, writeManifestUpdates } from "./project-install.mjs";
+import { installedPackageMigrations, packageMigrationChanges } from "./project-migrations.mjs";
 import { discoverProjectManifests, readJsonRecord, serializePackageJson } from "./project-manifests.mjs";
 
 const JSKIT_SCOPE_PREFIX = "@jskit-ai/";
@@ -517,32 +518,6 @@ async function findImports(root, packageIds) {
   return imports;
 }
 
-// The migration files the installed @jskit-ai packages ship (jskit.migrations.directories and their constraints/),
-// each "<package>: <path in the package>", as the app's migrations read them from node_modules.
-async function installedPackageMigrations(root) {
-  const scope = path.join(root, "node_modules", JSKIT_SCOPE_PREFIX);
-  const names = await readdir(scope).catch((error) => {
-    if (error?.code === "ENOENT") return [];
-    throw error;
-  });
-  const migrations = new Set();
-  for (const name of names) {
-    const packageRoot = path.join(scope, name);
-    const manifestPath = path.join(packageRoot, "package.json");
-    if (!(await fileExists(manifestPath))) continue;
-    const directories = (await readJsonRecord(manifestPath)).value.jskit?.migrations?.directories;
-    for (const directory of Array.isArray(directories) ? directories : []) {
-      for (const folder of [directory, path.join(directory, "constraints")]) {
-        const files = await readdir(path.join(packageRoot, folder)).catch(() => []);
-        for (const file of files.filter((entry) => entry.endsWith(".cjs"))) {
-          migrations.add(`${JSKIT_SCOPE_PREFIX}${name}: ${toPosixPath(path.join(folder, file))}`);
-        }
-      }
-    }
-  }
-  return migrations;
-}
-
 /**
  * Approves, in the root manifest's allowScripts, the install script of each JSKIT package in `declared` that has one,
  * unless the app already allows it by name or denies it in any entry.
@@ -682,10 +657,10 @@ async function updateProject({
   const packageLockPath = path.join(root, "package-lock.json");
   const packageLockSnapshot = install ? await readOptionalFile(packageLockPath) : null;
   // npm install replaces node_modules, so the migrations the packages shipped are read before it.
-  const migrationsBefore = install ? await installedPackageMigrations(root) : new Set();
+  const migrationsBefore = install ? await installedPackageMigrations(root) : new Map();
   await writeManifestUpdates(updates);
   let installTransaction = null;
-  let addedMigrations = [];
+  let migrationChanges = { addedMigrations: [], uncomparedPackages: [] };
   try {
     if (install) {
       const updatedManifests = await discoverProjectManifests(root, additionalManifests);
@@ -695,7 +670,12 @@ async function updateProject({
       if (!result.ok) {
         throw new Error(`JSKIT graph remains inconsistent after npm install:\n- ${result.issues.join("\n- ")}`);
       }
-      addedMigrations = [...await installedPackageMigrations(root)].filter((entry) => !migrationsBefore.has(entry)).sort();
+      // The previous lock's top-level JSKIT versions, for packages node_modules did not hold before.
+      const previousLock = packageLockSnapshot.exists ? JSON.parse(packageLockSnapshot.contents) : {};
+      const previousVersions = new Map(collectLockInstallations(previousLock)
+        .filter((entry) => entry.path === `node_modules/${entry.packageId}`)
+        .map((entry) => [entry.packageId, entry.version]));
+      migrationChanges = packageMigrationChanges(migrationsBefore, await installedPackageMigrations(root), previousVersions);
       await installTransaction.commit();
     }
   } catch (error) {
@@ -727,7 +707,8 @@ async function updateProject({
       updates.map((update) => toPosixPath(path.relative(root, update.manifest.absolutePath)))
     ),
     catalogVersion,
-    addedMigrations: Object.freeze(addedMigrations),
+    addedMigrations: Object.freeze(migrationChanges.addedMigrations),
+    uncomparedPackages: Object.freeze(migrationChanges.uncomparedPackages),
     retiredPackages: Object.freeze(retiredPackageIds.map((packageId) => Object.freeze({
       packageId,
       replacedBy: RETIRED_PACKAGES[packageId].packageId

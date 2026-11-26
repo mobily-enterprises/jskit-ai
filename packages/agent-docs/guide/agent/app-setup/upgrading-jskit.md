@@ -92,6 +92,14 @@ with an unknown `email_verified_at` column. Read each package's CHANGELOG
 **Upgrading** section too, for the changes the application itself must make,
 such as a feature to register.
 
+The updater compares each package's migration files with the ones its previous
+version installed in `node_modules`. In a checkout that was never installed,
+such as a fresh worktree, it compares through the previous `package-lock.json`
+instead: a package at the same version adds none, and a package the lock lacked
+adds all of its own. A package whose version moved has no earlier files there
+to compare, so the updater names it (`<package> <previous> -> <new>`) rather
+than counting its migrations as new, and says to run `npm run db:migrate`.
+
 ## Separately composed packages
 
 Pass each additional manifest explicitly to both commands:
