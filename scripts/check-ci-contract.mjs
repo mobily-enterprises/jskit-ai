@@ -1,6 +1,7 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { browserTestFiles } from "./test-browser.mjs";
 import { postgresTestFiles } from "./test-postgres.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
@@ -72,16 +73,24 @@ function fileNameMatcher(pattern) {
   return new RegExp(`^${parts.join("[^/]*")}$`, "u");
 }
 
-// Whether a readable test target names, or its `*` matches, a file test:postgres picks: a data test named by hand in
-// a workflow is a list a new data test file is left out of, as CI's PostgreSQL job once left out six.
-async function namesPickedDataTest(relativeTarget, pickedDataTestFiles, { repoRoot, listDirectory }) {
+// The files a readable test target names: itself, or the files its `*` matches.
+async function targetFiles(relativeTarget, { repoRoot, listDirectory }) {
   if (!GLOB_CHARACTERS.test(relativeTarget)) {
-    return pickedDataTestFiles.has(path.posix.normalize(relativeTarget));
+    return [path.posix.normalize(relativeTarget)];
   }
   const directory = path.posix.normalize(path.posix.dirname(relativeTarget));
   const matcher = fileNameMatcher(path.posix.basename(relativeTarget));
-  const names = await listDirectory(path.resolve(repoRoot, directory));
-  return names.some((name) => matcher.test(name) && pickedDataTestFiles.has(path.posix.join(directory, name)));
+  return (await listDirectory(path.resolve(repoRoot, directory)))
+    .filter((name) => matcher.test(name))
+    .map((name) => path.posix.join(directory, name));
+}
+
+// The JSKIT_* switches each step that runs `npm run test:browser` sets to "1" on itself, one set per step: the
+// workflow splits at each step and at each job, so a job's own lines never count as its previous job's last step.
+function collectBrowserStepSwitches(workflowSource = "") {
+  return String(workflowSource).split(/^(?=[ \t]*- (?:name|run|uses):| {2}[A-Za-z0-9_-]+:[ \t]*$)/mu)
+    .filter((step) => /\bnpm run test:browser\b/u.test(step))
+    .map((step) => new Set([...step.matchAll(/^\s+(JSKIT_[A-Z0-9_]+):\s*["']?1["']?\s*$/gmu)].map((match) => match[1])));
 }
 
 async function collectCiContractIssues({
@@ -97,7 +106,8 @@ async function collectCiContractIssues({
     }
   },
   listDirectory = async (directoryPath) => readdir(directoryPath).catch(() => []),
-  pickedDataTestFiles = new Set(postgresTestFiles(repoRoot))
+  pickedDataTestFiles = new Set(postgresTestFiles(repoRoot)),
+  browserTests = browserTestFiles(repoRoot)
 } = {}) {
   const issues = [];
   const scripts = packageJson?.scripts && typeof packageJson.scripts === "object"
@@ -118,13 +128,36 @@ async function collectCiContractIssues({
         const issue = await testTargetIssue(workflowName, relativeTarget, { repoRoot, pathExists, listDirectory });
         if (issue) {
           issues.push(issue);
-        } else if (await namesPickedDataTest(relativeTarget, pickedDataTestFiles, { repoRoot, listDirectory })) {
+          continue;
+        }
+        // A test file a workflow names by hand is a list a new file is left out of, as CI's PostgreSQL job once left
+        // out six data tests and its browser job ten browser tests.
+        const files = await targetFiles(relativeTarget, { repoRoot, listDirectory });
+        if (files.some((file) => pickedDataTestFiles.has(file))) {
           issues.push(
             `${workflowName} runs data test target "${relativeTarget}" by hand; run \`npm run verify\`, ` +
             "`npm run test:sqlite` or `npm run test:postgres`, which pick every data test file themselves, so none is left out."
           );
+        } else if (files.some((file) => file.endsWith(".browser.test.js"))) {
+          issues.push(
+            `${workflowName} runs browser test target "${relativeTarget}" by hand; set its JSKIT_* switch to "1" on a step ` +
+            "that runs `npm run test:browser`, which picks every browser test file whose switch the step sets, so none is left out."
+          );
         }
       }
+    }
+  }
+
+  // Every browser test file runs in CI: some step that runs `npm run test:browser` sets all its switches.
+  const browserSteps = Object.values(workflows || {}).flatMap((workflowSource) => collectBrowserStepSwitches(workflowSource));
+  for (const { file, switches } of browserTests) {
+    if (switches.length < 1) {
+      issues.push(`Browser test file "${file}" has no JSKIT_* switch (process.env.JSKIT_X === "1"), so \`npm run test:browser\` never picks it.`);
+    } else if (!browserSteps.some((step) => switches.every((name) => step.has(name)))) {
+      issues.push(
+        `No CI step runs browser test file "${file}": set ${switches.map((name) => `${name}: "1"`).join(" and ")} ` +
+        "on a step that runs `npm run test:browser`."
+      );
     }
   }
 

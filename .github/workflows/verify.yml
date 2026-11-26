@@ -89,102 +89,117 @@ jobs:
       - name: Install Chromium
         run: npx --yes --allow-scripts=fsevents playwright@1.61.1 install --with-deps chromium
 
+      # Each step sets JSKIT_* switches; npm run test:browser runs every browser test file whose switches are set, and
+      # check:ci refuses a browser test file no step's switches turn on, so a new one is never left out of a list.
       - name: Verify foundation loading before JavaScript
         env:
           JSKIT_FOUNDATION_STARTUP_INTEGRATION: "1"
-        run: npx jskit test packages/agent-docs/test/foundationStartup.browser.test.js
+        run: npm run test:browser
 
       - name: Verify a preview can frame the application
         env:
           JSKIT_KERNEL_FRAMING_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/kernel/test/securityHeadersFraming.browser.test.js
+        run: npm run test:browser
 
       - name: Verify linked application package caching
         env:
           JSKIT_VITE_LINKED_PACKAGE_CACHE_INTEGRATION: "1"
-        run: npx jskit test packages/agent-docs/test/viteLinkedPackageCache.browser.test.js
+        run: npm run test:browser
 
       - name: Verify responsive CRUD date filters
         env:
           JSKIT_HTTP_WEB_DATE_FILTER_VISUAL_INTEGRATION: "1"
-        run: npx jskit test packages/http-web/test/crudListDateFilterSurface.browser.test.js
+        run: npm run test:browser
 
       - name: Verify select fields never show stored ids
         env:
           JSKIT_HTTP_WEB_SELECT_FIELD_BROWSER: "1"
-        run: npx jskit test packages/http-web/test/selectField.browser.test.js
+        run: npm run test:browser
 
       - name: Verify list record action menus are menus
         env:
           JSKIT_HTTP_WEB_RECORD_ACTION_MENU_BROWSER: "1"
-        run: npx jskit test packages/http-web/test/crudListRecordActionMenu.browser.test.js
+        run: npm run test:browser
+
+      - name: Verify pending CRUD buttons keep keyboard focus
+        env:
+          JSKIT_HTTP_WEB_PENDING_FOCUS_BROWSER: "1"
+        run: npm run test:browser
 
       - name: Verify select typeahead while a menu opens
         env:
           JSKIT_CONNECTORS_WEB_BROWSER: "1"
-        run: npx jskit test packages/connectors-web/test/selectTypeahead.browser.test.js
+        run: npm run test:browser
 
       - name: Verify Vuetify's idle loaders read no layout once patched, and Material 3 sliders
         env:
           JSKIT_MATERIAL_WEB_BROWSER: "1"
-        run: npx jskit test packages/material-web/test/*.browser.test.js
+        run: npm run test:browser
 
-      - name: Verify shared assistant conversation UI
+      - name: Verify shared assistant conversation UI: scrolling, message delivery and the transcript theme
         env:
           JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/assistant-core/test/assistantScroll.browser.test.js
+        run: npm run test:browser
 
-      - name: Verify ready-made assistant lifecycle
+      - name: Verify the ready-made assistant: its lifecycle, conversation binding and the settings pane's app bar Save
         env:
           JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/assistant-runtime/test/conversation.browser.test.js
+        run: npm run test:browser
 
-      - name: Verify the assistant settings pane's app bar Save
-        env:
-          JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/assistant-runtime/test/assistantSettings.browser.test.js
-
-      - name: Verify adaptive shell behavior and the inert page behind a dialog
+      - name: Verify the adaptive shell, the inert page behind a dialog, pending actions' focus, the environment banner and the production build
         env:
           JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/shell-web/test/adaptiveShell.browser.test.js packages/shell-web/test/inertBehindDialog.browser.test.js
-
-      - name: Verify pending command buttons keep keyboard focus
-        env:
-          JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
-          JSKIT_HTTP_WEB_PENDING_FOCUS_BROWSER: "1"
-        run: npx jskit test packages/shell-web/test/pendingAction.browser.test.js packages/http-web/test/crudPendingFocus.browser.test.js
+        run: npm run test:browser
 
       - name: Verify the Material 3 baselines
         env:
           JSKIT_MATERIAL_BASELINES: "1"
-        run: npx jskit test packages/shell-web/test/materialBaselines.browser.test.js packages/http-web/test/crudScreensMaterialBaselines.browser.test.js
+        run: npm run test:browser
 
       - name: Verify sign-in, second-factor, strict-cookie and pass sign-in behavior
         env:
           JSKIT_AUTH_WEB_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/auth-web/test/signIn.browser.test.js packages/auth-web/test/secondFactor.browser.test.js packages/auth-web/test/sameSiteStrict.browser.test.js packages/auth-web/test/passSignIn.browser.test.js
+        run: npm run test:browser
 
-      - name: Verify account settings behavior
+      - name: Verify account settings behavior and a translated app with no English
         env:
           JSKIT_USERS_WEB_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/users-web/test/accountSettings.browser.test.js
+        run: npm run test:browser
 
-      - name: Verify a translated app shows no English
+      - name: Verify the billing component's layout, keyboard actions and recoverable states
         env:
-          JSKIT_USERS_WEB_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/users-web/test/translatedApp.browser.test.js
+          JSKIT_PAYMENTS_WEB_BROWSER_INTEGRATION: "1"
+        run: npm run test:browser
+
+      - name: Verify image uploads on real Uppy
+        env:
+          JSKIT_UPLOADS_IMAGE_WEB_BROWSER: "1"
+        run: npm run test:browser
 
       - name: Verify an unknown or refused workspace opens the Not found page
         env:
           JSKIT_WORKSPACES_WEB_NOT_FOUND_BROWSER: "1"
-        run: npx jskit test packages/workspaces-web/test/workspaceNotFound.browser.test.js
+        run: npm run test:browser
 
       - name: Verify the invitation page for the invited address and for another account
         env:
           JSKIT_WORKSPACES_WEB_INVITE_LANDING_BROWSER: "1"
-        run: npx jskit test packages/workspaces-web/test/workspaceInviteLanding.browser.test.js
+        run: npm run test:browser
 
+      - name: Verify workspace role labels
+        env:
+          JSKIT_WORKSPACE_ROLE_LABELS_BROWSER: "1"
+        run: npm run test:browser
+
+      - name: Verify the workspace components
+        env:
+          JSKIT_WORKSPACES_WEB_COMPONENTS_BROWSER: "1"
+        run: npm run test:browser
+
+      - name: Verify the workspaces landing page
+        env:
+          JSKIT_WORKSPACES_LANDING_BROWSER: "1"
+        run: npm run test:browser
   browser-database:
     runs-on: ubuntu-latest
     timeout-minutes: 10

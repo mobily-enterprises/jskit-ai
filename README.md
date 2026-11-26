@@ -37,7 +37,10 @@ files again with `DB_CLIENT` unset, on SQLite in memory, which no other run
 covers. The `*.postgres.test.js` files skip on the MariaDB run: `npm run
 test:postgres` (CI's PostgreSQL job) runs them and the same data-test files on
 PostgreSQL, with `DB_CLIENT=pg` and `DB_NAME` the same as `TEST_DB_NAME`. A whole
-run is `npm run verify` on MariaDB, then `npm run test:postgres`. On MariaDB, where a
+run is `npm run verify` on MariaDB, then `npm run test:postgres`. The browser
+tests skip unless their `JSKIT_*` switch is `1`: `npm run test:browser` runs every
+browser test file whose switch is set, as each step of CI's browser job sets
+one, and `check:ci` refuses a browser test file no step turns on. On MariaDB, where a
 package data test claims one of `TEST_DB_NAME`'s lettered copies,
 database-runtime's claim tests make a database user granted only those copies:
 the run's database user needs `CREATE USER`, and all privileges with
