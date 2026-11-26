@@ -29,7 +29,7 @@ function decodeAvailable(recognizer, stream, vocabulary) {
 function createRecognitionSession(recognizer, {
   vocabulary = {},
   minimumRms = 0,
-  tailPaddingSeconds = 0.45,
+  tailPaddingSeconds = 0.75,
   onPartial = ignoreRecognizedText,
   onEndpoint = ignoreRecognizedText,
   continuous = false

@@ -102,12 +102,12 @@ test("streaming recognition uses bounded beam search and its installed technical
   await listening.acceptPcm(Buffer.alloc(320));
   assert.equal(endpoints.at(-1), "Acme Labs uses SQL");
   assert.equal(await listening.finish(), "Acme Labs uses SQL");
-  assert.equal(waveforms.at(-1).samples.length, 7200, "default finalization preserves the original 0.45-second lookahead");
+  assert.equal(waveforms.at(-1).samples.length, 12000, "default finalization feeds 0.75 seconds of lookahead");
   listening.cancel();
   assert.equal(await listening.isEndpoint(), false);
   result = "";
   assert.equal(await engine.createListeningSession().finish(), "");
-  assert.equal(waveforms.at(-1).samples.length, 7200, "default empty finalization still feeds native lookahead");
+  assert.equal(waveforms.at(-1).samples.length, 12000, "default empty finalization still feeds native lookahead");
   assert.equal(finishes, 2);
 });
 

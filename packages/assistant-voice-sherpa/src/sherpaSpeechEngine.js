@@ -138,7 +138,7 @@ async function createSherpaSpeechEngine({
     return value;
   }
   configuration = modelPaths(configuration);
-  const tailPaddingSeconds = configuration.recognizerTailPaddingSeconds ?? 0.45;
+  const tailPaddingSeconds = configuration.recognizerTailPaddingSeconds ?? 0.75;
   if (!Number.isFinite(tailPaddingSeconds) || tailPaddingSeconds < 0 || tailPaddingSeconds > 3) {
     throw new TypeError("Recognizer tail padding must be between zero and three seconds.");
   }

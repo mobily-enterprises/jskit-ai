@@ -211,7 +211,9 @@ model paths. Speaker IDs are specific to the selected model. Unknown IDs and
 invalid/duplicate catalogue entries fail explicitly. Voices do not change a
 conversation's reasoning model. Tail padding supplies recognizer lookahead when a
 recording ends immediately after a word; it does not wait for wall-clock silence.
-Its default is 0.45 seconds; an explicit value from 0 to 3 seconds overrides it.
+Its default is 0.75 seconds, the least that keeps the last word when a recording
+ends on it with the default pack (0.45 seconds dropped it: "the latest version"
+was heard as "the latest vers"); an explicit value from 0 to 3 seconds overrides it.
 The RMS floor is disabled by default (`0`), preserving native silence handling
 and finalization. An explicit positive value up to 0.1 gates the initial input;
 `0.001` (−60 dBFS) is the opt-in example above. After onset, all frames reach the
