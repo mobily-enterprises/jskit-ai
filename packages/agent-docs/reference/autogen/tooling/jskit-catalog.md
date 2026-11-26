@@ -55,12 +55,14 @@ Exports
 ### `scripts/browser-tests.mjs`
 Exports
 - `SETTINGS_VARIABLE`
-- `browserTestConfig({ testDir = "./tests/e2e", port = DEFAULT_PORT, server = "node ./bin/server.js", build = "npm run build", prepare = "", signIn = "", env = {}, health = "/api/health", globalTimeout = GLOBAL_TIMEOUT_MS, actionTimeout = ACTION_TIMEOUT_MS, navigationTimeout = NAVIGATION_TIMEOUT_MS, environment = process.env, cwd = process.cwd() } = {})`
+- `browserTestConfig({ testDir = "./tests/e2e", port = 0, server = "node ./bin/server.js", build = "npm run build", prepare = "", signIn = "", env = {}, health = "/api/health", globalTimeout = GLOBAL_TIMEOUT_MS, actionTimeout = ACTION_TIMEOUT_MS, navigationTimeout = NAVIGATION_TIMEOUT_MS, environment = process.env, cwd = process.cwd() } = {})`
 - `browserTestWorkers({ env = process.env, argv = process.argv } = {})`
 Local functions
 - `positiveInteger(value)`
 - `managedBaseUrl(env)`
 - `commandLineWorkers(argv)`
+- `listen(port)`
+- `freeConsecutivePorts(host, count)`
 - `preparedWorkerEnvironment(file, index)`
 
 ### `scripts/build-catalog.mjs`

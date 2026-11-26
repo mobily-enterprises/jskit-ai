@@ -34,7 +34,7 @@ Rules:
   assert that each Up returns to its origin in order; a direct `page.goto()`
   asserts the declared parent. Do not replace this wait with sleeps.
 - A managed runner supplies `PLAYWRIGHT_BASE_URL`. When it is set, JSKIT does not start another app server.
-- Otherwise the config starts the app on `PLAYWRIGHT_PORT`, 4173 by default. A runner that shares a machine between runs sets a free port for each run; with one fixed port, a second run would wait for it or reuse another run's server.
+- Otherwise the config starts the app on `PLAYWRIGHT_PORT` when a runner sets it, and by default on free ports of the run's own, which it gives its workers in `PLAYWRIGHT_PORT`: two runs on one machine never wait for each other's port or reuse another run's server. Never fix a port in the config.
 - A managed runner may supply an authenticated context through `PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
 - Shared CRUD lists retain both card and table markup and hide the inactive
   layout with CSS. Select visible record text with

@@ -43,21 +43,24 @@ test("each local worker reaches its own server's port, and the run is bounded an
   assert.match(config.webServer.command, /browser-test-servers\.mjs"$/u);
   assert.equal(config.webServer.timeout, 180_000);
   assert.match("jskit browser tests: 4 server(s) ready in 3.1s; logs in test-results/browser-test-servers.", config.webServer.wait.stdout);
+  // The run took free ports of its own and hands them to its workers in PLAYWRIGHT_PORT.
+  const basePort = Number(environment.PLAYWRIGHT_PORT);
+  assert.ok(basePort >= 20000 && basePort < 32000, String(environment.PLAYWRIGHT_PORT));
   assert.deepEqual(JSON.parse(config.webServer.env[SETTINGS_VARIABLE]), {
     workers: 2,
     host: "127.0.0.1",
-    basePort: 4173,
+    basePort,
     server: "node ./bin/server.js",
     build: "npm run build",
     prepare: "",
     env: {},
     health: "/api/health",
-    workerEnvironments: path.resolve("node_modules", ".cache", "jskit-browser-tests", "workers-4173.json")
+    workerEnvironments: path.resolve("node_modules", ".cache", "jskit-browser-tests", `workers-${basePort}.json`)
   });
 
   const baseURLs = ["0", "1", "2", "3"].map((index) =>
     browserTestConfig({ environment: { ...environment, TEST_PARALLEL_INDEX: index } }).use.baseURL);
-  assert.deepEqual(baseURLs, ["http://127.0.0.1:4173", "http://127.0.0.1:4174", "http://127.0.0.1:4175", "http://127.0.0.1:4176"]);
+  assert.deepEqual(baseURLs, [0, 1, 2, 3].map((offset) => `http://127.0.0.1:${basePort + offset}`));
   assert.equal(new Set(baseURLs).size, 4);
   assert.equal(browserTestConfig({ environment: { PLAYWRIGHT_PORT: "4183", TEST_PARALLEL_INDEX: "1" } }).use.baseURL,
     "http://127.0.0.1:4184");
@@ -68,7 +71,7 @@ test("each local worker reaches its own server's port, and the run is bounded an
     "/tmp/state.json");
   // With a signIn module, each worker starts from its own server's signed-in state, and a host's login still wins.
   const signIn = "tests/e2e/sign-in.mjs";
-  const signedInStates = path.resolve("node_modules", ".cache", "jskit-browser-tests", "signed-in-4173");
+  const signedInStates = path.resolve("node_modules", ".cache", "jskit-browser-tests", `signed-in-${basePort}`);
   assert.deepEqual(JSON.parse(browserTestConfig({ signIn, environment }).webServer.env[SETTINGS_VARIABLE]).signedInStates, signedInStates);
   const signedInWorker = { ...environment, TEST_PARALLEL_INDEX: "1" };
   assert.equal(browserTestConfig({ signIn, environment: signedInWorker }).use.storageState, `${signedInStates}-1.json`);
@@ -111,6 +114,31 @@ test("a managed target starts no server and runs one worker unless the runner se
   assert.equal(browserTestConfig({ environment: { ...environment, PLAYWRIGHT_WORKERS: "3" } }).workers, 3);
   assert.equal(browserTestConfig({ environment: { ...environment, PLAYWRIGHT_STORAGE_STATE: "/tmp/state.json" } }).use.storageState,
     "/tmp/state.json");
+});
+
+test("a local run takes free ports of its own, so a second run on the machine never meets the first's servers", async () => {
+  const first = { V64_TEST_CONCURRENCY: "6" };
+  browserTestConfig({ environment: first });
+  const firstPort = Number(first.PLAYWRIGHT_PORT);
+  // The first run's three servers hold its ports while a second run on the same machine sets up.
+  const held = await Promise.all([0, 1, 2].map((offset) => listenOn(firstPort + offset)));
+  try {
+    assert.ok(held.every(Boolean), `ports from ${firstPort}`);
+    const second = { V64_TEST_CONCURRENCY: "6" };
+    assert.equal(browserTestConfig({ environment: second }).use.baseURL, `http://127.0.0.1:${second.PLAYWRIGHT_PORT}`);
+    const secondPort = Number(second.PLAYWRIGHT_PORT);
+    for (const offset of [0, 1, 2]) {
+      const server = await listenOn(secondPort + offset);
+      assert.ok(server, `the second run's port ${secondPort + offset} is free`);
+      held.push(server);
+    }
+  } finally {
+    await Promise.all(held.filter(Boolean).map((server) => new Promise((resolve) => server.close(resolve))));
+  }
+  // The runner's ports win, and a worker only ever takes the run's.
+  assert.equal(browserTestConfig({ environment: { PLAYWRIGHT_PORT: "4183" } }).use.baseURL, "http://127.0.0.1:4183");
+  assert.throws(() => browserTestConfig({ environment: { TEST_PARALLEL_INDEX: "1" } }),
+    /A Playwright worker found no PLAYWRIGHT_PORT: the run's own configuration sets it before its workers start\./u);
 });
 
 test("the command line's --workers starts that many servers, and a percentage is refused", () => {
@@ -305,6 +333,10 @@ test("a local run starts one server per worker, each on its own port and with it
       const signedInWorker = { PLAYWRIGHT_PORT: String(basePort), TEST_PARALLEL_INDEX: "2" };
       assert.equal(browserTestConfig({ signIn: settings.signIn, environment: signedInWorker, cwd: root }).use.storageState,
         `${settings.signedInStates}-2.json`);
+      // Stopped, the run removes the files it left for its workers: each run's ports, and so its file names, are its own.
+      child.kill("SIGTERM");
+      assert.equal(await exitOf(child), 143);
+      assert.deepEqual(await readdir(cache), []);
     } finally {
       child.kill("SIGTERM");
     }

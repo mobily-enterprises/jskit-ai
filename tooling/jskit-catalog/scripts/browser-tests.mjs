@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -17,7 +18,6 @@ const SLOWEST_TESTS = fileURLToPath(new URL("./browser-test-times.mjs", import.m
 const SETTINGS_VARIABLE = "JSKIT_BROWSER_TESTS";
 const READY = /^jskit browser tests: \d+ server\(s\) ready/mu;
 const HOST = "127.0.0.1";
-const DEFAULT_PORT = 4173;
 // A whole run's default bound: a suite that would take hours stops instead, and says so. A suite measured to need
 // longer passes its own globalTimeout, with the measurement beside it.
 const GLOBAL_TIMEOUT_MS = 20 * 60_000;
@@ -66,6 +66,39 @@ function browserTestWorkers({ env = process.env, argv = process.argv } = {}) {
     (managedBaseUrl(env) ? 1 : Math.max(1, Math.floor(testConcurrency({ env }) / 2)));
 }
 
+// Finds `count` consecutive ports nothing listens on, at a random place below Linux's ephemeral range, and prints the
+// first. A child process, since a Playwright configuration is built synchronously.
+const FREE_PORTS = `
+const net = require("node:net");
+const [host, count] = [process.argv[1], Number(process.argv[2])];
+const listen = (port) => new Promise((resolve) => {
+  const server = net.createServer();
+  server.once("error", () => resolve(null));
+  server.listen(port, host, () => resolve(server));
+});
+(async () => {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const base = 20000 + Math.floor(Math.random() * (12000 - count));
+    const held = [];
+    while (held.length < count) {
+      const server = await listen(base + held.length);
+      if (!server) break;
+      held.push(server);
+    }
+    await Promise.all(held.map((server) => new Promise((resolve) => server.close(resolve))));
+    if (held.length === count) return process.stdout.write(String(base));
+  }
+  process.exitCode = 1;
+})();`;
+
+/** The first of `count` consecutive free ports on host: a local run's default, so two runs on one machine never share. */
+function freeConsecutivePorts(host, count) {
+  const found = spawnSync(process.execPath, ["-e", FREE_PORTS, host, String(count)], { encoding: "utf8", timeout: 30_000 });
+  const port = positiveInteger(found.stdout);
+  if (!port) throw new Error(`browserTestConfig() found no ${count} consecutive free port(s) on ${host}; set PLAYWRIGHT_PORT to free ports.`);
+  return port;
+}
+
 /** The environment the launcher gave worker `index`'s server, from the app's prepare module, or none. */
 function preparedWorkerEnvironment(file, index) {
   try {
@@ -80,7 +113,8 @@ function preparedWorkerEnvironment(file, index) {
  * The Playwright configuration of an application's browser tests.
  * @param {object} [options]
  * @param {string} [options.testDir] Where the specs are.
- * @param {number} [options.port] The first worker's port; worker n uses port + n. PLAYWRIGHT_PORT overrides it.
+ * @param {number} [options.port] The first worker's port; worker n uses port + n. PLAYWRIGHT_PORT overrides it. By
+ *   default a local run takes free ports and gives them to its workers in PLAYWRIGHT_PORT.
  * @param {string} [options.server] The command that starts the app server, reading PORT and HOST.
  * @param {string} [options.build] The command that builds the production frontend into the folder the server serves.
  * @param {string} [options.prepare] An app module, run once before the servers start, whose default export
@@ -103,7 +137,7 @@ function preparedWorkerEnvironment(file, index) {
  */
 function browserTestConfig({
   testDir = "./tests/e2e",
-  port = DEFAULT_PORT,
+  port = 0,
   server = "node ./bin/server.js",
   build = "npm run build",
   prepare = "",
@@ -126,7 +160,15 @@ function browserTestConfig({
   }
   const managed = managedBaseUrl(environment);
   const workers = browserTestWorkers({ env: environment });
-  const basePort = positiveInteger(environment.PLAYWRIGHT_PORT) || port;
+  let basePort = positiveInteger(environment.PLAYWRIGHT_PORT) || port;
+  if (!basePort && !managed) {
+    // Playwright's workers load this config again: they take the ports the run took, which only the run finds.
+    if (String(environment.TEST_PARALLEL_INDEX ?? "").trim() !== "") {
+      throw new Error("A Playwright worker found no PLAYWRIGHT_PORT: the run's own configuration sets it before its workers start.");
+    }
+    basePort = freeConsecutivePorts(HOST, workers);
+    environment.PLAYWRIGHT_PORT = String(basePort);
+  }
   // A Playwright worker loads this config again, with its own TEST_PARALLEL_INDEX, and reaches its own server; its
   // process takes the environment prepare gave that server, such as its DB_NAME, before any test file loads.
   const workerIndex = managed ? 0 : Number.parseInt(String(environment.TEST_PARALLEL_INDEX || "0"), 10) || 0;

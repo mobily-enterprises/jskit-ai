@@ -9,10 +9,12 @@
 // Playwright gives its webServer (a Playwright that ended without stopping it), the launcher stops its servers and
 // waits for them, then drops the numbered database copies the prepare module made, within Playwright's grace, before it
 // exits; it drops them too when its start fails. `jskit browser-test-server` (browser-test-server.mjs) runs it
-// for one server a host starts, with `terminal`: that server's output also reaches the launcher's own.
+// for one server a host starts, with `terminal`: that server's output also reaches the launcher's own. A run takes free
+// ports of its own, so its worker environments and signed-in states have names of their own; the launcher removes them
+// when it stops, so they never pile up in the cache, nor outlive the sessions they hold.
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { createWriteStream, fstatSync, mkdirSync, writeFileSync } from "node:fs";
+import { createWriteStream, fstatSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import net from "node:net";
 import path from "node:path";
@@ -102,6 +104,8 @@ async function waitUntilReady(url, server, name) {
 
 const servers = [];
 let stopping = false;
+// The files this run leaves for its workers, which it removes when it stops.
+let runFiles = [];
 // The prepare module's work, which a stop waits for (within DROP_WAIT_MS) so the copies it is making are dropped too.
 let preparing = Promise.resolve();
 const running = (server) => server.exitCode === null && server.signalCode === null;
@@ -129,6 +133,7 @@ async function stopAndExit(code) {
     console.error(`[browser-tests] The prepared test database copies were not all dropped within ${DROP_WAIT_MS / 1000}s; ` +
       "the next run makes them afresh and drops them.");
   }
+  for (const file of runFiles) rmSync(file, { force: true });
   process.exit(code);
 }
 process.once("SIGINT", () => stopAndExit(130));
@@ -152,6 +157,8 @@ useTestAppEnvironment(process.env, "jskit browser tests");
 const baseEnvironment = { ...process.env };
 delete baseEnvironment[SETTINGS_VARIABLE];
 const baseUrls = Array.from({ length: workers }, (_, index) => `http://${host}:${basePort + index}`);
+runFiles = [workerEnvironmentsFile, ...(signedInStates ? baseUrls.map((_, index) => `${signedInStates}-${index}.json`) : [])]
+  .filter(Boolean);
 try {
   await refuseBusyPorts(host, baseUrls.map((_, index) => basePort + index));
   preparing = prepareWorkers(appRoot, prepare, workers, baseUrls);

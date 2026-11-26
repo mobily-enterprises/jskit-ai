@@ -174,11 +174,13 @@ test("foundation browser configurations serve the production build, a server per
     const local = await load({ V64_TEST_CONCURRENCY: "6" });
     assert.match(local.webServer.command, /^node "[^"]*\/browser-test-servers\.mjs"$/u);
     const settings = JSON.parse(local.webServer.env.JSKIT_BROWSER_TESTS);
+    // A local run takes free ports of its own, so two runs on one machine never share a server.
+    assert.ok(settings.basePort >= 20000 && settings.basePort < 32000, String(settings.basePort));
     assert.deepEqual(
-      { workers: settings.workers, basePort: settings.basePort, server: settings.server, build: settings.build },
-      { workers: 3, basePort: 4173, server: "node ./bin/server.js", build: "npm run build" }
+      { workers: settings.workers, server: settings.server, build: settings.build },
+      { workers: 3, server: "node ./bin/server.js", build: "npm run build" }
     );
-    assert.equal(local.baseURL, "http://127.0.0.1:4173");
+    assert.equal(local.baseURL, `http://127.0.0.1:${settings.basePort}`);
     assert.equal(local.globalTimeout, 20 * 60_000);
     const packageJson = await readExamplePackageJson(patternName);
     assert.equal(packageJson.scripts?.build, "vite build");
