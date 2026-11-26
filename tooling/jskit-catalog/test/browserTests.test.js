@@ -199,7 +199,8 @@ test("the frontend is built once, and rebuilt only when an input's contents chan
   });
 });
 
-test("the frontend build is keyed on what it read: a server-only edit reuses it, a client edit or a new client file rebuilds it",
+test("the frontend build is keyed on what it read: a server-only edit reuses it; a client edit, a new client file or an edit " +
+  "made while it builds rebuilds it",
   async () => {
     await withProject({
       "package.json": { name: "app", private: true, type: "module" },
@@ -213,6 +214,7 @@ test("the frontend build is keyed on what it read: a server-only edit reuses it,
       "packages/billing/src/server/charge.js": "export const charge = () => 1;\n"
     }, async (root) => {
       let builds = 0;
+      let duringBuild = null;
       // The app's `vite build`, in this process, with the JSKIT plugin every app's Vite config has.
       const run = async (command, appRoot, environment) => {
         builds += 1;
@@ -221,14 +223,21 @@ test("the frontend build is keyed on what it read: a server-only edit reuses it,
         process.chdir(appRoot);
         try {
           await viteBuild({ root: appRoot, configFile: false, logLevel: "silent", plugins: [createJskitClientBootstrapPlugin()] });
+          await duringBuild?.();
         } finally {
+          duringBuild = null;
           process.chdir(previousDirectory);
           for (const name of Object.keys(environment)) delete process.env[name];
           if (nodeEnv === undefined) delete process.env.NODE_ENV;
           else process.env.NODE_ENV = nodeEnv;
         }
       };
-      const rebuilds = async () => (await buildFrontend({ appRoot: root, run })).built;
+      const rebuilds = async () => {
+        // File times come from a coarse clock, a tick of a few milliseconds: an edit in the tick a build starts in counts
+        // as made while it ran.
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return (await buildFrontend({ appRoot: root, run })).built;
+      };
       assert.equal(await rebuilds(), true);
       assert.equal(await rebuilds(), false);
       for (const [file, content] of [
@@ -248,10 +257,21 @@ test("the frontend build is keyed on what it read: a server-only edit reuses it,
         assert.equal(await rebuilds(), true, `${file} is read by the build, or sits beside what it read`);
       }
       const assets = path.join(root, "dist", "assets");
-      const bundle = (await Promise.all((await readdir(assets)).filter((name) => name.endsWith(".js"))
+      const bundle = async () => (await Promise.all((await readdir(assets)).filter((name) => name.endsWith(".js"))
         .map((name) => readFile(path.join(assets, name), "utf8")))).join("\n");
-      assert.match(bundle, /about/u, "the new page is in the build");
-      assert.equal(builds, 5);
+      assert.match(await bundle(), /about/u, "the new page is in the build");
+
+      // An edit that lands while the build runs, after it read the file: that build holds the old code, so the next run
+      // builds again, with the edit.
+      const badge = path.join(root, "packages/billing/src/client/badge.js");
+      await writeFile(badge, 'export const badge = "overdue";\n');
+      duringBuild = () => writeFile(badge, 'export const badge = "refunded";\n');
+      assert.equal(await rebuilds(), true);
+      assert.match(await bundle(), /overdue/u);
+      assert.equal(await rebuilds(), true, "a build an edit landed in is not reused");
+      assert.match(await bundle(), /refunded/u);
+      assert.equal(await rebuilds(), false);
+      assert.equal(builds, 7);
     });
   });
 

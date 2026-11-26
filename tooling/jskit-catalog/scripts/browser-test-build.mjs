@@ -5,10 +5,11 @@
 // are unchanged and dist/index.html is still the one it made, so a repeated focused run does not rebuild. Its inputs are
 // what the build read: the modules it bundled, which @jskit-ai/kernel's createJskitClientBootstrapPlugin (in every JSKIT
 // app's Vite config) records, the listing of every folder they came from, so an added file counts, and the files every
-// build reads; an edit to server code alone reuses the build. A build that records no modules (a Vite config without that
-// plugin, or a build that is not Vite's) is keyed on every source file instead, taken before it runs, as it rewrites files
-// it generates among them (vue-router's src/typed-router.d.ts). Two runs in one tree build one at a time: the second
-// waits, then reuses the first one's build.
+// build reads; an edit to server code alone reuses the build. Those are read after the build, so a build during which
+// one of them changed is not kept for reuse: it may hold code from before the change. A build that records no modules (a
+// Vite config without that plugin, or a build that is not Vite's) is keyed on every source file instead, taken before it
+// runs, as it rewrites files it generates among them (vue-router's src/typed-router.d.ts). Two runs in one tree build one
+// at a time: the second waits, then reuses the first one's build.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -40,19 +41,25 @@ const seconds = (since) => `${((performance.now() - since) / 1000).toFixed(1)}s`
 const digest = (file) => (existsSync(file) ? createHash("sha256").update(readFileSync(file)).digest("hex") : "");
 
 /**
- * Every build input's path and contents, the build command and the VITE_ settings, hashed. The inputs are the files the
- * last build read, with the listing of each folder they came from and the manifest (package.json) of any such folder that
- * has one, or, without them, every source file.
+ * Every build input's path and contents, the build command and the VITE_ settings, hashed, and the input changed last.
+ * The inputs are the files the last build read, with the listing of each folder they came from and the manifest
+ * (package.json) of any such folder that has one, or, without them, every source file.
  * @param {string} appRoot
  * @param {string} build
  * @param {{ files: string[], directories: string[] } | null} [read] what the build read, relative to appRoot
+ * @returns {{ inputs: string, newest: { path: string, time: number } }}
  */
 function buildFingerprint(appRoot, build, read = null, env = process.env) {
   const hash = createHash("sha256").update(`${build}\n`);
+  const newest = { path: "", time: 0 };
+  const changed = (relative, stats) => {
+    if (stats.mtimeMs > newest.time) Object.assign(newest, { path: relative, time: stats.mtimeMs });
+    return stats;
+  };
   const visit = (relative) => {
     const absolute = path.join(appRoot, relative);
     if (!existsSync(absolute)) return;
-    const stats = statSync(absolute);
+    const stats = changed(relative, statSync(absolute));
     if (!stats.isDirectory()) {
       hash.update(`${relative}\0${stats.size}\0`).update(readFileSync(absolute));
       return;
@@ -71,14 +78,19 @@ function buildFingerprint(appRoot, build, read = null, env = process.env) {
     read.files.forEach(visit);
     for (const directory of read.directories) {
       const absolute = path.join(appRoot, directory);
-      hash.update(`${directory}/\0${existsSync(absolute) ? readdirSync(absolute).sort().join("\0") : "(missing)"}\0`);
+      let listing = "(missing)";
+      if (existsSync(absolute)) {
+        changed(directory, statSync(absolute));
+        listing = readdirSync(absolute).sort().join("\0");
+      }
+      hash.update(`${directory}/\0${listing}\0`);
       visit(path.join(directory, "package.json"));
     }
   }
   for (const [name, value] of Object.entries(env).filter(([key]) => key.startsWith("VITE_")).sort()) {
     hash.update(`${name}=${value}\n`);
   }
-  return hash.digest("hex");
+  return { inputs: hash.digest("hex"), newest };
 }
 
 /**
@@ -168,7 +180,7 @@ async function lockBuild(appRoot) {
 function isCurrent(appRoot, build) {
   const last = lastBuild(appRoot);
   return Boolean(last.index) && last.index === digest(path.join(appRoot, SERVED_INDEX)) &&
-    last.inputs === buildFingerprint(appRoot, build, last.read || null);
+    last.inputs === buildFingerprint(appRoot, build, last.read || null).inputs;
 }
 
 /**
@@ -191,16 +203,25 @@ async function buildFrontend({ appRoot = process.cwd(), build = "npm run build",
       return { built: false };
     }
     const modulesFile = path.join(appRoot, BUILD_MODULES_FILE);
-    rmSync(modulesFile, { force: true });
-    const everySource = buildFingerprint(appRoot, build);
+    // Made empty as the build starts: its modification time is the start by the file system's own clock, which stamps
+    // the inputs' times too.
+    writeFileSync(modulesFile, "");
+    const buildStart = statSync(modulesFile).mtimeMs;
+    const everySource = buildFingerprint(appRoot, build).inputs;
     await run(build, appRoot, { [BUILD_MODULES_VARIABLE]: modulesFile });
     const index = digest(path.join(appRoot, SERVED_INDEX));
     if (!index) throw new Error(`${build} made no ${SERVED_INDEX}, which the app server serves.`);
     const read = readModules(appRoot, modulesFile);
     rmSync(modulesFile, { force: true });
-    const inputs = read ? buildFingerprint(appRoot, build, read) : everySource;
+    let inputs = everySource;
+    let note = "; it recorded no modules, so every source file is its input";
+    if (read) {
+      const { inputs: readInputs, newest } = buildFingerprint(appRoot, build, read);
+      inputs = newest.time >= buildStart ? "" : readInputs;
+      note = inputs ? "" : `; not kept for reuse, as ${newest.path} changed while it ran`;
+    }
     writeFileSync(path.join(appRoot, FINGERPRINT_FILE), JSON.stringify({ inputs, index, read }));
-    console.log(`[browser-tests] Frontend built in ${seconds(started)}${read ? "" : "; it recorded no modules, so every source file is its input"}.`);
+    console.log(`[browser-tests] Frontend built in ${seconds(started)}${note}.`);
     return { built: true };
   } finally {
     unlock();
