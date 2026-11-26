@@ -8,7 +8,9 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { parseArgs, usage } from "../scripts/jskit.mjs";
 import { discoverProjectManifests } from "../scripts/project-manifests.mjs";
+import * as testBudget from "../scripts/test-budget.mjs";
 import { testConcurrency } from "../scripts/test-budget.mjs";
+import { browserTestWorkers } from "../scripts/browser-tests.mjs";
 import { planTestRuns, withTimeReporter } from "../scripts/test-command.mjs";
 import { checkTestTimes, FILE_TIMES, fileStop } from "../scripts/test-time-report.mjs";
 import { checkTestRuns, formatTestRunsReport } from "../scripts/test-runs.mjs";
@@ -45,6 +47,50 @@ test("the test budget is V64_TEST_CONCURRENCY when it is a positive whole number
   assert.equal(testConcurrency({ env: {}, parallelism: 2 }), 1);
   assert.equal(testConcurrency({ env: {}, parallelism: 1 }), 1);
   assert.ok(Number.isInteger(testConcurrency()) && testConcurrency() >= 1);
+});
+
+// A cgroup v2 hierarchy as /proc/self/cgroup and /sys/fs/cgroup show it, for availableCpus()'s readFile.
+function cgroupFiles(files) {
+  return (file) => {
+    if (Object.hasOwn(files, file)) return files[file];
+    throw Object.assign(new Error(`ENOENT: ${file}`), { code: "ENOENT" });
+  };
+}
+
+test("without a runner's budget, the test budget is half the CPUs the process may use: a cgroup cpu.max quota caps the machine's", () => {
+  const scope = "/user.slice/user-1000.slice/run-7.scope";
+  const limited = cgroupFiles({
+    "/proc/self/cgroup": `0::${scope}\n`,
+    [`/sys/fs/cgroup${scope}/cpu.max`]: "max 100000\n",
+    "/sys/fs/cgroup/user.slice/user-1000.slice/cpu.max": "300000 100000\n",
+    "/sys/fs/cgroup/user.slice/cpu.max": "max 100000\n"
+  });
+  // A 16-thread machine whose cgroup gives the run 3 CPUs: the budget is half of 3, never half of 16.
+  assert.equal(testBudget.availableCpus({ parallelism: 16, readFile: limited }), 3);
+  assert.equal(testConcurrency({ env: {}, parallelism: testBudget.availableCpus({ parallelism: 16, readFile: limited }) }), 1);
+  // The tightest quota on the way to the root counts; a fraction of a CPU rounds down, never below 1.
+  const nested = (quotas) => cgroupFiles({
+    "/proc/self/cgroup": "0::/a/b\n",
+    "/sys/fs/cgroup/a/b/cpu.max": quotas[0],
+    "/sys/fs/cgroup/a/cpu.max": quotas[1]
+  });
+  assert.equal(testBudget.availableCpus({ parallelism: 16, readFile: nested(["250000 100000", "600000 100000"]) }), 2);
+  assert.equal(testBudget.availableCpus({ parallelism: 16, readFile: nested(["max 100000", "50000 100000"]) }), 1);
+  // A quota above the machine's CPUs, or none at all, leaves the machine's.
+  assert.equal(testBudget.availableCpus({ parallelism: 4, readFile: nested(["800000 100000", "max 100000"]) }), 4);
+  // A container's own namespace shows its cgroup as the root.
+  assert.equal(testBudget.availableCpus({ parallelism: 28, readFile: cgroupFiles({
+    "/proc/self/cgroup": "0::/\n", "/sys/fs/cgroup/cpu.max": "1200000 100000\n"
+  }) }), 12);
+  // No cgroup v2 (another system, or cgroup v1 only): the machine's CPUs.
+  assert.equal(testBudget.availableCpus({ parallelism: 8, readFile: cgroupFiles({}) }), 8);
+  assert.equal(testBudget.availableCpus({ parallelism: 8, readFile: cgroupFiles({
+    "/proc/self/cgroup": "12:cpu,cpuacct:/user.slice\n"
+  }) }), 8);
+  // A runner's budget still wins over the machine's.
+  assert.equal(testConcurrency({ env: { V64_TEST_CONCURRENCY: "6" }, parallelism: 1 }), 6);
+  const cpus = testBudget.availableCpus();
+  assert.ok(Number.isInteger(cpus) && cpus >= 1 && cpus <= os.availableParallelism());
 });
 
 test("jskit test passes its arguments to node --test with the budget, and parses as its own command", async () => {
@@ -357,6 +403,44 @@ test("jskit check fails test runs outside the budget: node --test, fixed counts 
   });
 });
 
+const BROWSER_WORKERS_IMPORT = "import { browserTestWorkers } from \"@jskit-ai/jskit-catalog/browser-tests\";\n";
+
+// An application's own Playwright config (not browserTestConfig()) that starts its own server per worker in a
+// globalSetup, as one did, with its workers from the whole test budget, as this check required: on a test host whose
+// runner gave the run 3 slots (V64_TEST_CONCURRENCY 6, two threads a slot), it started 6 workers, and 8 once the runner
+// lent it idle slots, each a browser and an app server: about two threads each, so twice what the runner gave.
+const WHOLE_BUDGET_CONFIG = `import { defineConfig } from "@playwright/test";
+${BUDGET_IMPORT}
+const managedBaseUrl = String(process.env.PLAYWRIGHT_BASE_URL || "").trim();
+
+export default defineConfig({
+  testDir: "./tests/e2e",
+  ...(managedBaseUrl ? { workers: 1 } : { workers: testConcurrency() }),
+  globalTimeout: 600_000,
+  ...(managedBaseUrl ? {} : { globalSetup: "./tests/e2e/globalSetup.mjs" })
+});
+`;
+
+test("jskit check refuses a Playwright config whose workers are the whole test budget, twice the browsers the runner gives", async () => {
+  // The runner's 3 slots: the config started one worker per budget thread, where a worker drives a browser and a server.
+  const runner = { V64_TEST_CONCURRENCY: "6" };
+  assert.equal(testConcurrency({ env: runner }), 6);
+  assert.equal(browserTestWorkers({ env: runner, argv: [] }), 3);
+  const app = (config) => ({
+    "package.json": { name: "own-browser-setup", scripts: { "test:e2e": "playwright test tests/e2e" } },
+    "playwright.config.mjs": config
+  });
+  await withProject(app(WHOLE_BUDGET_CONFIG), async (root) => {
+    assert.deepEqual(await findings(root), ["playwright.config.mjs:8 test/playwright-workers"]);
+    const report = formatTestRunsReport(await checkTestRuns({ projectRoot: root, manifests: await discoverProjectManifests(root) }));
+    assert.match(report, /^playwright\.config\.mjs:8 {2}test\/playwright-workers {2}playwright's workers are not browserTestWorkers\(\): each worker drives a browser, and its own app server where it starts one, about two threads, so it takes half the test budget \(1 on a managed target\); set `workers: browserTestWorkers\(\)` from @jskit-ai\/jskit-catalog\/browser-tests\.$/mu);
+  });
+  const fixed = WHOLE_BUDGET_CONFIG.replace(BUDGET_IMPORT, BROWSER_WORKERS_IMPORT)
+    .replace("...(managedBaseUrl ? { workers: 1 } : { workers: testConcurrency() }),", "workers: browserTestWorkers(),");
+  assert.notEqual(fixed, WHOLE_BUDGET_CONFIG);
+  await withProject(app(fixed), async (root) => assert.deepEqual(await findings(root), []));
+});
+
 test("jskit check passes an app whose runs use jskit test and whose configs read the budget", async () => {
   const app = {
     "package.json": {
@@ -364,7 +448,7 @@ test("jskit check passes an app whose runs use jskit test and whose configs read
       scripts: { test: "jskit test", "test:client": "vitest run tests/client", "test:e2e": "playwright test tests/e2e" }
     },
     "package-lock.json": { name: "budgeted", lockfileVersion: 3, packages: { "": { name: "budgeted" } } },
-    "playwright.config.mjs": `${BUDGET_IMPORT}export default { workers: testConcurrency(), globalTimeout: 20 * 60_000 };\n`,
+    "playwright.config.mjs": `${BROWSER_WORKERS_IMPORT}export default { workers: browserTestWorkers(), globalTimeout: 20 * 60_000 };\n`,
     "vite.config.mjs": `${BUDGET_IMPORT}export default { test: { maxWorkers: testConcurrency() } };\n`
   };
   await withProject(app, async (root) => {
@@ -375,7 +459,7 @@ test("jskit check passes an app whose runs use jskit test and whose configs read
   await withProject({ ...app, "playwright.config.mjs": "export default {};\n" }, async (root) => {
     const failure = await execFileAsync(process.execPath, [CLI_PATH, "check", "--root", root]).then(() => null, (error) => error);
     assert.equal(failure?.code, 1);
-    assert.match(failure.stderr, /^playwright\.config\.mjs:1 {2}test\/playwright-workers {2}playwright runs at a fixed or default worker count; set `workers: testConcurrency\(\)` from @jskit-ai\/jskit-catalog\/test-budget\.$/mu);
+    assert.match(failure.stderr, /^playwright\.config\.mjs:1 {2}test\/playwright-workers {2}playwright's workers are not browserTestWorkers\(\): each worker drives a browser, and its own app server where it starts one, about two threads, so it takes half the test budget \(1 on a managed target\); set `workers: browserTestWorkers\(\)` from @jskit-ai\/jskit-catalog\/browser-tests\.$/mu);
   });
 });
 

@@ -625,15 +625,15 @@ test("jskit check passes a Playwright config built by browserTestConfig() and fa
     ]));
 });
 
-const BUDGET_IMPORT = "import { testConcurrency } from \"@jskit-ai/jskit-catalog/test-budget\";\n";
+const WORKERS_IMPORT = "import { browserTestWorkers } from \"@jskit-ai/jskit-catalog/browser-tests\";\n";
 
 test("jskit check fails a Playwright webServer on the development server, shared by every worker, or an unbounded run", async () => {
   const configs = {
-    "develop.config.mjs": `${BUDGET_IMPORT}export default {\n  workers: testConcurrency(),\n  globalTimeout: 600_000,\n  webServer: { command: "npm run develop" }\n};\n`,
-    "vite-dev.config.mjs": `${BUDGET_IMPORT}export default {\n  workers: testConcurrency(),\n  globalTimeout: 600_000,\n  webServer: { command: 'npx vite --port 4173' }\n};\n`,
-    "built.config.mjs": `${BUDGET_IMPORT}export default {\n  workers: testConcurrency(),\n  globalTimeout: 600_000,\n  webServer: { command: "npm run build && node ./bin/server.js" }\n};\n`,
-    "unbounded.config.mjs": `${BUDGET_IMPORT}export default {\n  workers: testConcurrency()\n};\n`,
-    "bounded.config.mjs": `${BUDGET_IMPORT}export default {\n  workers: testConcurrency(),\n  globalTimeout: 600_000\n};\n`
+    "develop.config.mjs": `${WORKERS_IMPORT}export default {\n  workers: browserTestWorkers(),\n  globalTimeout: 600_000,\n  webServer: { command: "npm run develop" }\n};\n`,
+    "vite-dev.config.mjs": `${WORKERS_IMPORT}export default {\n  workers: browserTestWorkers(),\n  globalTimeout: 600_000,\n  webServer: { command: 'npx vite --port 4173' }\n};\n`,
+    "built.config.mjs": `${WORKERS_IMPORT}export default {\n  workers: browserTestWorkers(),\n  globalTimeout: 600_000,\n  webServer: { command: "npm run build && node ./bin/server.js" }\n};\n`,
+    "unbounded.config.mjs": `${WORKERS_IMPORT}export default {\n  workers: browserTestWorkers()\n};\n`,
+    "bounded.config.mjs": `${WORKERS_IMPORT}export default {\n  workers: browserTestWorkers(),\n  globalTimeout: 600_000\n};\n`
   };
   await withProject({
     "package.json": {
