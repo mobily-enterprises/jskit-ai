@@ -220,7 +220,8 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
   let subscription = NO_SUBSCRIPTION;
   const goal = createConversationGoal({ api, identity, readers, goalReadEnabled, current, active, available, accessDenied,
     snapshot, delivery, submitRequest, receiveError, reloadSubscription });
-  watch(goal.readsGoals, enabled => { if (enabled) void goal.refreshGoal(); });
+  // Goal reads turning on (a snapshot or reader that reads goals) is no change: the read in flight, if any, answers it.
+  watch(goal.readsGoals, enabled => { if (enabled) void goal.ensureGoal(); });
 
   function receiveState(state, { initial = false, canonical = false } = {}) {
     if (!current.value) return;

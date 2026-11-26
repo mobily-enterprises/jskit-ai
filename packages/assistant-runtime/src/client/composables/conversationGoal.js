@@ -125,6 +125,13 @@ function createConversationGoal({ api, identity, readers, goalReadEnabled, curre
     goalRead = job;
     return job;
   }
+  /**
+   * Reads the goal for a request no change caused, such as goal reads turning on: a read in flight already answers
+   * it. A change (a goal event, a changed goal or segment, Reload) calls refreshGoal, which reads again after it.
+   */
+  function ensureGoal() {
+    return goalRead || refreshGoal();
+  }
   async function changeGoal(action, input = {}, { messageId = crypto.randomUUID() } = {}) {
     const view = goalView.value;
     const target = view?.target;
@@ -253,6 +260,7 @@ function createConversationGoal({ api, identity, readers, goalReadEnabled, curre
     goalView,
     goalLoadError,
     refreshGoal,
+    ensureGoal,
     changeGoal,
     receiveState,
     clear,
