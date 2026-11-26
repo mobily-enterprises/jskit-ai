@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-voice",
-  "version": "0.2.88",
+  "version": "0.2.89",
   "type": "module",
   "description": "Duplex voice conversations with application-owned targets and authorization, and the speech service engine with its client.",
   "scripts": {
@@ -21,7 +21,7 @@
     "examples"
   ],
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.2.82",
+    "@jskit-ai/assistant-core": "0.2.83",
     "ws": "^8.20.1"
   },
   "jskit": {
@@ -67,7 +67,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.33",
+    "@jskit-ai/kernel": "0.2.34",
     "vue": "^3.5.13",
     "vuetify": "^4.3.0"
   },
