@@ -21,6 +21,8 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [A more interesting shell](/guide/app-setup/a-more-interesting-shell)
 - [Authentication](/guide/app-setup/authentication)
 - [Sign in through an OIDC issuer](/guide/app-setup/sign-in-through-oidc-issuer)
+- [Service keys](/guide/app-setup/service-keys): another application's server
+  calls this app as one of its users at a time
 - [Run an accounts hub](/guide/app-setup/run-an-accounts-hub)
 - [Database layer](/guide/app-setup/database-layer)
 - [Users](/guide/app-setup/users)
