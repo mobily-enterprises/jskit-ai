@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { browserTestFiles, switchedBrowserTestFiles } from "./test-browser.mjs";
+import { browserTestFiles, switchedBrowserTestFiles, switchedOtherTestFiles } from "./test-browser.mjs";
 
 test("test:browser reads each browser test file's JSKIT_* switch, the variable it compares with \"1\"", () => {
   const switches = Object.fromEntries(browserTestFiles().map(({ file, switches: names }) => [file, names]));
@@ -14,6 +14,13 @@ test("test:browser reads each browser test file's JSKIT_* switch, the variable i
   assert.deepEqual(switches["packages/assistant-runtime/test/assistantConversationBinding.browser.test.js"],
     ["JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION"]);
   assert.ok(Object.keys(switches).every((file) => /^packages\/[^/]+\/test\/[^/]+\.browser\.test\.js$/u.test(file)));
+});
+
+test("no test of this repository is turned on by a browser switch outside a browser test file", () => {
+  assert.deepEqual(switchedOtherTestFiles(), []);
+  // The mounted voice starter runs in the assistant runtime's browser step.
+  assert.deepEqual(switchedBrowserTestFiles({ JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION: "1" })
+    .filter((file) => file.startsWith("packages/assistant-voice/")), ["packages/assistant-voice/test/conversationExampleStarter.browser.test.js"]);
 });
 
 test("test:browser runs the browser test files whose switches are all set, and no other", () => {
