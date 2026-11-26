@@ -1084,8 +1084,9 @@ and Vitest's `maxWorkers` come from `testConcurrency()`.**
 - An application's `playwright.config.mjs` is
   `defineConfig(browserTestConfig({ testDir: "./tests/e2e" }))` from
   `@jskit-ai/jskit-catalog/browser-tests`. It builds the production frontend
-  once (reused while its sources are unchanged) and gives each worker its own
-  server, port and, through its `prepare` module, its own seeded database; a
+  once (reused while the files it read are unchanged, so an edit to server
+  code alone does not rebuild it) and gives each worker its own server, port
+  and, through its `prepare` module, its own seeded database; a
   spec file's tests run in order in one worker. With `PLAYWRIGHT_BASE_URL`, the
   tests use that managed target as its host serves it. A local run takes free
   ports of its own, so two runs on one machine never meet. Every run is bounded

@@ -20,12 +20,13 @@ Exports
 Local functions
 - `seconds(since)`
 - `digest(file)`
-- `buildFingerprint(appRoot, build, env = process.env)`
-- `runToCompletion(command, appRoot)`
+- `buildFingerprint(appRoot, build, read = null, env = process.env)`
+- `readModules(appRoot, modulesFile)`
+- `runToCompletion(command, appRoot, environment = {})`
 - `lastBuild(appRoot)`
 - `isRunning(pid)`
 - `lockBuild(appRoot)`
-- `isCurrent(appRoot, inputs)`
+- `isCurrent(appRoot, build)`
 
 ### `scripts/browser-test-server.mjs`
 Exports

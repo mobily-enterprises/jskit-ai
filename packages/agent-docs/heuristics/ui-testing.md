@@ -58,8 +58,8 @@ Run related cases in one suite invocation. Prepare the isolated database and
 fixtures once for that invocation, never once per test. An app's
 `playwright.config.mjs` is `browserTestConfig()` from
 `@jskit-ai/jskit-catalog/browser-tests`: the production build, made once and
-reused while its sources are unchanged, and one server, port and database per
-worker. Its `prepare` module (the `database/mysql-application` and
+reused while the files it read are unchanged (a server-only edit does not
+rebuild it), and one server, port and database per worker. Its `prepare` module (the `database/mysql-application` and
 `database/postgres-application` patterns' `example/tests/e2e/databases.js`)
 restores each worker's copy of `BROWSER_TEST_DB_NAME` from the stored schema
 snapshot and runs the fixture seed, which restores any migration-owned

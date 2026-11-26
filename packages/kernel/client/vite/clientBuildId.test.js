@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -66,6 +66,38 @@ test("every built page names its build, which changes exactly when the built cod
 
   await writeFile(path.join(root, "src/main.css"), "body { color: white; }");
   assert.notEqual(clientBuildIdFromHtml(await buildFixture(root)), lazyStyle, "the page's own styles change the build");
+});
+
+// A browser run (@jskit-ai/jskit-catalog's browser-test-build.mjs) reuses its build while the files the build read are
+// unchanged, so a server-only edit does not rebuild it.
+test("a build appends every module it read to the file JSKIT_BUILD_MODULES_FILE names, and none it did not import", async (t) => {
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "jskit-client-build-modules-")));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFixture(root, {
+    "package.json": JSON.stringify({ name: "client-build-modules-fixture", private: true, type: "module" }),
+    "index.html": '<!doctype html><html><body><script type="module" src="/src/main.js"></script></body></html>',
+    "src/main.js": 'import "./main.css"; document.body.onclick = () => import("./page.js").then((page) => page.show());',
+    "src/main.css": "body { color: black; }",
+    "src/page.js": 'export const show = () => console.log("page");',
+    "src/server.js": "export const serverOnly = true;"
+  });
+  const modulesFile = path.join(root, "modules.txt");
+  await buildFixture(root);
+  await assert.rejects(readFile(modulesFile), { code: "ENOENT" }, "a build nobody asked records nothing");
+
+  process.env.JSKIT_BUILD_MODULES_FILE = modulesFile;
+  try {
+    // A command that runs two builds records both.
+    await buildFixture(root);
+    await buildFixture(root);
+  } finally {
+    delete process.env.JSKIT_BUILD_MODULES_FILE;
+  }
+  const files = (await readFile(modulesFile, "utf8")).split("\n").filter(Boolean).map((id) => id.split("?")[0]);
+  for (const file of ["src/main.js", "src/main.css", "src/page.js"]) {
+    assert.equal(files.filter((recorded) => recorded === path.join(root, file)).length, 2, file);
+  }
+  assert.equal(files.includes(path.join(root, "src/server.js")), false);
 });
 
 // A build links the stylesheets of shared component chunks, each opening with @layer vuetify-components, before the

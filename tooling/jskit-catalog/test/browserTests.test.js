@@ -9,6 +9,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { build as viteBuild } from "vite";
+import { createJskitClientBootstrapPlugin } from "../../../packages/kernel/client/vite/clientBootstrapPlugin.js";
 import { buildFrontend } from "../scripts/browser-test-build.mjs";
 import { SETTINGS_VARIABLE, browserTestConfig, browserTestWorkers } from "../scripts/browser-tests.mjs";
 import { discoverProjectManifests } from "../scripts/project-manifests.mjs";
@@ -196,6 +198,62 @@ test("the frontend is built once, and rebuilt only when an input's contents chan
       /made no dist\/index\.html/u);
   });
 });
+
+test("the frontend build is keyed on what it read: a server-only edit reuses it, a client edit or a new client file rebuilds it",
+  async () => {
+    await withProject({
+      "package.json": { name: "app", private: true, type: "module" },
+      "index.html": '<!doctype html><html><body><script type="module" src="/src/main.js"></script></body></html>',
+      "src/main.js": 'import { badge } from "../packages/billing/src/client/badge.js";\n' +
+        'const pages = import.meta.glob("./pages/*.js", { eager: true });\n' +
+        'document.body.textContent = [badge, ...Object.values(pages).map((page) => page.default)].join(" ");\n',
+      "src/pages/home.js": 'export default "home";\n',
+      "packages/billing/package.json": { name: "@local/billing", private: true, type: "module" },
+      "packages/billing/src/client/badge.js": 'export const badge = "paid";\n',
+      "packages/billing/src/server/charge.js": "export const charge = () => 1;\n"
+    }, async (root) => {
+      let builds = 0;
+      // The app's `vite build`, in this process, with the JSKIT plugin every app's Vite config has.
+      const run = async (command, appRoot, environment) => {
+        builds += 1;
+        const [previousDirectory, nodeEnv] = [process.cwd(), process.env.NODE_ENV];
+        Object.assign(process.env, environment);
+        process.chdir(appRoot);
+        try {
+          await viteBuild({ root: appRoot, configFile: false, logLevel: "silent", plugins: [createJskitClientBootstrapPlugin()] });
+        } finally {
+          process.chdir(previousDirectory);
+          for (const name of Object.keys(environment)) delete process.env[name];
+          if (nodeEnv === undefined) delete process.env.NODE_ENV;
+          else process.env.NODE_ENV = nodeEnv;
+        }
+      };
+      const rebuilds = async () => (await buildFrontend({ appRoot: root, run })).built;
+      assert.equal(await rebuilds(), true);
+      assert.equal(await rebuilds(), false);
+      for (const [file, content] of [
+        ["packages/billing/src/server/charge.js", "export const charge = () => 2;\n"],
+        ["packages/billing/src/server/refund.js", "export const refund = () => 1;\n"]
+      ]) {
+        await writeFile(path.join(root, file), content);
+        assert.equal(await rebuilds(), false, `${file} is server code`);
+      }
+      for (const [file, content] of [
+        ["packages/billing/src/client/badge.js", 'export const badge = "due";\n'],
+        ["src/pages/about.js", 'export default "about";\n'],
+        ["packages/billing/src/client/receipt.js", 'export const receipt = "sent";\n'],
+        ["packages/billing/package.json", '{ "name": "@local/billing", "private": true, "type": "module", "sideEffects": false }\n']
+      ]) {
+        await writeFile(path.join(root, file), content);
+        assert.equal(await rebuilds(), true, `${file} is read by the build, or sits beside what it read`);
+      }
+      const assets = path.join(root, "dist", "assets");
+      const bundle = (await Promise.all((await readdir(assets)).filter((name) => name.endsWith(".js"))
+        .map((name) => readFile(path.join(assets, name), "utf8")))).join("\n");
+      assert.match(bundle, /about/u, "the new page is in the build");
+      assert.equal(builds, 5);
+    });
+  });
 
 test("every file at the app's root is a build input except other dotfiles and notes, and runs in one tree build once", async () => {
   await withProject({ "package.json": { name: "app" }, "index.html": "<link rel=icon href=/favicon.svg>", "favicon.svg": "<svg/>" }, async (root) => {

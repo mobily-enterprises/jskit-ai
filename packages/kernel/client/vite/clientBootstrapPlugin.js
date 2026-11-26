@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { appendFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
@@ -519,6 +520,10 @@ function resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {}) {
   return sortStrings([...userDedupe, ...CLIENT_RUNTIME_DEDUPE_SPECIFIERS]);
 }
 
+// A browser run (@jskit-ai/jskit-catalog's browser-test-build.mjs) names a file here and reuses its build while the files
+// the build read are unchanged: a build appends the id of every module it read to that file, one per line.
+const BUILD_MODULES_VARIABLE = "JSKIT_BUILD_MODULES_FILE";
+
 function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
   let appRoot = process.cwd();
   let hasMutableLocalPackages = false;
@@ -633,6 +638,13 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
     resolvedConfig.optimizeDeps.entries = scanEntries;
   }
 
+  function buildEnd(error) {
+    const modulesFile = String(process.env[BUILD_MODULES_VARIABLE] || "").trim();
+    if (modulesFile && !error) {
+      appendFileSync(modulesFile, [...this.getModuleIds()].map((id) => `${id}\n`).join(""));
+    }
+  }
+
   async function resolveId(source, importer) {
     if (source === CLIENT_BOOTSTRAP_VIRTUAL_ID) {
       return CLIENT_BOOTSTRAP_RESOLVED_ID;
@@ -676,6 +688,7 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
     configResolved,
     resolveId,
     load,
+    buildEnd,
     generateBundle: {
       // After Vite emits the pages. A build whose pages would put Vuetify's layers out of order fails here, instead
       // of shipping buttons and fields that lost their type.
