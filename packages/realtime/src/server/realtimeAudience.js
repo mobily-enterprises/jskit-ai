@@ -448,6 +448,36 @@ function rememberSocketActorId(socket, actorId) {
   socket.data.actorId = actorId;
 }
 
+// The socket's own keys, never sent with socket.data: the actor its handshake resolved, for its connection to hold,
+// and the actor a held socket last authenticated as. An auth service whose realtime.holdSocket(request, close) closes
+// a socket the moment its login ends has that socket authenticated at its handshake and by the 30-second pass, not
+// before every event: a publish otherwise authenticated each receiving login again, which a streaming reply does up
+// to 40 times a second.
+const HANDSHAKE_ACTOR = Symbol("jskit.realtime.handshakeActor");
+const HELD_ACTOR = Symbol("jskit.realtime.heldActor");
+
+/**
+ * Holds a signed-in socket with its auth service until its login ends, so deliveries reuse its actor.
+ * @param {import("socket.io").Socket} socket
+ * @param {object} actor
+ * @param {NonNullable<import("@jskit-ai/auth-core/server/types").AuthRealtimePolicy["holdSocket"]>} holdSocket
+ * @param {RuntimeLogger} logger
+ */
+function holdUntilLoginEnds(socket, actor, holdSocket, logger) {
+  let release;
+  try {
+    release = holdSocket(createSocketRequest(socket), () => socket.disconnect(true));
+    // readable-check: allow method-probe - input validation: an auth service's hold answers its release
+    if (typeof release !== "function") throw new TypeError("Realtime holdSocket must return a release function.");
+  } catch (error) {
+    logger.warn({ error: String(error?.message || error) }, "Realtime socket hold failed.");
+    socket.disconnect(true);
+    return;
+  }
+  socket.once("disconnect", () => release());
+  if (socket.connected) socket[HELD_ACTOR] = actor;
+}
+
 /**
  * Every handshake is authenticated here. A login that needs a session refresh
  * is refused even when sign-in is optional, so the client refreshes and
@@ -471,7 +501,10 @@ function registerSocketAuthentication({ io, logger, authService }) {
         next(authenticationRequiredError());
         return;
       }
-      if (actor) rememberSocketActorId(socket, actor.id);
+      if (actor) {
+        rememberSocketActorId(socket, actor.id);
+        socket[HANDSHAKE_ACTOR] = actor;
+      }
       next();
     } catch (error) {
       logger.warn({ error: String(error?.message || error) }, "Realtime socket authentication failed.");
@@ -503,11 +536,19 @@ async function joinContributedRooms(socket, actorId, audiences) {
  */
 function registerSocketAudienceBootstrap({ io, logger, authService, audiences }) {
   registerSocketAuthentication({ io, logger, authService });
+  const holdSocket = authService?.realtime?.holdSocket ?? null;
+  // readable-check: allow method-probe - input validation: an auth provider's realtime policy may name holdSocket()
+  if (holdSocket !== null && typeof holdSocket !== "function") {
+    throw new TypeError("Realtime holdSocket must be a function.");
+  }
   io.on("connection", async (socket) => {
     try {
       socket.join(ALL_CLIENTS_ROOM);
       const actorId = normalizeRecordId(socket.data.actorId, { fallback: null });
       if (!actorId) return;
+      const actor = socket[HANDSHAKE_ACTOR];
+      delete socket[HANDSHAKE_ACTOR];
+      if (holdSocket && actor) holdUntilLoginEnds(socket, actor, holdSocket, logger);
       socket.join(ALL_USERS_ROOM);
       socket.join(roomForUser(actorId));
       await joinContributedRooms(socket, actorId, audiences);
@@ -524,8 +565,14 @@ function registerSocketAudienceBootstrap({ io, logger, authService, audiences })
  * @param {{ resolveActorRooms: ActorRoomsResolver }} options.audiences
  * @param {object} [options.request]
  * @param {Parameters<typeof resolveSocketAuthentication>[3]} [options.authenticateRequest]
+ * @param {boolean} [options.reuseHeld] A held socket keeps the actor it last authenticated as (a delivery's check).
  */
-async function revalidateSocket({ socket, authService, audiences, request, authenticateRequest }) {
+async function revalidateSocket({ socket, authService, audiences, request, authenticateRequest, reuseHeld = false }) {
+  const held = reuseHeld ? socket[HELD_ACTOR] : undefined;
+  if (held) {
+    await joinContributedRooms(socket, held.id, audiences);
+    return held;
+  }
   const { actor, refreshRequired } = await resolveSocketAuthentication(authService, socket, request, authenticateRequest);
   const previousActorId = socket.data.actorId;
   if (refreshRequired || (!actor && realtimeAuthenticationRequired(authService)) ||
@@ -536,6 +583,7 @@ async function revalidateSocket({ socket, authService, audiences, request, authe
   if (!actor) return null;
 
   rememberSocketActorId(socket, actor.id);
+  if (socket[HELD_ACTOR]) socket[HELD_ACTOR] = actor;
   await joinContributedRooms(socket, actor.id, audiences);
   return actor;
 }

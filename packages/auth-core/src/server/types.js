@@ -91,6 +91,10 @@
  * @property {boolean} [requireAuthentication] Refuses sockets that are not signed in.
  * @property {(input: { actor: AuthActor | null, event: { name: string, payload: any } }) => boolean | Promise<boolean>} [authorizeEvent]
  *   Answers true when the actor may receive the event.
+ * @property {(request: object, close: () => void) => () => void} [holdSocket] Holds a signed-in socket, given its
+ *   handshake request, and calls close the moment that login ends (signed out, revoked, expired or its person
+ *   removed); answers the release realtime calls when the socket disconnects. A service that holds sockets has each
+ *   one authenticated at its handshake and every 30 seconds instead of before every event it receives.
  */
 
 /**

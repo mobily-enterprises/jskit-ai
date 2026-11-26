@@ -97,7 +97,8 @@ function rememberedActorId(socket) {
  *   audience's audienceUsers reads in; absent when no feature provides `realtime.audience-scope`.
  */
 function createRealtimeDelivery({ io, logger, authService, audiences: { mayContribute, resolveActorsRooms }, audienceScope }) {
-  // With an auth.service, each socket is revalidated before it receives an event;
+  // With an auth.service, each socket is revalidated before it receives an event, except one the service holds until
+  // its login ends (realtime.holdSocket), which keeps the actor its handshake or the 30-second pass authenticated;
   // without one, events go straight to their rooms.
   const guarded = Boolean(authService);
   const authorizeEvent = authService?.realtime?.authorizeEvent ?? null;
@@ -109,13 +110,20 @@ function createRealtimeDelivery({ io, logger, authService, audiences: { mayContr
   let revalidationTimer = null;
   let stopped = false;
 
-  async function revalidate(socket, checks) {
+  /**
+   * @param {import("socket.io").Socket} socket
+   * @param {ReturnType<typeof createPassChecks>} checks
+   * @param {{ reuseHeld?: boolean }} [options] A delivery reuses the actor of a socket its auth service holds until
+   *   its login ends; the 30-second pass authenticates every socket.
+   */
+  async function revalidate(socket, checks, { reuseHeld = false } = {}) {
     try {
       return await revalidateSocket({
         socket,
         authService,
         audiences: checks.audiences,
-        authenticateRequest: checks.authenticateRequest
+        authenticateRequest: checks.authenticateRequest,
+        reuseHeld
       });
     } catch (error) {
       socket.disconnect(true);
@@ -169,7 +177,7 @@ function createRealtimeDelivery({ io, logger, authService, audiences: { mayContr
     checks.lookUpActorsRooms(candidates.map(rememberedActorId).filter(Boolean));
     await Promise.all(candidates.map(async (socket) => {
       try {
-        const actor = await revalidate(socket, checks);
+        const actor = await revalidate(socket, checks, { reuseHeld: true });
         if (!socket.connected) return;
         if (!targets.broadcastAllClients && !targets.rooms.some((room) => socket.rooms.has(room))) return;
         if (authorizeEvent) {
