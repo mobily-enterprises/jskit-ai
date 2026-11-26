@@ -1,0 +1,40 @@
+Goal menu race (FINAL2, 26 Nov): NOT REPRODUCED, no product or test change made.
+
+Seen once: in the 10-file browser run of 1faa93fcc on the desktop at 10:18, all three goal
+tests in packages/assistant-runtime/test/assistantConversationBinding.browser.test.js
+failed, waiting 30 s for getByRole('button', { name: 'Pause goal' }) (and 'Cancel goal'):
+- "optional goal controls follow declared command semantics and budgets without client engine branches"
+- "a paused goal stays cancellable while a message is sending or its delivery is unknown"
+- "a Resume the server refuses after its message reached the chat shows the server's reason"
+The goal chip's menu closed about 90 ms after the click that opened it, with no remount of the
+component and no overlay left active.
+
+Tried since, all passing:
+1. Probe 1 (10:23, desktop): sampled the Pause button and the chip every 100 ms plus every node
+   removal, just before the Pause click. It failed as above: the menu was already leaving when
+   the click started, and the chip was unchanged. This was the last failure seen.
+2. Probe 2: watchers set before the chip click, then a 600 ms wait before the Pause click. Passed.
+3. Probe 3: recorded focus moves, clicks, keys, aria-expanded and overlay changes, 4 tries. Passed.
+4. Probe 4: page CPU slowed 4x and 8x (CDP Emulation.setCPUThrottlingRate). Passed.
+5. The same 10-file run, instrumented, on the desktop and on usone: 128/128 each.
+6. Stress on usone: 10 copies of the goal tests at once, 2 rounds each (20 runs, load average 39.75),
+   each recording what changed the menu's open state. 20/20 passed, nothing recorded.
+7. Deliberate phase order, a DIAG test: opened the menu, then pressed Pause after 0, 20, 60, 120,
+   200 and 400 ms, each with a 0, 60 or 250 ms reopen wait (18 timings). The menu stayed
+   expanded and Pause was present in every one.
+8. Deliberate late reads, a DIAG test: held the goal and conversation reads during a Set
+   (normal order [conversation, goal, goal, conversation, conversation]), held at the 2nd, 4th
+   and 5th read, and with a socket notification on top. When the hold came before the
+   conversation read that marks it working, the chip never showed "Goal running" and its menu was
+   not opened. That is a different state, not a menu that closes. In every other case the menu
+   opened and stayed expanded.
+The question asked was whether the same pointer event that opens the menu also closes it
+(Vuetify 4.3.2's click-outside watches document capture mousedown/click). It is unanswered:
+the event recorder from probe 3 onward never saw a close.
+
+Not proven: whether the cause is in the product (AssistantGoalControl.vue's chip menu during
+changeGoal's refreshes) or in the test. The DIAG tests and the instrumentation were temporary
+and are not in any commit. AssistantGoalControl.vue was restored byte for byte.
+Watch for: those three test names failing on a 'Pause goal' or 'Cancel goal' wait in a
+JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION=1 run. If it happens, capture what closes the menu
+(event type, timeStamp, target) at the moment it closes.
