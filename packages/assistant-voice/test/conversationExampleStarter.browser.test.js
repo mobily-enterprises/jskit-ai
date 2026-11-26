@@ -35,10 +35,19 @@ test("the mounted voice starter shares five standard cards and retains its origi
     // its parent and cannot prove this supported component input.
     const mainPath = join(appDirectory, "main.js");
     await writeFile(mainPath, `${await readFile(mainPath, "utf8")}\nimport { createVNode, render } from "vue";\nglobalThis.__voiceFeedbackTestRenderer = { createVNode, render };\n`);
-    await symlink(fileURLToPath(new URL("../../../node_modules", import.meta.url)), join(appDirectory, "node_modules"), "dir");
+    const repository = fileURLToPath(new URL("../../../", import.meta.url));
+    await symlink(join(repository, "node_modules"), join(appDirectory, "node_modules"), "dir");
+    // The shipped config, serving the repository too, as Vite does for the example in place (its workspace root): the
+    // copy's node_modules links there, and Vite refused the files it found through the link (the app's font) without it.
+    await writeFile(join(appDirectory, "vite.mounted.config.js"), [
+      "import { mergeConfig } from \"vite\";",
+      "import shipped from \"./vite.config.js\";",
+      `export default mergeConfig(shipped, { server: { fs: { allow: ${JSON.stringify([appDirectory, repository])} } } });`,
+      ""
+    ].join("\n"));
     vite = startCapturedProcess(process.execPath, [
       fileURLToPath(new URL("../../../node_modules/vite/bin/vite.js", import.meta.url)),
-      "--config", "vite.config.js", "--host=127.0.0.1", `--port=${vitePort}`, "--strictPort", "--clearScreen=false"
+      "--config", "vite.mounted.config.js", "--host=127.0.0.1", `--port=${vitePort}`, "--strictPort", "--clearScreen=false"
     ], { cwd: appDirectory, env: { VOICE_EXAMPLE_API_PORT: String(apiPort) } });
     await vite.waitFor(new RegExp(`http://127\\.0\\.0\\.1:${vitePort}/`, "u"));
     browser = await chromium.launch(createChromiumLaunchOptions());
@@ -161,6 +170,7 @@ test("the mounted voice starter shares five standard cards and retains its origi
     assert.equal(f.socketConnections(), 1, "Five cards, voice retention and text remount share the original realtime connection");
     assert.equal(f.requests.length, 1, "Changing views never submits another inference");
     assert.deepEqual(errors, []);
+    assert.deepEqual(diagnostics.filter(line => /^\d{3} /u.test(line)), [], "Every file the shipped app asks for loads");
 
     // Exercise the actual retained core presentation after the original starter
     // assertions. Capture/review operations themselves retain voiceReview's tests.
