@@ -373,6 +373,10 @@ Exports
 Exports
 - None
 
+### `src/client/views/SecondFactorProofFields.vue`
+Exports
+- None
+
 ### `src/client/views/SecondFactorProofForm.vue`
 Exports
 - None
@@ -462,6 +466,24 @@ Exports
 - `type AuthRateLimits`
 
 ### fixtures
+
+### `fixtures/app-ui-kit/KitButton.vue`
+Exports
+- None
+
+### `fixtures/app-ui-kit/KitDialog.vue`
+Exports
+- None
+Local functions
+- `show(open)`
+
+### `fixtures/app-ui-kit/main.js`
+Exports
+- None
+
+### `fixtures/app-ui-kit/vite.config.mjs`
+Exports
+- None
 
 ### `fixtures/own-design-sign-in/main.js`
 Exports

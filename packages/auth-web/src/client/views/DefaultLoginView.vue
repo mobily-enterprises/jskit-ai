@@ -14,7 +14,7 @@
       <v-card-text class="auth-content" :class="{ 'auth-content--mobile': isMobileViewport }">
         <div v-if="authTitle || authSubtitle" class="auth-header mb-5">
           <div>
-            <h1 v-if="authTitle" class="auth-title text-headline-medium">{{ authTitle }}</h1>
+            <h1 v-if="authTitle" class="auth-title" :class="text.title">{{ authTitle }}</h1>
             <p v-if="authSubtitle" class="on-surface-variant mb-0">{{ authSubtitle }}</p>
           </div>
         </div>
@@ -58,7 +58,7 @@
         <v-form @submit.prevent="submitAuth" novalidate>
           <template v-if="isEmailConfirmationPending">
             <div class="email-confirmation-state mb-5">
-              <p class="email-confirmation-message text-body-medium mb-0">
+              <p class="email-confirmation-message mb-0" :class="text.body">
                 {{ emailConfirmationMessage }}
               </p>
             </div>
@@ -82,34 +82,32 @@
             />
 
             <div v-if="confirmationLinkToken" class="email-confirmation-link mb-5">
-              <v-btn
+              <UiButton
                 class="text-none"
-                variant="flat"
-                color="primary"
+                emphasis="high"
                 size="large"
                 type="submit"
                 data-testid="auth-confirmation-link-submit"
                 :disabled="!password"
-                :loading="registrationConfirmPending"
+                :pending="registrationConfirmPending"
               >
                 {{ t("jskit.auth.login.confirmEmail.confirm") }}
-              </v-btn>
+              </UiButton>
             </div>
 
             <div v-if="confirmationUrl" class="email-confirmation-dev-link mb-5" data-testid="auth-confirmation-dev-link">
-              <p class="text-body-medium on-surface-variant mb-2">{{ t("jskit.auth.login.confirmEmail.devLink") }}</p>
-              <p class="email-confirmation-url text-body-small mb-3">{{ confirmationUrl }}</p>
-              <v-btn
+              <p class="on-surface-variant mb-2" :class="text.body">{{ t("jskit.auth.login.confirmEmail.devLink") }}</p>
+              <p class="email-confirmation-url mb-3" :class="text.caption">{{ confirmationUrl }}</p>
+              <UiButton
                 class="text-none"
-                variant="flat"
-                color="primary"
+                emphasis="high"
                 data-testid="auth-confirmation-dev-confirm"
                 :disabled="!password"
-                :loading="registrationConfirmPending"
+                :pending="registrationConfirmPending"
                 @click="confirmRegistrationFromLink"
               >
                 {{ t("jskit.auth.login.confirmEmail.useDevLink") }}
-              </v-btn>
+              </UiButton>
             </div>
 
             <div
@@ -125,37 +123,36 @@
                 autocomplete="off"
                 hide-details="auto"
               />
-              <v-btn
+              <UiButton
                 class="text-none mt-1"
-                variant="tonal"
-                color="primary"
+                emphasis="medium"
                 size="large"
                 type="submit"
                 data-testid="auth-confirmation-submit"
                 :disabled="!confirmationCode.trim() || !password"
-                :loading="registrationConfirmPending"
+                :pending="registrationConfirmPending"
               >
                 {{ t("jskit.auth.login.confirmEmail.confirm") }}
-              </v-btn>
+              </UiButton>
             </div>
 
             <div class="switch-row d-flex flex-wrap align-center justify-space-between ga-3">
-              <v-btn class="text-none" variant="tonal" color="primary" @click="goToMainScreen">
+              <UiButton class="text-none" emphasis="medium" @click="goToMainScreen">
                 {{ t("jskit.auth.login.confirmEmail.goToMainScreen") }}
-              </v-btn>
-              <v-btn
+              </UiButton>
+              <UiButton
                 v-if="canResendEmailConfirmation"
                 class="text-none"
-                variant="outlined"
-                color="secondary"
-                :loading="registerConfirmationResendPending"
+                emphasis="subtle"
+                tone="neutral"
+                :pending="registerConfirmationResendPending"
                 @click="resendRegisterConfirmationEmail"
               >
                 {{ t("jskit.auth.login.confirmEmail.resend") }}
-              </v-btn>
-              <v-btn variant="text" color="secondary" @click="switchMode('login')">
+              </UiButton>
+              <UiButton emphasis="low" tone="neutral" @click="switchMode('login')">
                 {{ t("jskit.auth.login.backToSignIn") }}
-              </v-btn>
+              </UiButton>
             </div>
           </template>
 
@@ -165,14 +162,14 @@
               class="remembered-account d-flex align-center justify-space-between ga-3 mb-4"
             >
               <div class="remembered-copy flex-grow-1">
-                <p class="remembered-title text-title-small">
+                <p class="remembered-title" :class="text.strong">
                   {{ t("jskit.auth.login.rememberedAccount.welcomeBack", { name: rememberedAccountDisplayName }) }}
                 </p>
-                <p class="remembered-email text-body-small">{{ rememberedAccountMaskedEmail }}</p>
+                <p class="remembered-email" :class="text.caption">{{ rememberedAccountMaskedEmail }}</p>
               </div>
-              <v-btn variant="text" color="secondary" class="text-none" @click="switchAccount">
+              <UiButton emphasis="low" tone="neutral" class="text-none" @click="switchAccount">
                 {{ rememberedAccountSwitchLabel }}
-              </v-btn>
+              </UiButton>
             </div>
 
             <div
@@ -180,7 +177,7 @@
               class="first-account-setup mb-4"
               data-testid="auth-first-account-setup"
             >
-              <p class="text-body-medium mb-3">{{ t("jskit.auth.login.firstAccount.explain") }}</p>
+              <p class="mb-3" :class="text.body">{{ t("jskit.auth.login.firstAccount.explain") }}</p>
               <v-text-field
                 v-model="setupCode"
                 :label="t('jskit.auth.login.field.setupCode')"
@@ -244,17 +241,17 @@
             />
 
             <div v-if="isLogin && (canRequestPasswordRecovery || canUseOtp)" class="aux-links d-flex flex-wrap justify-end mb-4">
-              <v-btn
+              <UiButton
                 v-if="canRequestPasswordRecovery"
-                variant="text"
-                color="secondary"
+                emphasis="low"
+                tone="neutral"
                 @click="switchMode('forgot')"
               >
                 {{ t("jskit.auth.login.forgotPassword") }}
-              </v-btn>
-              <v-btn v-if="canUseOtp" variant="text" color="secondary" @click="switchMode('otp')">
+              </UiButton>
+              <UiButton v-if="canUseOtp" emphasis="low" tone="neutral" @click="switchMode('otp')">
                 {{ t("jskit.auth.login.useOtp") }}
-              </v-btn>
+              </UiButton>
             </div>
 
             <v-checkbox
@@ -267,15 +264,15 @@
             />
 
             <div v-if="isOtp" class="aux-links d-flex justify-end mb-4">
-              <v-btn
+              <UiButton
                 type="button"
-                variant="tonal"
-                color="secondary"
-                :loading="otpRequestPending"
+                emphasis="medium"
+                tone="neutral"
+                :pending="otpRequestPending"
                 @click="requestOtpCode"
               >
                 {{ t("jskit.auth.login.sendOtp") }}
-              </v-btn>
+              </UiButton>
             </div>
 
             <!-- Password sign-in paused for this address: the ways forward this app offers besides waiting. -->
@@ -289,71 +286,70 @@
               <template v-if="canRequestPasswordRecovery || canRegister || canUseOAuth">
                 <p class="mb-2">{{ t("jskit.auth.login.signInPaused.instead") }}</p>
                 <div class="d-flex flex-wrap ga-2">
-                  <v-btn v-if="canRequestPasswordRecovery" variant="tonal" color="secondary" @click="switchMode('forgot')">
+                  <UiButton v-if="canRequestPasswordRecovery" emphasis="medium" tone="neutral" @click="switchMode('forgot')">
                     {{ t("jskit.auth.login.signInPaused.resetPassword") }}
-                  </v-btn>
-                  <v-btn v-if="canRegister" variant="tonal" color="secondary" @click="switchMode('register')">
+                  </UiButton>
+                  <UiButton v-if="canRegister" emphasis="medium" tone="neutral" @click="switchMode('register')">
                     {{ t("jskit.auth.login.signInPaused.register") }}
-                  </v-btn>
+                  </UiButton>
                 </div>
                 <p v-if="canUseOAuth" class="mt-2 mb-0">{{ t("jskit.auth.login.signInPaused.providers") }}</p>
               </template>
             </div>
 
             <!-- A provider sign-in that took too long: start it again, to the same page. -->
-            <v-btn
+            <UiButton
               v-if="oauthRetryProvider && (isLogin || isRegister)"
               block
-              variant="tonal"
-              color="primary"
+              emphasis="medium"
               class="text-none mb-4"
               data-testid="auth-oauth-retry"
               :disabled="loading"
               @click="startOAuthSignIn(oauthRetryProvider)"
             >
               {{ t("jskit.auth.login.oauth.tryAgain", { provider: oauthProviderName(oauthRetryProvider) }) }}
-            </v-btn>
+            </UiButton>
 
             <div v-if="canUseOAuth && (isLogin || isRegister)" class="oauth-actions d-grid ga-2 mb-4">
-              <v-btn
+              <UiButton
                 v-for="provider in oauthProviders"
                 :key="provider.id"
                 block
-                variant="outlined"
-                color="secondary"
+                emphasis="subtle"
+                tone="neutral"
                 :disabled="loading"
-                :prepend-icon="oauthProviderIcon(provider)"
+                :icon="oauthProviderIcon(provider)"
                 class="text-none oauth-provider-button"
                 @click="startOAuthSignIn(provider.id)"
               >
                 {{ oauthProviderButtonLabel(provider) }}
-              </v-btn>
+              </UiButton>
             </div>
-            <v-btn
+            <UiButton
               v-if="!isLogin || canUsePasswordLogin"
               data-testid="auth-submit"
               block
-              color="primary"
+              emphasis="high"
               size="large"
-              :loading="loading"
+              :pending="loading"
               :disabled="!canSubmit"
               type="submit"
             >
               {{ submitLabel }}
-            </v-btn>
+            </UiButton>
 
             <div v-if="isForgot" class="switch-row mt-4 d-flex flex-wrap align-center justify-space-between ga-3">
               <span class="on-surface-variant">{{ t("jskit.auth.login.rememberedPassword") }}</span>
-              <v-btn variant="text" color="secondary" @click="switchMode('login')">
+              <UiButton emphasis="low" tone="neutral" @click="switchMode('login')">
                 {{ t("jskit.auth.login.backToSignIn") }}
-              </v-btn>
+              </UiButton>
             </div>
 
             <div v-else-if="isOtp" class="switch-row mt-4 d-flex flex-wrap align-center justify-space-between ga-3">
               <span class="on-surface-variant">{{ t("jskit.auth.login.otherMethod") }}</span>
-              <v-btn variant="text" color="secondary" @click="switchMode('login')">
+              <UiButton emphasis="low" tone="neutral" @click="switchMode('login')">
                 {{ t("jskit.auth.login.backToSignIn") }}
-              </v-btn>
+              </UiButton>
             </div>
           </template>
         </v-form>
@@ -364,6 +360,7 @@
 
 <script setup>
 import { useDisplay } from "vuetify";
+import { useShellUi } from "@jskit-ai/shell-web/client/ui";
 import AuthScreen from "./AuthScreen.vue";
 import { useLoginView } from "../composables/useLoginView.js";
 import { useJskitText } from "../i18n.js";
@@ -375,6 +372,8 @@ const props = defineProps({
 
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
 const { t } = useJskitText();
+// The application's button and type classes, or Material 3's (shell-web's UI kit).
+const { Button: UiButton, text } = useShellUi();
 
 const {
   authTitle,

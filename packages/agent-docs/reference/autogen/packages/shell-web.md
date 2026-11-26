@@ -730,6 +730,41 @@ Exports
 - `type ShellRealtime`
 - `type ShellLayoutStateProps`
 - `type ShellNavigationLinkProps`
+- `type ShellUi`
+
+### `src/client/ui/index.js`
+Exports
+- `MATERIAL_TEXT`
+- `SHELL_UI_KEY`
+- `SHELL_UI_ROLES`
+- `SHELL_UI_TEXT_ROLES`
+- `ShellUiButton`
+- `ShellUiDialog`
+- `provideShellUi`
+- `useShellUi`
+
+### `src/client/ui/shellUi.js`
+Exports
+- `MATERIAL_TEXT`
+- `SHELL_UI_KEY`
+- `SHELL_UI_ROLES`
+- `SHELL_UI_TEXT_ROLES`
+- `defineShellUi(defaults)`
+- `resolveShellUi(kit, defaults)`
+- `useShellUiText()`
+Local functions
+- `isRecord(value)`
+- `shown(value)`
+- `component(role, value)`
+- `textClasses(text)`
+
+### `src/client/ui/ShellUiButton.vue`
+Exports
+- None
+
+### `src/client/ui/ShellUiDialog.vue`
+Exports
+- None
 
 ### fixtures
 

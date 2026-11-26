@@ -1,19 +1,19 @@
 <template>
   <div class="second-factor-settings">
     <div v-if="step === 'codes'">
-      <h2 ref="stepStart" tabindex="-1" class="text-title-medium mb-2">{{ t("jskit.auth.secondFactor.codes.title") }}</h2>
-      <p class="text-body-medium text-on-surface-variant mb-4">{{ t("jskit.auth.secondFactor.codes.explain") }}</p>
-      <ul class="second-factor-settings__codes text-body-large mb-4" :aria-label="t('jskit.auth.secondFactor.codes.listLabel')">
+      <h2 ref="stepStart" tabindex="-1" class="mb-2" :class="text.subheading">{{ t("jskit.auth.secondFactor.codes.title") }}</h2>
+      <p class="text-on-surface-variant mb-4" :class="text.body">{{ t("jskit.auth.secondFactor.codes.explain") }}</p>
+      <ul class="second-factor-settings__codes mb-4" :class="text.lead" :aria-label="t('jskit.auth.secondFactor.codes.listLabel')">
         <li v-for="recoveryCode in recoveryCodes" :key="recoveryCode">{{ recoveryCode }}</li>
       </ul>
       <div class="second-factor-settings__actions">
-        <v-btn v-if="canCopy" variant="text" prepend-icon="$contentCopy" @click="copy(recoveryCodes.join('\n'))">
+        <UiButton v-if="canCopy" emphasis="low" icon="$contentCopy" @click="copy(recoveryCodes.join('\n'))">
           {{ t("jskit.auth.secondFactor.codes.copy") }}
-        </v-btn>
-        <v-btn variant="text" prepend-icon="$download" @click="download">
+        </UiButton>
+        <UiButton emphasis="low" icon="$download" @click="download">
           {{ t("jskit.auth.secondFactor.codes.download") }}
-        </v-btn>
-        <v-btn color="primary" variant="flat" @click="onCodesSaved">{{ t("jskit.auth.secondFactor.codes.saved") }}</v-btn>
+        </UiButton>
+        <UiButton emphasis="high" @click="onCodesSaved">{{ t("jskit.auth.secondFactor.codes.saved") }}</UiButton>
       </div>
     </div>
 
@@ -21,15 +21,15 @@
 
     <div v-else-if="load === 'error'">
       <v-icon icon="$error" color="error" class="mb-2" />
-      <p class="text-body-medium mb-4">{{ t("jskit.auth.secondFactor.settings.loadFailed") }}</p>
-      <v-btn color="primary" variant="tonal" prepend-icon="$refresh" @click="reload">
+      <p class="mb-4" :class="text.body">{{ t("jskit.auth.secondFactor.settings.loadFailed") }}</p>
+      <UiButton emphasis="medium" icon="$refresh" @click="reload">
         {{ t("jskit.auth.secondFactor.settings.retry") }}
-      </v-btn>
+      </UiButton>
     </div>
 
     <div v-else-if="step === 'setup'">
-      <h2 class="text-title-medium mb-2">{{ t("jskit.auth.secondFactor.setup.title") }}</h2>
-      <p class="text-body-medium text-on-surface-variant mb-4">{{ t("jskit.auth.secondFactor.setup.scan") }}</p>
+      <h2 class="mb-2" :class="text.subheading">{{ t("jskit.auth.secondFactor.setup.title") }}</h2>
+      <p class="text-on-surface-variant mb-4" :class="text.body">{{ t("jskit.auth.secondFactor.setup.scan") }}</p>
       <!-- A QR code is content, not chrome: dark modules on white in both schemes, as scanners read it. -->
       <svg
         class="second-factor-settings__qr mb-4"
@@ -41,14 +41,14 @@
         <rect :width="qrCode.size" :height="qrCode.size" fill="white" />
         <path :d="qrCode.path" fill="black" />
       </svg>
-      <p class="text-body-medium text-on-surface-variant mb-1">{{ t("jskit.auth.secondFactor.setup.typeKey") }}</p>
+      <p class="text-on-surface-variant mb-1" :class="text.body">{{ t("jskit.auth.secondFactor.setup.typeKey") }}</p>
       <div class="second-factor-settings__secret-row mb-4">
-        <code class="second-factor-settings__secret text-body-large">{{ secretText }}</code>
-        <v-btn v-if="canCopy" variant="text" prepend-icon="$contentCopy" @click="copy(setup.secret)">
+        <code class="second-factor-settings__secret" :class="text.lead">{{ secretText }}</code>
+        <UiButton v-if="canCopy" emphasis="low" icon="$contentCopy" @click="copy(setup.secret)">
           {{ t("jskit.auth.secondFactor.setup.copyKey") }}
-        </v-btn>
+        </UiButton>
       </div>
-      <p class="text-body-medium text-on-surface-variant mb-4">{{ t("jskit.auth.secondFactor.setup.enterCode") }}</p>
+      <p class="text-on-surface-variant mb-4" :class="text.body">{{ t("jskit.auth.secondFactor.setup.enterCode") }}</p>
       <SecondFactorProofForm
         :submit="confirmSecondFactorSetup"
         :submit-label="t('jskit.auth.secondFactor.confirm')"
@@ -56,69 +56,70 @@
         @done="onRecoveryCodes"
       >
         <template #actions>
-          <v-btn variant="text" @click="backToStatus">{{ t("jskit.auth.secondFactor.cancel") }}</v-btn>
+          <UiButton emphasis="low" @click="backToStatus">{{ t("jskit.auth.secondFactor.cancel") }}</UiButton>
         </template>
       </SecondFactorProofForm>
     </div>
 
     <div v-else-if="step === 'replaceCodes'">
-      <p class="text-body-medium text-on-surface-variant mb-4">{{ t("jskit.auth.secondFactor.replace.explain") }}</p>
+      <p class="text-on-surface-variant mb-4" :class="text.body">{{ t("jskit.auth.secondFactor.replace.explain") }}</p>
       <SecondFactorProofForm
         :submit="replaceSecondFactorRecoveryCodes"
         :submit-label="t('jskit.auth.secondFactor.replace.submit')"
         @done="onRecoveryCodes"
       >
         <template #actions>
-          <v-btn variant="text" @click="backToStatus">{{ t("jskit.auth.secondFactor.cancel") }}</v-btn>
+          <UiButton emphasis="low" @click="backToStatus">{{ t("jskit.auth.secondFactor.cancel") }}</UiButton>
         </template>
       </SecondFactorProofForm>
     </div>
 
     <div v-else-if="step === 'remove'">
-      <p class="text-body-medium text-on-surface-variant mb-4">{{ t("jskit.auth.secondFactor.remove.explain") }}</p>
+      <p class="text-on-surface-variant mb-4" :class="text.body">{{ t("jskit.auth.secondFactor.remove.explain") }}</p>
       <SecondFactorProofForm
         :submit="removeSecondFactor"
-        submit-color="error"
+        danger
         :submit-label="t('jskit.auth.secondFactor.settings.remove')"
         @done="removed"
       >
         <template #actions>
-          <v-btn variant="text" @click="backToStatus">{{ t("jskit.auth.secondFactor.cancel") }}</v-btn>
+          <UiButton emphasis="low" @click="backToStatus">{{ t("jskit.auth.secondFactor.cancel") }}</UiButton>
         </template>
       </SecondFactorProofForm>
     </div>
 
     <div v-else-if="status.enrolled">
-      <p ref="stepStart" tabindex="-1" class="text-body-large mb-1">
+      <p ref="stepStart" tabindex="-1" class="mb-1" :class="text.lead">
         {{ t("jskit.auth.secondFactor.settings.on", { date: formatDate(status.enrolledAt) }) }}
       </p>
       <p
-        class="text-body-medium mb-4"
-        :class="status.recoveryCodesLeft > 0 ? 'text-on-surface-variant' : 'text-error'"
+        class="mb-4"
+        :class="[text.body, status.recoveryCodesLeft > 0 ? 'text-on-surface-variant' : 'text-error']"
       >
         {{ t("jskit.auth.secondFactor.settings.codesLeft", { count: status.recoveryCodesLeft }) }}
       </p>
       <div class="second-factor-settings__actions">
-        <v-btn variant="text" color="error" @click="showStep('remove')">{{ t("jskit.auth.secondFactor.settings.remove") }}</v-btn>
-        <v-btn variant="tonal" color="primary" @click="showStep('replaceCodes')">
+        <UiButton emphasis="low" tone="danger" @click="showStep('remove')">{{ t("jskit.auth.secondFactor.settings.remove") }}</UiButton>
+        <UiButton emphasis="medium" @click="showStep('replaceCodes')">
           {{ t("jskit.auth.secondFactor.settings.newCodes") }}
-        </v-btn>
+        </UiButton>
       </div>
     </div>
 
     <div v-else>
-      <p ref="stepStart" tabindex="-1" class="text-body-medium text-on-surface-variant mb-4">
+      <p ref="stepStart" tabindex="-1" class="text-on-surface-variant mb-4" :class="text.body">
         {{ t("jskit.auth.secondFactor.settings.off") }}
       </p>
-      <v-btn color="primary" variant="flat" :disabled="starting" @click="startSetup">
+      <UiButton emphasis="high" :disabled="starting" @click="startSetup">
         {{ t("jskit.auth.secondFactor.settings.setUp") }}
-      </v-btn>
+      </UiButton>
     </div>
   </div>
 </template>
 
 <script setup>
 import { nextTick, ref } from "vue";
+import { useShellUi } from "@jskit-ai/shell-web/client/ui";
 import SecondFactorProofForm from "./SecondFactorProofForm.vue";
 import { useSecondFactorSettings } from "../composables/useSecondFactorSettings.js";
 import { useJskitText } from "../i18n.js";
@@ -134,6 +135,8 @@ import {
 // authenticator before it goes on, such as a console's way in, can go on.
 const emit = defineEmits(["codes-saved"]);
 const { formatDate, t } = useJskitText();
+// The application's button and type classes, or Material 3's (shell-web's UI kit).
+const { Button: UiButton, text } = useShellUi();
 const {
   load,
   status,

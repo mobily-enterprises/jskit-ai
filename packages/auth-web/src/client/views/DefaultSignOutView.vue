@@ -10,35 +10,34 @@
       :rounded="isMobileViewport ? false : undefined"
     >
       <v-card-text class="signout-content" :class="{ 'signout-content--mobile': isMobileViewport }">
-        <h1 class="signout-title text-headline-medium mb-3">{{ t("jskit.auth.signOut.title") }}</h1>
+        <h1 class="signout-title mb-3" :class="text.title">{{ t("jskit.auth.signOut.title") }}</h1>
 
         <p v-if="status === 'pending'" class="on-surface-variant mb-4">
           {{ t("jskit.auth.signOut.pending") }}
         </p>
 
-        <p v-if="status === 'error'" class="text-body-large on-surface-variant mb-4">
+        <p v-if="status === 'error'" class="on-surface-variant mb-4" :class="text.lead">
           {{ errorMessage || t("jskit.auth.signOut.failedTryAgain") }}
         </p>
 
         <div class="d-flex ga-3">
-          <v-btn
+          <UiButton
             v-if="status === 'error'"
-            color="primary"
-            variant="flat"
+            emphasis="high"
             class="text-none"
             @click="retrySignOut"
           >
             {{ t("jskit.auth.signOut.retry") }}
-          </v-btn>
-          <v-btn
+          </UiButton>
+          <UiButton
             v-if="status === 'error'"
-            color="secondary"
-            variant="text"
+            emphasis="low"
+            tone="neutral"
             class="text-none"
             @click="goToLogin"
           >
             {{ t("jskit.auth.signOut.goToLogin") }}
-          </v-btn>
+          </UiButton>
           <v-progress-circular v-if="status === 'pending'" indeterminate color="primary" size="22" />
         </div>
       </v-card-text>
@@ -48,12 +47,15 @@
 
 <script setup>
 import { useDisplay } from "vuetify";
+import { useShellUi } from "@jskit-ai/shell-web/client/ui";
 import AuthScreen from "./AuthScreen.vue";
 import { useSignOutView } from "../composables/useSignOutView.js";
 import { useJskitText } from "../i18n.js";
 
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
 const { t } = useJskitText();
+// The application's button and type classes, or Material 3's (shell-web's UI kit).
+const { Button: UiButton, text } = useShellUi();
 const { status, errorMessage, retrySignOut, goToLogin } = useSignOutView();
 </script>
 

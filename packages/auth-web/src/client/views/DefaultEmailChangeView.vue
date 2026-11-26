@@ -10,15 +10,15 @@
       :rounded="isMobileViewport ? false : undefined"
     >
       <v-card-text class="email-change-content">
-        <h1 class="text-headline-medium mb-5">{{ t("jskit.auth.emailChange.title") }}</h1>
+        <h1 class="mb-5" :class="text.title">{{ t("jskit.auth.emailChange.title") }}</h1>
         <v-progress-linear v-if="status === 'checking'" indeterminate color="primary" />
         <v-alert v-else :type="status === 'done' ? 'success' : 'error'" variant="tonal">
           {{ message }}
         </v-alert>
         <div v-if="status !== 'checking'" class="mt-4 d-flex justify-end">
-          <v-btn variant="text" color="secondary" href="/">
+          <UiButton emphasis="low" tone="neutral" href="/">
             {{ t("jskit.auth.emailChange.continue") }}
-          </v-btn>
+          </UiButton>
         </div>
       </v-card-text>
     </v-card>
@@ -27,12 +27,15 @@
 
 <script setup>
 import { useDisplay } from "vuetify";
+import { useShellUi } from "@jskit-ai/shell-web/client/ui";
 import AuthScreen from "./AuthScreen.vue";
 import { useEmailChangeView } from "../composables/useEmailChangeView.js";
 import { useJskitText } from "../i18n.js";
 
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
 const { t } = useJskitText();
+// The application's button and type classes, or Material 3's (shell-web's UI kit).
+const { Button: UiButton, text } = useShellUi();
 const { status, message } = useEmailChangeView();
 </script>
 

@@ -11,7 +11,7 @@
     >
       <v-card-text class="reset-content" :class="{ 'reset-content--mobile': isMobileViewport }">
         <div class="reset-header mb-5">
-          <h1 class="reset-title text-headline-medium">{{ t("jskit.auth.resetPassword.title") }}</h1>
+          <h1 class="reset-title" :class="text.title">{{ t("jskit.auth.resetPassword.title") }}</h1>
         </div>
 
         <v-alert v-if="errorMessage" type="error" variant="tonal" class="mb-4">
@@ -47,15 +47,15 @@
             :error-messages="confirmPasswordError"
             @click:append-inner="showConfirmPassword = !showConfirmPassword"
           />
-          <v-btn block color="primary" size="large" type="submit" :loading="loading" :disabled="!canSubmit">
+          <UiButton block emphasis="high" size="large" type="submit" :pending="loading" :disabled="!canSubmit">
             {{ t("jskit.auth.resetPassword.submit") }}
-          </v-btn>
+          </UiButton>
         </v-form>
 
         <div v-if="status === 'done' || status === 'error'" class="mt-4 d-flex justify-end">
-          <v-btn variant="text" color="secondary" href="/auth/login">
+          <UiButton emphasis="low" tone="neutral" href="/auth/login">
             {{ t("jskit.auth.resetPassword.backToSignIn") }}
-          </v-btn>
+          </UiButton>
         </div>
       </v-card-text>
     </v-card>
@@ -64,12 +64,15 @@
 
 <script setup>
 import { useDisplay } from "vuetify";
+import { useShellUi } from "@jskit-ai/shell-web/client/ui";
 import AuthScreen from "./AuthScreen.vue";
 import { useResetPasswordView } from "../composables/useResetPasswordView.js";
 import { useJskitText } from "../i18n.js";
 
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
 const { t } = useJskitText();
+// The application's button and type classes, or Material 3's (shell-web's UI kit).
+const { Button: UiButton, text } = useShellUi();
 const {
   status,
   loading,

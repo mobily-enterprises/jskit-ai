@@ -1120,6 +1120,75 @@ replaces its `src/views/auth/LoginView.vue` with a plain HTML and CSS view on
 renders `AppBrand.vue` there in its own style, and keeps its colours in
 `src/theme/`.
 
+### JSKIT's screens with an app's own buttons, dialog and type
+
+An app on Vuetify that keeps JSKIT's auth views, rather than writing its own,
+gives them its design system's button, dialog frame and text classes through
+shell-web's UI kit, `@jskit-ai/shell-web/client/ui`. It provides the kit once,
+before the app mounts, for example as one of `bootstrapClientShellApp()`'s
+`appPlugins` in `src/main.js`:
+
+```js
+import { provideShellUi } from "@jskit-ai/shell-web/client/ui";
+import AppButton from "./components/ui/AppButton.vue";
+import AppDialog from "./components/ui/AppDialog.vue";
+
+const uiKit = {
+  install: (app) =>
+    provideShellUi(app, {
+      Button: AppButton,
+      Dialog: AppDialog,
+      text: { title: "app-title", heading: "app-heading", body: "app-body", caption: "app-caption" }
+    })
+};
+// appPlugins: [pinia, [VueQueryPlugin, { queryClient }], vuetify, uiKit]
+```
+
+The kit is partial: a role it leaves out, or a text role its `text` leaves out,
+stays Material 3's, and an app that provides no kit sees the Material screens
+as before. An unknown role or text role, a role that is not a Vue component or
+a text class that is not a string throws when the app provides it. A view
+reads the kit with `useShellUi()`, which returns `{ Button, Dialog, text }`.
+
+`Button` draws every button of `DefaultLoginView`, `DefaultResetPasswordView`,
+`DefaultEmailChangeView`, `DefaultSignOutView`, `SecondFactorSettings` and the
+second-factor forms, with these props, and its label in its default slot:
+
+| Prop | Values | Meaning |
+|---|---|---|
+| `emphasis` | `"high"`, `"medium"` (default), `"subtle"`, `"low"` | The screen's main action; a secondary action with a fill; a secondary action with an outline, such as one of several equal choices (the provider buttons); an action drawn as text alone. Material: flat, tonal, outlined, text. |
+| `tone` | `"accent"` (default), `"neutral"`, `"danger"` | Material: primary, secondary, error. |
+| `size` | `"default"`, `"large"` | A form's main action is `"large"`. |
+| `type` | `"button"` (default), `"submit"` | |
+| `disabled` | Boolean | |
+| `pending` | Boolean | The action is running. |
+| `block` | Boolean | The button takes its container's width. |
+| `href` | String | The button is a link. |
+| `icon` | String | A leading icon, as an icon alias (`"$google"`, `"$refresh"`); an app's button maps the aliases it draws. |
+
+Other attributes reach the button: `class`, `data-testid`, `aria-*`, a
+`@click` listener, and `form`, which the step-up dialog's Confirm uses to
+submit the code form from the dialog's actions, so the app's button passes
+them to its `<button>` (Vue does this for a single root element).
+
+`Dialog` is `SecondFactorDialog`'s frame: props `open` (Boolean) and `title`
+(the dialog's name and heading), the event `close` (Escape, a click outside or
+the frame's own close control; the view closes it and gives focus back to the
+control that sent the request), the body in its default slot and the actions,
+Cancel and then Confirm, in its `actions` slot. A native `<dialog>` opened with
+`showModal()` while `open`, named by its title, does all of it.
+
+`text` maps each text role to a class: `title` (a screen's `h1`), `heading`,
+`subheading`, `strong`, `lead`, `body` and `caption`; Material's are
+`text-headline-medium`, `text-title-large`, `text-title-medium`,
+`text-title-small`, `text-body-large`, `text-body-medium` and
+`text-body-small`.
+
+The fields, the Sign in and Register switch, the remember-me checkbox, the
+screen's card and its alerts stay Vuetify components drawn by the app's
+Vuetify theme, so this app still runs Vuetify; an app with no Vuetify writes
+its own screens on the composables above.
+
 ## Verification
 
 Test successful and failed registration/login, sign-out, password reset,

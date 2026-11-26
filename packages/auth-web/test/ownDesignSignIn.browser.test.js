@@ -150,3 +150,58 @@ test("an app's own sign-in screen without Vuetify signs in with a password, show
   assert.deepEqual(api.unexpected, []);
   assert.deepEqual(api.errors, []);
 });
+
+test("an app's own sign-in screen without Vuetify registers: a field error on blur, the confirm-your-email step, and a registration that signs in and lands on returnTo", options, async (t) => {
+  const registrations = [
+    { json: { requiresEmailConfirmation: true, username: "Ada Lovelace" } },
+    { json: { ok: true, username: "Ada Lovelace" } }
+  ];
+  const api = await openApp(t, {
+    "POST /api/register": () => {
+      const answer = registrations.shift();
+      if (answer.json.ok) api.session = SIGNED_IN;
+      return answer;
+    },
+    "POST /api/register/confirmation/resend": [{ json: { ok: true } }]
+  });
+  // A provider that confirms email addresses, so the confirm-your-email step offers to send the email again.
+  api.session = { ...SIGNED_OUT, authCapabilities: { ...CAPABILITIES, features: { ...CAPABILITIES.features, emailConfirmation: true } } };
+  const { page } = api;
+  await page.goto("/auth/login?returnTo=%2Fconsole");
+
+  await page.getByRole("radio", { name: "Register" }).click();
+  await expect(page.getByRole("radio", { name: "Register" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("heading", { level: 1, name: "Create your account" })).toBeVisible();
+  const submit = page.getByRole("button", { name: "Register", exact: true });
+  await page.getByLabel("Email").fill("Ada@Example.com");
+  await page.getByLabel("Password", { exact: true }).fill("Correct-horse-1");
+  await page.getByLabel("Confirm password", { exact: true }).fill("Different-horse-1");
+  await page.getByLabel("Confirm password", { exact: true }).blur();
+  await expect(page.getByText("Passwords do not match.")).toBeVisible();
+  await expect(page.getByLabel("Confirm password", { exact: true })).toHaveAttribute("aria-invalid", "true");
+  await expect(submit).toBeDisabled();
+  await page.getByLabel("Confirm password", { exact: true }).fill("Correct-horse-1");
+  await submit.click();
+
+  // An account that must confirm its email waits there, with the way to send the email again.
+  await expect(page.getByRole("heading", { level: 1, name: "Confirm your email" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Back to sign in" })).toBeVisible();
+  await page.getByRole("button", { name: "Resend confirmation email" }).click();
+  await expect.poll(() => bodiesOf(api, "POST /api/register/confirmation/resend")).toEqual([{ email: "ada@example.com" }]);
+
+  // An account that needs no confirmation is signed in at once and lands on the page returnTo names.
+  await page.goto("/auth/login?returnTo=%2Fconsole&mode=register");
+  await expect(page.getByRole("heading", { level: 1, name: "Create your account" })).toBeVisible();
+  await page.getByLabel("Email").fill("ada@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("Correct-horse-1");
+  await page.getByLabel("Confirm password", { exact: true }).fill("Correct-horse-1");
+  await submit.click();
+  await page.waitForURL((url) => url.pathname === "/console");
+  assert.deepEqual(bodiesOf(api, "POST /api/register"), [
+    { email: "ada@example.com", password: "Correct-horse-1" },
+    { email: "ada@example.com", password: "Correct-horse-1" }
+  ]);
+  assert.deepEqual(await vuetifyElements(page), []);
+  assert.deepEqual(api.unexpected, []);
+  assert.deepEqual(api.errors, []);
+});

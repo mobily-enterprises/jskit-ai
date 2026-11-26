@@ -281,3 +281,43 @@ test("the own-design-sign-in pattern uses only auth-web's exported subpaths and 
     assert.doesNotMatch(source, /from "vuetify|<v-[a-z]|class="(?:[^"]*\s)?v-/u, file);
   }
 });
+
+// An application with its own design system keeps these views and gives them its own button, dialog and type classes
+// through shell-web's UI kit (`provideShellUi`); without one they draw Material 3. So each view draws its buttons with
+// the kit's Button, its dialog with the kit's Dialog and its text with the kit's text classes, never a Vuetify button,
+// dialog or Material type class of its own. Sign-in's Sign in and Register segmented button is the one exception: it is
+// a choice between two modes, not a button, and stays Vuetify's.
+test("the auth screens draw their buttons, dialog and type through shell-web's UI kit", () => {
+  const views = [
+    "DefaultLoginView",
+    "DefaultResetPasswordView",
+    "DefaultEmailChangeView",
+    "DefaultSignOutView",
+    "SecondFactorDialog",
+    "SecondFactorPrompt",
+    "SecondFactorProofForm",
+    "SecondFactorProofFields",
+    "SecondFactorSettings"
+  ];
+  for (const view of views) {
+    const source = readFileSync(fileURLToPath(new URL(`../src/client/views/${view}.vue`, import.meta.url)), "utf8");
+    const buttons = [...source.matchAll(/<v-btn\b[^>]*>/gu)].map(([tag]) => tag);
+    if (view === "DefaultLoginView") {
+      assert.equal(buttons.length, 2, `${view}: only the Sign in and Register segments are Vuetify buttons`);
+      for (const tag of buttons) assert.match(tag, /mode-switch__segment/u, tag);
+    } else {
+      assert.deepEqual(buttons, [], `${view} draws no Vuetify button`);
+    }
+    assert.doesNotMatch(source, /<v-dialog\b/u, `${view} draws no Vuetify dialog`);
+    assert.doesNotMatch(source, /\btext-(?:display|headline|title|body|label)-(?:large|medium|small)\b/u, `${view} has no Material type class`);
+  }
+  for (const view of views.filter((name) => name !== "SecondFactorProofFields")) {
+    const source = readFileSync(fileURLToPath(new URL(`../src/client/views/${view}.vue`, import.meta.url)), "utf8");
+    assert.match(source, /import \{ useShellUi \} from "@jskit-ai\/shell-web\/client\/ui";/u, `${view} reads the kit`);
+  }
+  const dialog = readFileSync(fileURLToPath(new URL("../src/client/views/SecondFactorDialog.vue", import.meta.url)), "utf8");
+  assert.match(dialog, /<UiDialog\b[^>]*:open="open"[^>]*:title="t\('jskit\.auth\.secondFactor\.prompt\.title'\)"/u);
+  assert.match(dialog, /<template #actions>/u);
+  // The dialog's Confirm sits in its actions, outside the form, and submits it by the form's id.
+  assert.match(dialog, /<UiButton\b[^>]*type="submit"[^>]*:form="formId"/u);
+});
