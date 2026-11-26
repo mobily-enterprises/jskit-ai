@@ -3832,6 +3832,85 @@ test("Claude explicitly pauses a blocked goal without resuming native work", asy
   assert.equal(f.processes.length, 0);
 });
 
+test("a live conversation's history folds only what was appended, and reading many others never parses it from its start again", async t => {
+  const { appendFile, mkdir: makeDirectory, mkdtemp: makeTemporary, rm: remove, writeFile: write } = await import("node:fs/promises");
+  const { createClaudeHistoryState, ownClaudeHistory } = await import("../src/server/conversation/claudeHistory.js");
+  // A live conversation's entry keeps one state for its whole life, never saved with the entry.
+  const entry = { id: "entry" };
+  assert.equal(ownClaudeHistory(entry), ownClaudeHistory(entry));
+  assert.equal(JSON.stringify(entry), JSON.stringify({ id: "entry" }));
+  const root = await makeTemporary(path.join(os.tmpdir(), "claude-history-state-"));
+  t.after(() => remove(root, { recursive: true, force: true }));
+  const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await makeDirectory(directory, { recursive: true });
+  let clock = Date.parse("2026-11-26T00:00:00Z");
+  const at = () => new Date(clock += 1000).toISOString();
+  const user = id => JSON.stringify({ type: "user", uuid: id, timestamp: at(), message: { content: `Request ${id}` } });
+  const toolResult = (id, parent) => JSON.stringify({ type: "user", uuid: id, parentUuid: parent, timestamp: at(),
+    message: { content: [{ type: "tool_result", tool_use_id: `tool-${parent}`, content: "output" }] }, toolUseResult: { stdout: "output" } });
+  const block = (id, parent, apiId, content) => JSON.stringify({ type: "assistant", uuid: id, parentUuid: parent, timestamp: at(),
+    message: { id: apiId, content: [content] } });
+  const text = (id, parent, apiId = `api-${id}`) => block(id, parent, apiId, { type: "text", text: `Answer ${id}` });
+  const tool = (id, parent, apiId) => block(id, parent, apiId, { type: "tool_use", id: `tool-${id}`, name: "Bash", input: {} });
+  // A conversation of `steps` prompts, each answered after one tool call.
+  async function conversation(index, steps) {
+    const conversationId = `7b1f9a52-1c1e-4d0b-9a55-${String(index).padStart(12, "0")}`;
+    const lines = [];
+    for (let step = 0; step < steps; step++) {
+      lines.push(user(`u${step}`), tool(`c${step}`, `u${step}`, `api-c${step}`), toolResult(`r${step}`, `c${step}`), text(`a${step}`, `r${step}`));
+    }
+    const file = path.join(directory, `${conversationId}.jsonl`);
+    await write(file, `${lines.join("\n")}\n`);
+    return { file, history: createClaudeHistoryState(), options: { configRoot: root, workdir: root, conversationId } };
+  }
+  const read = (c) => readClaudeHistory({ ...c.options, history: c.history });
+  const fresh = (c) => readClaudeHistory({ ...c.options, history: createClaudeHistoryState() });
+  const parsed = t.mock.method(JSON, "parse");
+  const folded = t.mock.method(Date, "parse");
+  async function work(run) {
+    parsed.mock.resetCalls();
+    folded.mock.resetCalls();
+    const result = await run();
+    return { result, parsed: parsed.mock.callCount(), folded: folded.mock.callCount() };
+  }
+
+  // One appended frame costs the same at 20 and at 2,000 prompts.
+  async function appendedOne(steps) {
+    const c = await conversation(steps, steps);
+    await read(c);
+    await appendFile(c.file, `${text("late", `a${steps - 1}`)}\n`);
+    const { parsed: parsedFrames, folded: foldedFrames } = await work(() => read(c));
+    return { parsedFrames, foldedFrames };
+  }
+  const small = await appendedOne(20);
+  const large = await appendedOne(2000);
+  assert.deepEqual(large, small, `after one appended frame, 2,000 prompts parsed ${large.parsedFrames} and folded ${large.foldedFrames} frames, 20 prompts ${small.parsedFrames} and ${small.foldedFrames}`);
+  assert.equal(small.parsedFrames, 1);
+
+  // Reading more conversations than the shared cache holds never parses this one again from its start.
+  const kept = await conversation(1, 200);
+  await read(kept);
+  const others = [];
+  for (let index = 10; index < 20; index++) others.push(await conversation(index, 5));
+  for (const other of others) await read(other);
+  await appendFile(kept.file, `${user("after-others")}\n`);
+  const again = await work(() => read(kept));
+  assert.equal(again.parsed, 1, `after ${others.length} other conversations, a read parsed ${again.parsed} frames of one`);
+  assert.deepEqual(again.result, await fresh(kept));
+
+  // Folding only what was appended answers what a fresh read answers: a text block becomes commentary once its
+  // message's tool call arrives, and a message saved again after a later prompt is folded with everything.
+  const streaming = await conversation(2, 3);
+  await appendFile(streaming.file, `${user("s1")}\n${text("s1-text", "s1", "api-s1")}\n`);
+  assert.equal((await read(streaming)).messages.at(-1).role, "assistant");
+  await appendFile(streaming.file, `${tool("s1-tool", "s1-text", "api-s1")}\n`);
+  const streamed = await read(streaming);
+  assert.equal(streamed.messages.at(-1).role, "commentary");
+  assert.deepEqual(streamed, await fresh(streaming));
+  await appendFile(streaming.file, `${toolResult("s1-result", "s1-tool")}\n${tool("s1-again", "s1-result", "api-a0")}\n`);
+  assert.deepEqual(await read(streaming), await fresh(streaming));
+});
+
 test("live Claude history parses only frames appended since the previous read", async t => {
   const { appendFile, mkdir: makeDirectory, mkdtemp: makeTemporary, rename: move, rm: remove, writeFile: write } = await import("node:fs/promises");
   const root = await makeTemporary(path.join(os.tmpdir(), "claude-incremental-"));
