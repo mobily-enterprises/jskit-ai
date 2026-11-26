@@ -15,7 +15,18 @@ defineProps({
 </script>
 
 <template>
-  <a v-if="href" class="kit-button" :href="href" :data-emphasis="emphasis" :data-tone="tone"><slot /></a>
+  <a
+    v-if="href"
+    class="kit-button"
+    :href="href"
+    :data-emphasis="emphasis"
+    :data-tone="tone"
+    :data-size="size"
+    :data-block="block ? 'true' : undefined"
+    :data-icon="icon || undefined"
+  >
+    <slot />
+  </a>
   <button
     v-else
     class="kit-button"

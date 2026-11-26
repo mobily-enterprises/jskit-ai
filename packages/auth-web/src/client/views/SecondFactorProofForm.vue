@@ -1,45 +1,27 @@
 <template>
-  <v-form novalidate @submit.prevent="submitProof">
-    <v-text-field
-      v-if="usingRecoveryCode"
-      key="recovery-code"
-      v-model="recoveryCode"
-      :label="t('jskit.auth.secondFactor.form.recoveryCode')"
-      variant="outlined"
-      density="comfortable"
-      autocomplete="off"
-      autocapitalize="off"
-      spellcheck="false"
-      autofocus
-      :error-messages="fieldError"
+  <v-form :id="formId" novalidate @submit.prevent="proof.submitProof">
+    <SecondFactorProofFields
+      v-model:code="proof.code"
+      v-model:recovery-code="proof.recoveryCode"
+      :using-recovery-code="proof.usingRecoveryCode"
+      :field-error="proof.fieldError"
+      :allow-recovery-code="allowRecoveryCode"
+      @toggle-recovery-code="proof.toggleRecoveryCode"
     />
-    <v-text-field
-      v-else
-      key="code"
-      v-model="code"
-      :label="t('jskit.auth.secondFactor.form.code')"
-      variant="outlined"
-      density="comfortable"
-      inputmode="numeric"
-      autocomplete="one-time-code"
-      autofocus
-      :error-messages="fieldError"
-    />
-    <v-btn v-if="allowRecoveryCode" variant="text" class="mb-2" @click="toggleRecoveryCode">
-      {{ usingRecoveryCode ? t("jskit.auth.secondFactor.form.useCode") : t("jskit.auth.secondFactor.form.useRecoveryCode") }}
-    </v-btn>
     <div class="second-factor-proof__actions">
       <slot name="actions" />
-      <v-btn type="submit" variant="flat" :color="submitColor" :disabled="!canSubmit">
+      <UiButton type="submit" emphasis="high" :tone="danger ? 'danger' : 'accent'" :disabled="!proof.canSubmit">
         {{ submitLabel }}
-      </v-btn>
+      </UiButton>
     </div>
   </v-form>
 </template>
 
 <script setup>
+import { reactive } from "vue";
+import { useShellUi } from "@jskit-ai/shell-web/client/ui";
+import SecondFactorProofFields from "./SecondFactorProofFields.vue";
 import { useSecondFactorProof } from "../composables/useSecondFactorProof.js";
-import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   submit: {
@@ -47,25 +29,19 @@ const props = defineProps({
     required: true
   },
   submitLabel: { type: String, required: true },
-  submitColor: { type: String, default: "primary" },
+  // The submit removes something, in the kit's danger tone.
+  danger: { type: Boolean, default: false },
   // Setting up an authenticator takes its first code only; every other proof may be a recovery code.
-  allowRecoveryCode: { type: Boolean, default: true }
+  allowRecoveryCode: { type: Boolean, default: true },
+  formId: { type: String, default: undefined }
 });
 const emit = defineEmits(["done"]);
 
-const { t } = useJskitText();
-const {
-  usingRecoveryCode,
-  code,
-  recoveryCode,
-  fieldError,
-  canSubmit,
-  toggleRecoveryCode,
-  submitProof
-} = useSecondFactorProof({
-  submit: (proof) => props.submit(proof),
+const { Button: UiButton } = useShellUi();
+const proof = reactive(useSecondFactorProof({
+  submit: (value) => props.submit(value),
   onDone: (result) => emit("done", result)
-});
+}));
 </script>
 
 <style scoped>

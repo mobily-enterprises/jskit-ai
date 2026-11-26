@@ -75,9 +75,9 @@ async function finish(api) {
   await api.page.close();
 }
 
-/** The kit's button of that name, with what the view asked of it. */
-async function kitButton(scope, name) {
-  const button = scope.getByRole("button", { name, exact: true });
+/** The kit's button of that name (a link where the view gave it an href), with what the view asked of it. */
+async function kitButton(scope, name, role = "button") {
+  const button = scope.getByRole(role, { name, exact: true });
   await expect(button).toBeVisible();
   return button.evaluate((element) => ({
     kit: element.classList.contains("kit-button"),
@@ -155,7 +155,7 @@ test("reset password, email change and sign-out draw the app's title and buttons
 
   await page.goto("/auth/email-change");
   await expect(page.getByRole("heading", { level: 1, name: "Confirm your new email" })).toHaveClass(KIT_TEXT);
-  assert.deepEqual(await kitButton(page, "Continue"), { kit: true, emphasis: "low", tone: "neutral", size: "default", block: false, icon: "" });
+  assert.deepEqual(await kitButton(page, "Continue", "link"), { kit: true, emphasis: "low", tone: "neutral", size: "default", block: false, icon: "" });
   assert.deepEqual(await materialLeftovers(page, ".email-change-card"), []);
 
   await page.goto("/auth/signout");

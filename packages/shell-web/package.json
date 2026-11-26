@@ -39,6 +39,7 @@
     "./client/composables/useShellPageClose": "./src/client/composables/useShellPageClose.js",
     "./client/composables/useShellWindowSizeClass": "./src/client/composables/useShellWindowSizeClass.js",
     "./client/directives/vPending": "./src/client/directives/vPending.js",
+    "./client/ui": "./src/client/ui/index.js",
     "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js",
     "./client/types": "./src/client/types.js",
     "./test/adaptiveShellSmoke": "./src/test/adaptiveShellSmoke.js",

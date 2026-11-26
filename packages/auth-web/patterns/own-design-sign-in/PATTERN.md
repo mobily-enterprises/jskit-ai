@@ -20,7 +20,11 @@ login; this pattern replaces the views those pages render.
 
 Do not use this pattern to restyle JSKIT's Material views: an app on Material
 3 keeps `DefaultLoginView` and the other `Default*View`s and shows its identity
-in their `brand` slot (`auth/auth-surface`). Do not use it to change what
+in their `brand` slot (`auth/auth-surface`), and an app on Vuetify that only
+wants JSKIT's views drawn with its own button, dialog frame and text classes
+provides them through shell-web's UI kit (`provideShellUi()` of
+`@jskit-ai/shell-web/client/ui`; the authentication guide's "JSKIT's screens
+with an app's own buttons, dialog and type"). Do not use it to change what
 sign-in does: the behavior belongs to `@jskit-ai/auth-web`, and a screen that
 needs different behavior asks for it there.
 

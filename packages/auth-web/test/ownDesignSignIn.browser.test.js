@@ -164,6 +164,8 @@ test("an app's own sign-in screen without Vuetify registers: a field error on bl
     },
     "POST /api/register/confirmation/resend": [{ json: { ok: true } }]
   });
+  // A provider that confirms email addresses, so the confirm-your-email step offers to send the email again.
+  api.session = { ...SIGNED_OUT, authCapabilities: { ...CAPABILITIES, features: { ...CAPABILITIES.features, emailConfirmation: true } } };
   const { page } = api;
   await page.goto("/auth/login?returnTo=%2Fconsole");
 

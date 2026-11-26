@@ -35,4 +35,13 @@
  * @property {string} unscopedSuffix
  */
 
+/**
+ * The application's design system for JSKIT's views (`@jskit-ai/shell-web/client/ui`): the components a view draws its
+ * buttons and dialogs with, and the classes of its text by role. Material 3's unless the application provides its own.
+ * @typedef {object} ShellUi
+ * @property {import("vue").Component} Button A button: props `emphasis`, `tone`, `size`, `type`, `disabled`, `pending`, `block`, `href`, `icon`; the label in its default slot.
+ * @property {import("vue").Component} Dialog A modal dialog: props `open` and `title`, the event `close`; the body in its default slot and the actions in `actions`.
+ * @property {Readonly<Record<"title" | "heading" | "subheading" | "strong" | "lead" | "body" | "caption", string>>} text The class names of each text role.
+ */
+
 export {};
