@@ -1187,6 +1187,36 @@ async function receiptFixture(options = {}) {
   return f;
 }
 
+// The owner, 2026-11-26: a question typed while a pass worked was answered in
+// the turn, but shown only as progress, never as a reply. Codex records a
+// message steered into its running turn as a user item of that turn, reads it
+// at its next step and answers it in a commentary message, then works on.
+test("Codex's first agent message after a message steered into its running turn is a reply; its other commentary stays progress", async () => {
+  const f = await receiptFixture();
+  f.observe();
+  const item = (method, value) => ({ method, params: { threadId: f.threadId, turnId: f.turnId, item: value } });
+  const command = { id: "indexes", type: "commandExecution", command: "true" };
+  f.emit(f.receipt("first", "Run the data pass."));
+  f.emit(item("item/completed", outputItem("work", "Checking the indexes.", "commentary")));
+  f.emit(item("item/started", command));
+  f.emit(item("item/completed", { ...command, status: "completed" }));
+  f.emit(item("item/started", { type: "userMessage", id: "receipt-question", clientId: "question", content: [] }));
+  f.emit(f.receipt("question", "Which pass are you on?"));
+  f.emit(item("item/completed", outputItem("answer", "Done: Security. Now: Data. Next: Speed.", "commentary")));
+  f.emit(item("item/completed", outputItem("narration", "Now checking the migrations.", "commentary")));
+  await f.drain();
+  const written = (await f.store.readConversationLog(f.sessionId)).flatMap(row => [
+    ...(row.commentary || []).map(message => ["commentary", message.text]),
+    ...(row.assistant ? [["assistant", row.assistant.text]] : [])
+  ]);
+  assert.deepEqual(written, [
+    ["commentary", "Checking the indexes."],
+    ["assistant", "Done: Security. Now: Data. Next: Speed."],
+    ["commentary", "Now checking the migrations."]
+  ], "Only the answer to the steered message becomes a reply; the turn's own message opens it and its narration stays progress");
+  assert.equal(f.observationFailures.length, 0);
+});
+
 test("original receipt owner persists authored metadata before releasing the receipt and queued answer", async () => {
   const decorating = Promise.withResolvers();
   const release = Promise.withResolvers();
