@@ -73,7 +73,11 @@ so the next handshake resolves the new actor.
 Use `auth.service.realtime.authorizeEvent({ actor, event: { name, payload } })`
 for resource-specific read authorization. Return `true` only when the current
 actor can read that event's resource. Authentication is revalidated before
-delivery and every 30 seconds while idle. Redis peers perform the same checks
+delivery and every 30 seconds while idle. A service that can tell when a login
+ends offers `realtime.holdSocket(request, close)`: realtime holds each signed-in
+socket with it, the service calls `close` the moment that login ends, and the
+socket is then authenticated at its handshake and every 30 seconds instead of
+before every delivery (`authorizeEvent` still answers each one). Redis peers perform the same checks
 locally. Realtime failures are logged without failing an already-successful
 mutation; one mutation owner publishes each completion, while progress events
 describe distinct lifecycle states.

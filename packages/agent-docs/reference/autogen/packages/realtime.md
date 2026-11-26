@@ -70,7 +70,7 @@ Exports
 - `createAudienceContributors()`
 - `createSocketRequest(socket)`
 - `realtimeAuthenticationRequired(authService)`
-- `revalidateSocket({ socket, authService, audiences, request, authenticateRequest })`
+- `revalidateSocket({ socket, authService, audiences, request, authenticateRequest, reuseHeld = false })`
 - `registerSocketAudienceBootstrap({ io, logger, authService, audiences })`
 - `resolveAudienceTargets(audience, event, { logger, audienceScope })`
 - `type AuthService`
@@ -97,6 +97,7 @@ Local functions
 - `resolveSocketAuthentication(authService, socket, request = createSocketRequest(socket), authenticateRequest = authenticateWithoutRefresh(authService))`
 - `sessionRefreshRequiredError()`
 - `rememberSocketActorId(socket, actorId)`
+- `holdUntilLoginEnds(socket, actor, holdSocket, logger)`
 - `registerSocketAuthentication({ io, logger, authService })`
 - `joinContributedRooms(socket, actorId, audiences)`
 

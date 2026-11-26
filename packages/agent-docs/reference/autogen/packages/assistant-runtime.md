@@ -150,6 +150,8 @@ Exports
 - `refreshedHistoryPages`
 - `patchLoadedHistoryPages(pages, patch)`
 Local functions
+- `streamMessages(snapshot)`
+- `applyStreamDelta(base, delta)`
 - `ignoreConversationEvent()`
 - `ignoreSubscriptionError()`
 
@@ -294,6 +296,10 @@ Local functions
 Exports
 - `registerConversationSubscriptions({ realtime, events, actions, config = {}, logger = silentLogger, workspaceScopeSupport = null, subscribeActionId = actionIds.conversationSubscribe, requestPolicy = "authenticated", diagnostics = false } = {})`
 Local functions
+- `streamState(snapshot)`
+- `isStreamSnapshot(snapshot)`
+- `sameBesidesText(left, right)`
+- `streamDelta(sent, next, snapshot)`
 - `requireSubscriptionId(input)`
 - `subscriptionError(error)`
 - `releaseNoDiagnostics()`
@@ -528,6 +534,7 @@ Exports
 - `ASSISTANT_CONVERSATION_SUBSCRIBE`
 - `ASSISTANT_CONVERSATION_UNSUBSCRIBE`
 - `ASSISTANT_CONVERSATION_EVENT`
+- `ASSISTANT_CONVERSATION_RESYNC`
 
 ### `src/shared/index.js`
 Exports

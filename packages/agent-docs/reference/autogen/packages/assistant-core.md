@@ -382,6 +382,8 @@ Exports
 Exports
 - `claudeNativeMessageId(id)`
 - `listClaudeConversationStorage({ configRoot, binding })`
+- `createClaudeHistoryState()`
+- `ownClaudeHistory(owner, { busy = () => false } = {})`
 - `deleteClaudeConversationHistory({ configRoot, workdir, conversationId })`
 - `retireClaudeConversationHistory({ configRoot, binding, beforeDelete, requireIdle, signal })`
 - `claudeHistoryPath({ configRoot, workdir, conversationId })`
@@ -395,10 +397,20 @@ Local functions
 - `claudeUserText(content)`
 - `claudeAuthoredMessage(frame)`
 - `claudeNoResponsePlaceholder(frame)`
+- `retainedClaudeBlock(block)`
 - `retainedClaudeFrame(frame)`
-- `claudeHistoryFrames(file)`
+- `historyState(file, own)`
+- `claudeHistoryFrames(file, state)`
 - `completeHistoryOffset(handle, start, size)`
-- `readClaudeHistoryFrames(file)`
+- `readClaudeHistoryFrames(file, state)`
+- `emptyHistoryScan(frames)`
+- `extendHistoryScan(scan, foldedUpTo, foldedMessageIds)`
+- `emptyHistoryFold()`
+- `copiedScalars(scalars)`
+- `foldCheckpoint(fold, at)`
+- `rewindFold(fold, checkpoint)`
+- `foldHistoryFrame(fold, frame, scan, options, checkpoint)`
+- `projectClaudeHistory(frames, options, state = null)`
 - `claudeTurnAnswered(frames, byId, { turnId, lastMessageId })`
 
 ### `src/server/conversation/claudeNativeTurn.js`
