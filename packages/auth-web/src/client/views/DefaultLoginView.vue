@@ -310,7 +310,7 @@
               {{ t("jskit.auth.login.oauth.tryAgain", { provider: oauthProviderName(oauthRetryProvider) }) }}
             </UiButton>
 
-            <div v-if="canUseOAuth && (isLogin || isRegister)" class="oauth-actions d-grid ga-2 mb-4">
+            <div v-if="canUseOAuth && (isLogin || isRegister)" class="oauth-actions d-flex flex-column ga-2 mb-4">
               <UiButton
                 v-for="provider in oauthProviders"
                 :key="provider.id"

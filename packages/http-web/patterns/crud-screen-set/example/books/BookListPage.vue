@@ -31,7 +31,7 @@ const screen = useCrudListScreen({
     empty-body="Add your first book to begin the catalogue."
   >
     <template #card-fields="{ record, formatListCardValue }">
-      <dl class="d-grid ga-2 mb-0">
+      <dl class="d-flex flex-column ga-2 mb-0">
         <div>
           <dt class="text-body-small on-surface-variant">Author</dt>
           <dd class="text-body-medium ma-0">{{ formatListCardValue(record.author) }}</dd>
