@@ -2,7 +2,7 @@ import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { load as loadYaml } from "js-yaml";
-import { browserTestFiles } from "./test-browser.mjs";
+import { browserTestFiles, switchedOtherTestFiles } from "./test-browser.mjs";
 import { postgresTestFiles } from "./test-postgres.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
@@ -120,7 +120,8 @@ async function collectCiContractIssues({
   },
   listDirectory = async (directoryPath) => readdir(directoryPath).catch(() => []),
   pickedDataTestFiles = new Set(postgresTestFiles(repoRoot)),
-  browserTests = browserTestFiles(repoRoot)
+  browserTests = browserTestFiles(repoRoot),
+  switchedOtherTests = switchedOtherTestFiles(repoRoot)
 } = {}) {
   const issues = [];
   const scripts = packageJson?.scripts && typeof packageJson.scripts === "object"
@@ -176,6 +177,16 @@ async function collectCiContractIssues({
         "on a step that runs `npm run test:browser`."
       );
     }
+  }
+
+  // Only `npm run test:browser` sets the JSKIT_* switches, and it picks browser test files only: a test a switch turns on
+  // in any other file runs nowhere (`npm run verify` skips it).
+  for (const { file, switches } of switchedOtherTests) {
+    issues.push(
+      `Test file "${file}" turns a test on with ${switches.map((name) => `${name}: "1"`).join(" and ")}, but it is not a ` +
+      "browser test file, and `npm run test:browser` picks only *.browser.test.js files, so no run runs that test: move it " +
+      "into a .browser.test.js file."
+    );
   }
 
   const verifyWorkflow = workflows?.["verify.yml"] || workflows?.["verify.yaml"] || "";
