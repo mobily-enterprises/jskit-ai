@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { attachDirectRequestActionExecutor } from "@jskit-ai/kernel/server/http";
 import { AppError, hideDatabaseError } from "@jskit-ai/kernel/server/runtime";
@@ -9,9 +10,75 @@ import { errorMessageFields, errorStatus } from "./support/assistantErrors.js";
 import { requireAssistantSurface } from "./support/assistantSurface.js";
 import {
   ASSISTANT_CONVERSATION_EVENT,
+  ASSISTANT_CONVERSATION_RESYNC,
   ASSISTANT_CONVERSATION_SUBSCRIBE,
   ASSISTANT_CONVERSATION_UNSUBSCRIBE
 } from "../shared/conversationRealtime.js";
+
+/**
+ * A stream snapshot (`{ revision, messages, completedMessages? }`) as the base of the next delta: its revision and
+ * its messages by id, in order. Null when its messages are not each named by a distinct messageId.
+ * @param {{ revision?: unknown, messages: any[] }} snapshot
+ */
+function streamState(snapshot) {
+  const messages = new Map();
+  for (const message of snapshot.messages) {
+    const id = message?.messageId;
+    if (typeof id !== "string" || messages.has(id)) return null;
+    messages.set(id, message);
+  }
+  return { revision: snapshot.revision, messages };
+}
+
+/** @param {any} snapshot */
+function isStreamSnapshot(snapshot) {
+  return Boolean(snapshot) && typeof snapshot === "object" && Array.isArray(snapshot.messages);
+}
+
+/**
+ * Whether two stream messages differ in nothing but their text.
+ * @param {Record<string, unknown>} left
+ * @param {Record<string, unknown>} right
+ */
+function sameBesidesText(left, right) {
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length &&
+    keys.every(key => key === "text" || (Object.hasOwn(right, key) && isDeepStrictEqual(left[key], right[key])));
+}
+
+/**
+ * What changed from the stream a subscriber was last sent to the next one: unchanged messages are left out, a message
+ * whose text only grew is the text it gained (`appended`), any other message goes whole (`messages`, in stream order),
+ * and one no longer streaming is named in `removed`. Null when the messages both streams hold changed their order,
+ * which only a whole stream can say.
+ * @param {{ messages: Map<string, any> }} sent
+ * @param {{ messages: Map<string, any> }} next
+ * @param {{ revision?: unknown, completedMessages?: unknown }} snapshot
+ */
+function streamDelta(sent, next, snapshot) {
+  const order = [...next.messages.keys()];
+  const kept = [...sent.messages.keys()].filter(id => next.messages.has(id));
+  if (kept.some((id, index) => order[index] !== id)) return null;
+  const removed = [...sent.messages.keys()].filter(id => !next.messages.has(id));
+  const appended = [];
+  const messages = [];
+  for (const [id, message] of next.messages) {
+    const previous = sent.messages.get(id);
+    if (previous && sameBesidesText(previous, message)) {
+      if (previous.text === message.text) continue;
+      if (typeof previous.text === "string" && typeof message.text === "string" && message.text.startsWith(previous.text)) {
+        appended.push([id, message.text.slice(previous.text.length)]);
+        continue;
+      }
+    }
+    messages.push(message);
+  }
+  return { revision: snapshot.revision,
+    ...(appended.length ? { appended } : {}),
+    ...(messages.length ? { messages } : {}),
+    ...(removed.length ? { removed } : {}),
+    ...(snapshot.completedMessages !== undefined ? { completedMessages: snapshot.completedMessages } : {}) };
+}
 
 function requireSubscriptionId(input) {
   if (typeof input?.subscriptionId !== "string" || !input.subscriptionId.trim() || input.subscriptionId.length > 128) {
@@ -123,7 +190,10 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
       try {
         subscriptionId = requireSubscriptionId(input);
         release(subscriptionId, "replacement");
+        // streamSeq numbers the events that carry the stream, sentStream is the stream they left the subscriber with,
+        // and wholeSeq is the last that carried it whole.
         subscription = { pending: new Map(), revision: 0, epoch: randomUUID(), queue: Promise.resolve(),
+          streamSeq: 0, sentStream: null, wholeSeq: 0, resync: false, requestWhole: null,
           diagnosticRelease: releaseNoDiagnostics, release: detachNoObserver };
         subscriptions.set(subscriptionId, subscription);
         if (diagnostics) {
@@ -153,7 +223,31 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
         attachDirectRequestActionExecutor({ actions, request });
         const actorId = resolveActorId(null, request);
 
+        /**
+         * The event as this subscriber receives it. An event that carries the stream is numbered (streamSeq); an
+         * in-progress message carries only what changed since the stream this subscriber was last sent, and its text
+         * when that is the stream's. Every other event, the first of a subscription and the first after a resync
+         * carry the stream whole, so a complete message or settlement never depends on deltas.
+         * @param {any} event
+         */
+        function streamPart(event) {
+          if (!isStreamSnapshot(event.streaming)) return { event };
+          const streamSeq = ++subscription.streamSeq;
+          const sent = subscription.sentStream;
+          const next = streamState(event.streaming);
+          subscription.sentStream = next;
+          const delta = event.type === "message" && event.status === "inProgress" && sent && next
+            ? streamDelta(sent, next, event.streaming) : null;
+          if (!delta) {
+            subscription.wholeSeq = streamSeq;
+            return { streamSeq, event };
+          }
+          const { streaming: _whole, ...notice } = event;
+          if (Object.hasOwn(notice, "text") && notice.text === next.messages.get(notice.messageId)?.text) delete notice.text;
+          return { streamSeq, event: { ...notice, streamDelta: delta } };
+        }
         function publish(event, revision) {
+          const part = streamPart(event);
           subscription.queue = subscription.queue.then(async () => {
             if (!current()) return;
             await events.publish({
@@ -164,19 +258,34 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
                 audience: { room: socket.id },
                 event: ASSISTANT_CONVERSATION_EVENT,
                 payload: { subscriptionId, conversationId: input.conversationId,
-                  streamEpoch: subscription.epoch, streamRevision: revision, event }
+                  streamEpoch: subscription.epoch, streamRevision: revision, ...part }
               }
             });
-          }).catch(() => {}); // A notification failure cannot fail or repeat a model turn.
+          }).catch(() => {}); // A notification failure cannot fail or repeat a model turn; its subscriber resyncs.
         }
         function flush() {
           clearTimeout(subscription.timer);
           subscription.timer = null;
-          for (const pending of [...subscription.pending.values()].sort((left, right) => left.revision - right.revision)) {
-            publish(pending.event, pending.revision);
-          }
+          const pending = [...subscription.pending.values()].sort((left, right) => left.revision - right.revision);
           subscription.pending.clear();
+          if (subscription.resync) {
+            subscription.resync = false;
+            const sent = subscription.sentStream;
+            // The next stream part goes whole; with none waiting, the stream the subscriber should hold goes now.
+            subscription.sentStream = null;
+            if (!pending.length && sent) {
+              const streaming = { revision: sent.revision, messages: [...sent.messages.values()] };
+              publish({ type: "stream-resync", streaming }, ++subscription.revision);
+            }
+          }
+          for (const { event, revision } of pending) publish(event, revision);
         }
+        subscription.requestWhole = seenSeq => {
+          // A whole stream sent after the part the subscriber could not apply is already on its way to it.
+          if (!current() || subscription.wholeSeq > seenSeq) return;
+          subscription.resync = true;
+          subscription.timer ||= setTimeout(flush, 25);
+        };
         function onEvent(event) {
           if (!current()) return;
           const revision = ++subscription.revision;
@@ -231,12 +340,23 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
         if (typeof acknowledge === "function") acknowledge(subscriptionError(error));
       }
     }
+    /**
+     * A subscriber that missed a stream part (`streamSeq`, the part it could not apply) gets the whole stream once.
+     * @param {any} input
+     */
+    function resync(input) {
+      const subscription = typeof input?.subscriptionId === "string" ? subscriptions.get(input.subscriptionId) : undefined;
+      if (!subscription?.requestWhole || input.streamEpoch !== subscription.epoch || !Number.isSafeInteger(input.streamSeq)) return;
+      subscription.requestWhole(input.streamSeq);
+    }
     socket.on(ASSISTANT_CONVERSATION_SUBSCRIBE, subscribe);
     socket.on(ASSISTANT_CONVERSATION_UNSUBSCRIBE, unsubscribe);
+    socket.on(ASSISTANT_CONVERSATION_RESYNC, resync);
     return () => {
       closed = true;
       socket.off(ASSISTANT_CONVERSATION_SUBSCRIBE, subscribe);
       socket.off(ASSISTANT_CONVERSATION_UNSUBSCRIBE, unsubscribe);
+      socket.off(ASSISTANT_CONVERSATION_RESYNC, resync);
       for (const subscriptionId of subscriptions.keys()) release(subscriptionId, "connection-closed");
     };
   });

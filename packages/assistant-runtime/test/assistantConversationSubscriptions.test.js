@@ -8,7 +8,7 @@ import test from "node:test";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { EventProvider } from "@jskit-ai/kernel/server/runtime";
-import { createConversationRuntime, createFileConversationStorage } from "@jskit-ai/assistant-core/server/conversation";
+import { createConversationRuntime, createConversationStreams, createFileConversationStorage } from "@jskit-ai/assistant-core/server/conversation";
 import { createAuthActionContextContributor } from "../../auth-core/src/server/lib/actionContextContributor.js";
 import { RealtimeProvider } from "../../realtime/src/server/RealtimeProvider.js";
 import { createSocketIoClient } from "../../realtime/src/client/runtime.js";
@@ -1035,6 +1035,52 @@ test("host subscription policy retains authenticated actor metadata and per-even
   assert.deepEqual(packets.map(packet => packet.event.phase), ["working"]);
   assert.ok(cookies.length >= 5);
   assert.ok(cookies.every(value => value === "host-session"));
+});
+
+test("a streamed delta authorizeEvent refuses is recovered by one whole stream, and every delivery is still authorized", { timeout: 20_000 }, async t => {
+  const authorized = [];
+  const f = await hostSubscriptionFixture(t, {
+    realtime: { requireAuthentication: true, authorizeEvent: ({ actor, event }) => {
+      authorized.push(event.payload);
+      return actor?.id === "42" && event.payload.streamSeq !== 5;
+    } },
+    async authenticateRequest() { return { authenticated: true, actor: { id: "42" } }; }
+  });
+  f.registerHost();
+  const socket = await f.connect();
+  const resyncs = [];
+  const sendResync = socket.emit.bind(socket);
+  socket.emit = (name, ...args) => {
+    if (name === "assistant.conversation.resync") resyncs.push(args[0]);
+    return sendResync(name, ...args);
+  };
+  const states = [], received = [];
+  t.after(subscribeAssistantConversation({ socket, conversationId: "host-conversation", targetSurfaceId: "home", hostSurfaceId: "home",
+    read: async () => ({ id: "host-conversation", status: "ready", conversationLog: [], streaming: { revision: 0, messages: [] } }),
+    onState(state) { states.push(state); f.changes.emit("change"); },
+    onEvent(event) { received.push(event); f.changes.emit("change"); } }));
+  await until(f.changes, () => states.length === 1);
+  const streams = createConversationStreams();
+  let text = "";
+  for (let index = 0; index < 12; index += 1) {
+    const delta = `part ${index} `.padEnd(30, ".");
+    text += delta;
+    const snapshot = streams.update("host-conversation", { turnId: "turn", messageId: "answer", role: "assistant", delta });
+    f.emit({ type: "message", ...snapshot.messages[0], streaming: snapshot });
+    await until(f.changes, () => f.published.filter(event => event.realtime.payload.event.type === "message").length === index + 1);
+  }
+  await until(f.changes, () => states.at(-1).streaming.messages[0]?.text === text);
+  assert.ok(resyncs.length >= 1, "The browser asked for the whole stream after the refused part");
+  assert.equal(resyncs[0].streamSeq, 6);
+  const payloads = f.published.map(event => event.realtime.payload);
+  assert.equal(payloads.filter(payload => payload.streamSeq > 1 && !Object.hasOwn(payload.event, "streamDelta")).length, 1,
+    "One whole stream answers the refusal");
+  assert.equal(authorized.length, payloads.length, "authorizeEvent answered every delivery, deltas and the resync included");
+  assert.ok(states.every(state => state.streaming.messages.every(message => text.startsWith(message.text))),
+    "No state showed a wrong text");
+  assert.ok(received.length < 12, "The refused part and any that could not follow it reach no listener");
+  assert.ok(received.every(event => typeof event.text === "string" && text.startsWith(event.text)),
+    "Every event a listener heard carries its rebuilt text");
 });
 
 test("a transient subscription failure retries by itself while connected; denials never retry", t => {

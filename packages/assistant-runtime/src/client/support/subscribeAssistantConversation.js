@@ -1,10 +1,44 @@
 import { applyConversationLogPatch, conversationTurnMessages, mergeConversationStream } from "@jskit-ai/assistant-core/shared/conversation";
 import {
   ASSISTANT_CONVERSATION_EVENT,
+  ASSISTANT_CONVERSATION_RESYNC,
   ASSISTANT_CONVERSATION_SUBSCRIBE,
   ASSISTANT_CONVERSATION_UNSUBSCRIBE
 } from "../../shared/conversationRealtime.js";
 import { isAccessDenied } from "./conversationFailures.js";
+
+/**
+ * A whole stream snapshot's messages by id, the base the next delta applies to; null when they are not each named by a
+ * distinct messageId.
+ * @param {any} snapshot
+ */
+function streamMessages(snapshot) {
+  if (!Array.isArray(snapshot?.messages)) return null;
+  const messages = new Map();
+  for (const message of snapshot.messages) {
+    if (typeof message?.messageId !== "string" || messages.has(message.messageId)) return null;
+    messages.set(message.messageId, message);
+  }
+  return messages;
+}
+
+/**
+ * The stream after one delta (see the server's streamDelta), or null when the delta does not fit the stream it
+ * names: it appends to a message the stream does not hold.
+ * @param {Map<string, any>} base
+ * @param {any} delta
+ */
+function applyStreamDelta(base, delta) {
+  const messages = new Map(base);
+  for (const id of delta.removed || []) messages.delete(id);
+  for (const [id, text] of delta.appended || []) {
+    const message = messages.get(id);
+    if (typeof message?.text !== "string" || typeof text !== "string") return null;
+    messages.set(id, { ...message, text: message.text + text });
+  }
+  for (const message of delta.messages || []) messages.set(message.messageId, message);
+  return messages;
+}
 
 // Private to the conversation history and its subscription. Symbols
 // survive local snapshot spreads but never enter the conversation wire format.
@@ -69,6 +103,9 @@ function subscribeAssistantConversation({
   let listening = false;
   let state = null;
   let streaming = null;
+  // The stream as this subscription's events left it: the base of the next in-progress delta, and its number.
+  // Null messages mean no base: the next stream part must be whole.
+  let stream = { seq: 0, messages: /** @type {Map<string, any> | null} */ (null) };
   let reloadInFlight = null;
   let reloadQueued = false;
   // A transient subscription failure retries while the socket stays connected;
@@ -162,10 +199,41 @@ function subscribeAssistantConversation({
     return job;
   }
 
+  /**
+   * The event a payload carries, with its stream rebuilt when it carries only what changed (`streamDelta`). A delta
+   * that does not follow the stream part before it (one was missed) asks the server for the whole stream; its event
+   * then goes on without stream or text, and reaches no listener.
+   * @param {any} payload
+   */
+  function receivedEvent(payload) {
+    const event = payload.event;
+    if (!Number.isSafeInteger(payload.streamSeq)) return { event, notify: true };
+    if (!Object.hasOwn(event, "streamDelta")) {
+      stream = { seq: payload.streamSeq, messages: streamMessages(event.streaming) };
+      return { event, notify: true };
+    }
+    const { streamDelta: delta, ...notice } = event;
+    const messages = stream.messages && payload.streamSeq === stream.seq + 1 ? applyStreamDelta(stream.messages, delta) : null;
+    stream = { seq: payload.streamSeq, messages };
+    if (!messages) {
+      if (socket.connected) socket.emit(ASSISTANT_CONVERSATION_RESYNC, { subscriptionId, streamEpoch: epoch, streamSeq: payload.streamSeq });
+      return { event: notice, notify: false };
+    }
+    const text = notice.type === "message" && !Object.hasOwn(notice, "text") ? messages.get(notice.messageId)?.text : undefined;
+    return { event: { ...notice, ...(text === undefined ? {} : { text }), streaming: { revision: delta.revision,
+      messages: [...messages.values()], ...(delta.completedMessages === undefined ? {} : { completedMessages: delta.completedMessages }) } },
+    notify: true };
+  }
+
   function deliver(payload) {
     if (payload.streamEpoch !== epoch || !Number.isSafeInteger(payload.streamRevision) || payload.streamRevision <= revision) return;
     revision = payload.streamRevision;
-    const event = payload.event;
+    const { event, notify } = receivedEvent(payload);
+    if (event.type === "stream-resync") {
+      // The whole stream again after a missed part: presentation only, not a conversation event.
+      if (state && receiveStreaming(event.streaming)) publishState();
+      return;
+    }
     if (!state) {
       if (SNAPSHOT_EVENTS.has(event.type)) reload();
       return;
@@ -212,7 +280,7 @@ function subscribeAssistantConversation({
     }
     if (changedPresentation) publishState();
     // Events are notifications. Transcript presentation comes from onState.turns.
-    onEvent(event);
+    if (notify) onEvent(event);
   }
   function receive(payload) {
     if (disposed || !listening || payload?.subscriptionId !== subscriptionId || payload.conversationId !== conversationId) return;
@@ -235,6 +303,7 @@ function subscribeAssistantConversation({
     listening = true;
     state = null;
     streaming = null;
+    stream = { seq: 0, messages: null };
     completed.clear();
     settledTurns.clear();
     reloadInFlight = null;
