@@ -123,6 +123,9 @@ test("Claude's saved history keeps the answer to a message typed while it works 
     user("stop", "[Request interrupted by user for tool use]"),
     user("after-stop", "Check the build instead."),
     ...step("api-6", "Reading the build log.", "tool-6"),
+    { type: "user", uuid: "task", origin: { kind: "task-notification" },
+      message: { content: "<task-notification><status>completed</status></task-notification>" } },
+    ...step("api-6b", "Reading the test output.", "tool-6b"),
     ...step("api-7", "The build is fine.")
   ].map(JSON.stringify).join("\n") + "\n");
   const history = await readClaudeHistory({ configRoot: root, workdir: root, conversationId });
@@ -133,8 +136,9 @@ test("Claude's saved history keeps the answer to a message typed while it works 
     ["assistant", "The Data pass is done.", "question"],
     ["commentary", "Measuring the suite.", "next"],
     ["commentary", "Reading the build log.", "after-stop"],
-    ["assistant", "The build is fine.", "after-stop"]
-  ], "Only the steered message's answer is a reply; a message sent once the loop ended or was stopped starts its own");
+    ["commentary", "Reading the test output.", "task"],
+    ["assistant", "The build is fine.", "task"]
+  ], "Only the steered message's answer is a reply; a message sent once the loop ended or was stopped starts its own, and Claude's own task notification is no message to answer");
 });
 
 test("Claude successful native clear removes a failed goal without a clearing sentinel", async t => {

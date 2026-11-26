@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import { lstat, open, readdir, realpath, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { readClaudeJsonFrames } from "./claudeClient.js";
+import { claudeAuthoredMessage, claudeInterruptMarker, claudeNoResponsePlaceholder, claudeUserText } from "./claudeFrames.js";
 import { createNativeHistoryExport, retireNativeConversation } from "./nativeHistoryExport.js";
 
 const UUID_PATTERN = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu;
@@ -25,19 +26,6 @@ function claudeProjectDirectoryName(canonical) {
 }
 
 // Text the person authored in a user frame: plain content or its text blocks.
-function claudeUserText(content) {
-  return typeof content === "string" ? content : (Array.isArray(content) ? content : [])
-    .filter((block) => block.type === "text" && typeof block.text === "string").map((block) => block.text).join("\n\n");
-}
-
-// A message the person or the host sent, a native /goal command among them.
-// Claude's own notes, compaction summary and interrupt marker are not.
-function claudeAuthoredMessage(frame) {
-  if (frame.type !== "user" || frame.isMeta || frame.isCompactSummary || frame.parent_tool_use_id) return false;
-  const text = claudeUserText(frame.message?.content);
-  return Boolean(text) && !/^\[Request interrupted by user/u.test(text);
-}
-
 // Native /goal saves its sentinel, then the authored command naming that
 // sentinel as its parent. Claude re-attaches an unfinished goal with a
 // sentinel after compacting its context, and no command follows that one.
@@ -103,12 +91,6 @@ async function claudeHistoryPath({ configRoot, workdir, conversationId }) {
 // interrupted request: a stopped request, or a process that ended mid-turn. Its
 // native placeholder classifier uses this exact provenance; real model replies
 // and API errors with the same wording remain ordinary output.
-function claudeNoResponsePlaceholder(frame) {
-  const content = frame.message?.content;
-  return frame.type === "assistant" && frame.message?.model === "<synthetic>" && !frame.isApiErrorMessage &&
-    Array.isArray(content) && content.length === 1 && content[0]?.type === "text" && content[0].text === "No response requested.";
-}
-
 function claudeMessageBlocks(frame, { includeNested = false, commentary = false } = {}) {
   if (frame.type !== "assistant" || frame.parent_tool_use_id && !includeNested) return [];
   const content = frame.message?.content;
@@ -315,7 +297,8 @@ function extendHistoryScan(scan, foldedUpTo, foldedMessageIds) {
 function emptyHistoryFold() {
   return { messages: [], messageIndex: new Map(), messageIds: new Set(), userIds: [], userMessages: [],
     commandMessages: [], completedResults: [], failedResults: [], structuredOutputs: [],
-    scalars: { lastUserId: "", lastUserStart: 0, goal: null, clearedGoal: null, goalStartId: "", goalCommandId: "", lastAt: NaN } };
+    scalars: { lastUserId: "", lastUserStart: 0, goal: null, clearedGoal: null, goalStartId: "", goalCommandId: "", lastAt: NaN,
+      lastApiMessageId: "", owedUserId: "", replyApiMessageId: "" } };
 }
 
 const FOLD_LISTS = ["messages", "userIds", "userMessages", "commandMessages", "completedResults", "failedResults", "structuredOutputs"];
@@ -447,6 +430,21 @@ function foldHistoryFrame(fold, frame, scan, options, checkpoint) {
   if (frame.type === "user" && !frame.isMeta && frame.uuid && state.goalStartId && frame.parentUuid === state.goalStartId) {
     state.goalCommandId = frame.uuid;
   }
+  // A message the person or the host sends while Claude works through tool
+  // calls is read at Claude's next step and answered in its next text, before
+  // it works on: that text is the message's reply, as the live turn shows it
+  // (claudeAssistantRoles.js), unlike Claude's own task notifications. The
+  // interrupt marker ends the loop it stops.
+  if (claudeAuthoredMessage(frame) && frame.origin?.kind !== "task-notification") state.owedUserId = scan.toolMessages.has(state.lastApiMessageId) ? frame.uuid : "";
+  else if (claudeInterruptMarker(frame)) state.lastApiMessageId = "";
+  if (frame.type === "assistant" && !frame.parent_tool_use_id && frame.message?.id) {
+    if (state.owedUserId && state.owedUserId === state.lastUserId && !claudeNoResponsePlaceholder(frame) &&
+        frame.message.content?.some((block) => block.type === "text" && block.text?.trim())) {
+      state.replyApiMessageId = frame.message.id;
+      state.owedUserId = "";
+    }
+    state.lastApiMessageId = frame.message.id;
+  }
   if (frame.type === "user" && !frame.isMeta && frame.uuid &&
       (typeof frame.message?.content === "string" || frame.message?.content?.some((block) => block.type === "text"))) {
     fold.userIds.push(frame.uuid);
@@ -482,8 +480,9 @@ function foldHistoryFrame(fold, frame, scan, options, checkpoint) {
     fold.messageIds.add(frame.message.id);
     checkpoint.added.push({ apiMessageId: frame.message.id });
   }
+  const reply = Boolean(frame.message?.id) && frame.message.id === state.replyApiMessageId;
   for (const message of claudeMessageBlocks(frame, { commentary: scan.toolMessages.has(frame.message?.id) })) {
-    const projected = { ...message, userId: state.lastUserId,
+    const projected = { ...message, ...(reply && message.role === "commentary" ? { role: "assistant" } : {}), userId: state.lastUserId,
       ...(frame.message.content.length === 1 && typeof frame.message.id === "string" && frame.message.id &&
           Number.isSafeInteger(frame.apiBlockIndex) && frame.apiBlockIndex >= 0
         ? { outputId: `claude_${frame.message.id}_${frame.apiBlockIndex}` } : {}) };

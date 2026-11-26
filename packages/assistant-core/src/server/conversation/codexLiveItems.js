@@ -124,15 +124,29 @@ export function createCodexAppServerLiveItems({
   const codexAppServerLiveProgressItems = new Set();
   const codexAppServerLiveProgressFingerprints = new Set();
   const codexAppServerMirroredTerminalItems = new Set();
-  // Each turn's replies to messages steered into it, by turn (see observeCodexAppServerTurnItem).
+  // What each turn's items decide about its agent messages (see observeCodexAppServerTurnItem).
   const codexAppServerTurnReplies = new Map();
 
+  function codexAppServerTurnRepliesKey(sessionId = "", threadId = "", turnId = "") {
+    return [normalizeText(sessionId), normalizeText(threadId), normalizeText(turnId), "steer-replies"].join(":");
+  }
+
   /**
+   * One item of a turn, observed in Codex's own order as it arrives, before
+   * the writes it causes are queued. It returns the agent messages it settles
+   * as progress, to write before this item's own writes.
+   *
    * Codex records a message steered into its running turn as a user item of
    * that turn, which it reads at its next step and answers in its next agent
-   * message, before it works on. That message is a reply to the person, not
-   * progress. Items are observed in Codex's own order, as they arrive; the
-   * writes they cause run later, in that order.
+   * message before it works on. That message is a reply to the person, not
+   * progress, with or without a phase.
+   *
+   * An agent message without a phase is progress when another item follows
+   * it, and part of the turn's final answer when it ends the turn
+   * (codexAppServerProviderTurnAssistantSegments). A long or multi-line one, a
+   * reply, and any that follows one of those wait for that: the next item
+   * that is not an agent message settles them as progress (a reply stays a
+   * reply); at the turn's end they are its answer, saved once from its history.
    */
   function observeCodexAppServerTurnItem(sessionId = "", threadId = "", notification = {}) {
     const method = normalizeText(notification.method);
@@ -140,29 +154,51 @@ export function createCodexAppServerLiveItems({
     const itemId = codexAppServerNotificationItemId(notification);
     const turnId = codexAppServerNotificationTurnId(notification);
     if (!["item/started", "item/completed"].includes(method) || !isRecord(item) || !itemId || !turnId) {
-      return;
+      return [];
     }
-    const key = [normalizeText(sessionId), normalizeText(threadId), turnId, "steer-replies"].join(":");
-    const turn = codexAppServerTurnReplies.get(key) || { working: false, owed: false, replies: new Set() };
+    const key = codexAppServerTurnRepliesKey(sessionId, threadId, turnId);
+    const turn = codexAppServerTurnReplies.get(key) ||
+      { working: false, owed: false, replies: new Set(), waiting: [], waitingIds: new Set() };
     codexAppServerTurnReplies.set(key, turn);
-    if (normalizeText(item.type) === "userMessage") {
+    const type = normalizeText(item.type);
+    const text = codexAppServerAssistantItemText(item);
+    if (type === "agentMessage" && (method === "item/started" || text)) {
+      turn.working = true;
+      if (method === "item/started") return [];
+      const reply = turn.owed;
+      if (reply) {
+        turn.owed = false;
+        turn.replies.add(itemId);
+      }
+      const candidate = codexAppServerLiveProgressCandidate(notification);
+      if (candidate && !candidate.phase && (reply || turn.waiting.length || !codexAppServerLiveProgressText(notification))) {
+        turn.waiting.push(notification);
+        turn.waitingIds.add(itemId);
+      }
+      return [];
+    }
+    const settled = turn.waiting;
+    turn.waiting = [];
+    if (type === "userMessage") {
       // The turn's own message opens it; one that arrives once it works was steered in.
       if (method === "item/completed") {
         turn.owed ||= turn.working;
         turn.working = true;
       }
-      return;
+    } else {
+      turn.working = true;
     }
-    turn.working = true;
-    if (method === "item/completed" && turn.owed && normalizeText(item.type) === "agentMessage" &&
-        codexAppServerAssistantItemText(item)) {
-      turn.owed = false;
-      turn.replies.add(itemId);
-    }
+    return settled;
   }
 
-  function codexAppServerSteerReply(sessionId = "", threadId = "", turnId = "", notification = {}) {
-    const key = [normalizeText(sessionId), normalizeText(threadId), normalizeText(turnId), "steer-replies"].join(":");
+  // Whether an agent message waits for the item that settles it (see observeCodexAppServerTurnItem).
+  function codexAppServerAwaitsNextItem(sessionId = "", threadId = "", notification = {}) {
+    const key = codexAppServerTurnRepliesKey(sessionId, threadId, codexAppServerNotificationTurnId(notification));
+    return Boolean(codexAppServerTurnReplies.get(key)?.waitingIds.has(codexAppServerNotificationItemId(notification)));
+  }
+
+  function codexAppServerSteerReply(sessionId = "", threadId = "", notification = {}) {
+    const key = codexAppServerTurnRepliesKey(sessionId, threadId, codexAppServerNotificationTurnId(notification));
     return Boolean(codexAppServerTurnReplies.get(key)?.replies.has(codexAppServerNotificationItemId(notification)));
   }
 
@@ -293,13 +329,21 @@ export function createCodexAppServerLiveItems({
     });
   }
 
-  async function writeCodexAppServerLiveProgress(sessionId = "", threadId = "", notification = {}) {
-    // Phase-less providers also send short updates as agent messages.
+  async function writeCodexAppServerLiveProgress(sessionId = "", threadId = "", notification = {}, { settled = false } = {}) {
+    // Phase-less providers also send short updates as agent messages. One
+    // that waits for the next item is written once that item settles it as
+    // progress (`settled`), whatever its length.
     // Reasoning items are recorded separately from these user-facing updates.
     const normalizedSessionId = normalizeText(sessionId);
     const normalizedThreadId = normalizeText(threadId);
+    if (!settled && codexAppServerAwaitsNextItem(normalizedSessionId, normalizedThreadId, notification)) {
+      return null;
+    }
     const candidate = codexAppServerLiveProgressCandidate(notification);
-    const text = codexAppServerLiveProgressText(notification);
+    // Commentary or a phase-less message that answers a steered message is that message's reply.
+    const reply = persistCommentary && (!candidate?.phase || candidate.phase === "commentary") &&
+      codexAppServerSteerReply(normalizedSessionId, normalizedThreadId, notification);
+    const text = settled ? normalizeText(candidate?.text) : codexAppServerLiveProgressText(notification);
     if (!normalizedSessionId || !normalizedThreadId || !text) {
       return null;
     }
@@ -309,6 +353,10 @@ export function createCodexAppServerLiveItems({
     const notificationTurnId = codexAppServerNotificationTurnId(notification);
     const ownerTurnId = notificationTurnId || turn.turnId;
     if (!codexAppServerTurnCanReceiveProviderActivity(turn, normalizedThreadId, notificationTurnId)) {
+      return null;
+    }
+    // A terminal turn's agent messages are mirrored in full (mirrorCodexAppServerTerminalAssistantMessage).
+    if (settled && normalizeText(run?.inputSource) === "terminal") {
       return null;
     }
     const key = codexAppServerLiveProgressKey(normalizedSessionId, normalizedThreadId, notification);
@@ -340,9 +388,6 @@ export function createCodexAppServerLiveItems({
     let written = null;
     try {
       const progressRole = !candidate.phase || candidate.phase === "commentary" ? "commentary" : "thinking";
-      // Commentary that answers a steered message is that message's reply.
-      const reply = persistCommentary && candidate.phase === "commentary" &&
-        codexAppServerSteerReply(normalizedSessionId, normalizedThreadId, ownerTurnId, notification);
       const role = reply ? "assistant" : progressRole;
       const writer = reply ? store.writeConversationAssistantMessage
         : role === "commentary"
