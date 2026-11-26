@@ -94,6 +94,49 @@ test("Claude native no-response placeholders are excluded from live and cold rep
   assert.deepEqual(history.userIds, ["original-request"]);
 });
 
+// The live turn shows Claude's answer to a message steered into its tool loop
+// as a reply (claudeAssistantRoles.js); a read of Claude's saved history, as
+// delivery recovery after an editor restart makes, classifies it the same way.
+test("Claude's saved history keeps the answer to a message typed while it works a reply, and its narration progress", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "claude-steer-history-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await mkdir(directory, { recursive: true });
+  const conversationId = "0d8f3c55-5b1e-4a63-9f0e-2f4c1a7b9e10";
+  const tool = id => ({ type: "tool_use", id, name: "Bash", input: { command: "true" } });
+  // Claude saves one frame per block of an API message.
+  const step = (id, text, toolId) => [
+    { type: "assistant", uuid: `${id}-text`, message: { id, content: [{ type: "text", text }] } },
+    ...(toolId ? [{ type: "assistant", uuid: `${id}-tool`, message: { id, content: [tool(toolId)] } },
+      { type: "user", uuid: `${id}-result`, message: { content: [{ type: "tool_result", tool_use_id: toolId, content: "ok" }] } }] : [])
+  ];
+  const user = (uuid, text) => ({ type: "user", uuid, message: { content: text } });
+  await writeFile(path.join(directory, `${conversationId}.jsonl`), [
+    user("first", "Run the data pass."),
+    ...step("api-1", "Checking the indexes.", "tool-1"),
+    user("question", "Which pass are you on?"),
+    ...step("api-2", "Done: Security. Now: Data. Next: Speed.", "tool-2"),
+    ...step("api-3", "Now checking the migrations.", "tool-3"),
+    ...step("api-4", "The Data pass is done."),
+    user("next", "Now the speed pass."),
+    ...step("api-5", "Measuring the suite.", "tool-5"),
+    user("stop", "[Request interrupted by user for tool use]"),
+    user("after-stop", "Check the build instead."),
+    ...step("api-6", "Reading the build log.", "tool-6"),
+    ...step("api-7", "The build is fine.")
+  ].map(JSON.stringify).join("\n") + "\n");
+  const history = await readClaudeHistory({ configRoot: root, workdir: root, conversationId });
+  assert.deepEqual(history.messages.map(message => [message.role, message.text, message.userId]), [
+    ["commentary", "Checking the indexes.", "first"],
+    ["assistant", "Done: Security. Now: Data. Next: Speed.", "question"],
+    ["commentary", "Now checking the migrations.", "question"],
+    ["assistant", "The Data pass is done.", "question"],
+    ["commentary", "Measuring the suite.", "next"],
+    ["commentary", "Reading the build log.", "after-stop"],
+    ["assistant", "The build is fine.", "after-stop"]
+  ], "Only the steered message's answer is a reply; a message sent once the loop ended or was stopped starts its own");
+});
+
 test("Claude successful native clear removes a failed goal without a clearing sentinel", async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), "claude-clear-goal-"));
   t.after(() => rm(root, { recursive: true, force: true }));
