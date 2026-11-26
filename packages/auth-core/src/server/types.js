@@ -203,6 +203,11 @@
  *   proved its second factor.
  * @property {(request: object, input: AuthSecondFactorProof) => Promise<AuthSecondFactorVerification>} verifySecondFactor
  *   Marks the request's session as having proved its second factor.
+ * @property {(input: { userId: string, proof: AuthSecondFactorProof }) => Promise<AuthSecondFactorVerification>}
+ *   verifySecondFactorOf Checks a proof of the second factor of an account the application names (a provider user id),
+ *   which decides whose and when: for a caller with no session of that account, such as a command signed in with an
+ *   API key that asks for its creator's code. It counts the same attempts and waits as verifySecondFactor, uses a code
+ *   up the same way, and marks no session. A refusal throws.
  * @property {(request: object, input: AuthSecondFactorProof) => Promise<AuthSecondFactorRecoveryCodes>}
  *   replaceSecondFactorRecoveryCodes
  * @property {(request: object, input: AuthSecondFactorProof) => Promise<{ ok: true }>} removeSecondFactor

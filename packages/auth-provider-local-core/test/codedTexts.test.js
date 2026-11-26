@@ -89,6 +89,10 @@ test("second factor refusals carry codes whose English is the thrown message", a
   const coded = (code) => (error) => assertCoded(error, code);
 
   await assert.rejects(service.verifySecondFactor(request(), { code: "123456" }), coded("auth.local.secondFactor.notSetUp"));
+  await assert.rejects(service.verifySecondFactorOf({ userId: "usr_missing", proof: { code: "123456" } }),
+    coded("auth.local.secondFactor.accountNotFound"));
+  const user = (await service.authenticateRequest(request())).actor.providerUserId;
+  await assert.rejects(service.verifySecondFactorOf({ userId: user, proof: { code: "123456" } }), coded("auth.local.secondFactor.notSetUp"));
   await assert.rejects(service.confirmSecondFactorSetup(request(), { code: "123456" }), coded("auth.local.secondFactor.setupNotStarted"));
   const { secret } = await service.startSecondFactorSetup(request());
   await service.confirmSecondFactorSetup(request(), { code: codeAt(secret) });

@@ -435,6 +435,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     startSecondFactorSetup: unsupported("startSecondFactorSetup"),
     confirmSecondFactorSetup: unsupported("confirmSecondFactorSetup"),
     verifySecondFactor: unsupported("verifySecondFactor"),
+    verifySecondFactorOf: unsupported("verifySecondFactorOf"),
     replaceSecondFactorRecoveryCodes: unsupported("replaceSecondFactorRecoveryCodes"),
     removeSecondFactor: unsupported("removeSecondFactor"),
     listSecondFactors: unsupported("listSecondFactors"),

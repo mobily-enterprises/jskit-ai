@@ -331,6 +331,25 @@ an application that keeps an audit log installs the
 `auth.local.second-factor-events` capability, a function given each event after
 it is stored. Without one, local auth logs them.
 
+**A code for an account the application names.** A caller with no session of
+the account, such as a command signed in with an API key that must show its
+creator's code before it answers, asks `auth.service`'s
+`verifySecondFactorOf({ userId, proof })`, `proof` being `{ code }` or
+`{ recoveryCode }`. Whose account and when are the application's decision. It
+is the session's own check: wrong codes through either count toward the same
+wait, and a code or recovery code accepted by one is used up for both. It
+answers `{ verifiedAt, method, recoveryCodesLeft }` and marks no session.
+Each refusal throws with its code: 404
+`auth.local.secondFactor.accountNotFound` (no account has that id), 403
+`auth.local.secondFactor.accountDisabled` (the account is disabled, even with
+the right code), 409 `auth.local.secondFactor.notSetUp` (no confirmed
+authenticator), 429
+`auth.local.secondFactor.locked` (the account waits; `Retry-After` gives the
+seconds), and 400 `codeInvalid`, `codeUsed`, `recoveryCodeInvalid` or
+`proofRequired`. The application records its own event from the answer or the
+refusal. Local auth's second-factor events for it say `via: "application"`,
+with no request's address (`ip` ""); a session's own events have no `via`.
+
 ## How a session was signed in (local auth)
 
 An action that grants much (root on a machine, say) can ask more of the

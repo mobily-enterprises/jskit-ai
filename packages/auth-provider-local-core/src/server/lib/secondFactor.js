@@ -21,6 +21,8 @@ const RECOVERY_CODE_COUNT = 10;
 // attempts, which make the account wait as failed sign-ins do.
 const REFUSALS = Object.freeze({
   notSetUp: Object.freeze({ status: 409, code: "auth.local.secondFactor.notSetUp", message: "No authenticator is set up for this account." }),
+  accountNotFound: Object.freeze({ status: 404, code: "auth.local.secondFactor.accountNotFound", message: "There is no such account." }),
+  accountDisabled: Object.freeze({ status: 403, code: "auth.local.secondFactor.accountDisabled", message: "This account is disabled." }),
   alreadySetUp: Object.freeze({
     status: 409,
     code: "auth.local.secondFactor.alreadySetUp",
@@ -109,8 +111,9 @@ function createLoggedSecondFactorEvents(logger) {
  * recovery codes, one factor per account. Its secret is kept sealed with the
  * application's AUTH_LOCAL_SECOND_FACTOR_KEY and its recovery codes as keyed
  * hashes. An accepted code marks the request's session with the time, which
- * routes and actions that ask for a second factor compare; a code is accepted
- * once. Every change and every failed attempt is an event for the
+ * routes and actions that ask for a second factor compare, except one the
+ * application checks for an account it names (verifySecondFactorOf); a code is
+ * accepted once. Every change and every failed attempt is an event for the
  * application's `auth.local.second-factor-events`.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
@@ -188,26 +191,26 @@ function createLocalSecondFactor({ backend, config, logger, secondFactorEvents, 
   }
 
   /**
-   * Proves the session's second factor in the caller's transaction. While the
+   * Proves an account's second factor in the caller's transaction. While the
    * account waits after wrong codes, nothing is checked. A refused proof counts
    * one more failure; an accepted one forgets them, uses up its code, confirms
-   * a factor still being set up, applies the caller's changes and marks the
-   * session.
+   * a factor still being set up and applies the caller's changes. The failures
+   * are the factor's own, so every way of proving it counts the same attempts.
    * @param {import("../types.js").AuthLocalBackendTransaction} tx
-   * @param {{ userId: string, sessionId: string }} session
+   * @param {string} userId
    * @param {object} factor The account's factor, as `secondFactors.find` held it.
    * @param {{ code: string } | { recoveryCode: string }} proof
    * @param {object} [changes]
    */
-  async function prove(tx, session, factor, proof, changes = {}) {
+  async function proveFactor(tx, userId, factor, proof, changes = {}) {
     const now = Date.now();
     const waitMs = signInWaitMs(factor, now);
     if (waitMs > 0) {
       return { waitMs };
     }
     const checked = Object.hasOwn(proof, "recoveryCode")
-      ? checkRecoveryCode(session.userId, factor, proof.recoveryCode)
-      : checkCode(session.userId, factor, proof.code, now);
+      ? checkRecoveryCode(userId, factor, proof.recoveryCode)
+      : checkCode(userId, factor, proof.code, now);
     const at = new Date(now).toISOString();
     if (checked.refusal) {
       await tx.secondFactors.save({ ...factor, ...nextFailures(config.signInThrottle, factor, now), updatedAt: at });
@@ -215,8 +218,24 @@ function createLocalSecondFactor({ backend, config, logger, secondFactorEvents, 
     }
     const proved = { ...factor, ...checked.changes, ...changes, ...NO_FAILURES, confirmedAt: factor.confirmedAt || at, updatedAt: at };
     await tx.secondFactors.save(proved);
-    await tx.sessions.markSecondFactorProved(session.sessionId, at);
     return { factor: proved, method: checked.method, verifiedAt: at };
+  }
+
+  /**
+   * Proves the session's second factor (proveFactor) and, when accepted, marks
+   * the session with the time.
+   * @param {import("../types.js").AuthLocalBackendTransaction} tx
+   * @param {{ userId: string, sessionId: string }} session
+   * @param {object} factor
+   * @param {{ code: string } | { recoveryCode: string }} proof
+   * @param {object} [changes]
+   */
+  async function prove(tx, session, factor, proof, changes = {}) {
+    const outcome = await proveFactor(tx, session.userId, factor, proof, changes);
+    if (outcome.factor) {
+      await tx.sessions.markSecondFactorProved(session.sessionId, outcome.verifiedAt);
+    }
+    return outcome;
   }
 
   /**
@@ -231,15 +250,20 @@ function createLocalSecondFactor({ backend, config, logger, secondFactorEvents, 
     return factor?.confirmedAt ? prove(tx, session, factor, proof, changes) : { refusal: REFUSALS.notSetUp };
   }
 
-  /** Throws a refused outcome's error after its transaction, so the failure it counted is kept, and records it. */
-  async function refuseFailed(outcome, session) {
+  /**
+   * Throws a refused outcome's error after its transaction, so the failure it counted is kept, and records it.
+   * @param {object} outcome
+   * @param {{ userId: string, ip: string }} session
+   * @param {object} [details] More of the event, as its `via`.
+   */
+  async function refuseFailed(outcome, session, details = {}) {
     if (outcome.waitMs) {
-      await recordEvent("failed", session, { reason: "locked" });
+      await recordEvent("failed", session, { ...details, reason: "locked" });
       throw secondFactorLockedError(outcome.waitMs);
     }
     if (outcome.refusal) {
       if (outcome.refusal.reason) {
-        await recordEvent("failed", session, { reason: outcome.refusal.reason });
+        await recordEvent("failed", session, { ...details, reason: outcome.refusal.reason });
       }
       throw secondFactorError(outcome.refusal);
     }
@@ -330,6 +354,42 @@ function createLocalSecondFactor({ backend, config, logger, secondFactorEvents, 
     return { verifiedAt: outcome.verifiedAt, method: outcome.method, recoveryCodesLeft };
   }
 
+  /**
+   * Checks a proof of the second factor of an account the application names
+   * (a local account id), which decides whose and when: for a caller with no
+   * session of that account, such as a command signed in with an API key that
+   * asks for its creator's code. It proves what verifySecondFactor proves, with
+   * the same attempts, waits and once-only codes, but marks no session. An
+   * unknown or disabled account is refused before anything is checked, and a
+   * refusal throws, as verifySecondFactor's do. Its events say `via`
+   * "application", with no request's address.
+   * @param {{ userId: string, proof: import("@jskit-ai/auth-core/server/types").AuthSecondFactorProof }} input
+   */
+  async function verifySecondFactorOf({ userId, proof } = {}) {
+    const id = String(userId ?? "").trim();
+    if (!id) {
+      throw new TypeError("verifySecondFactorOf() takes the userId whose second factor it checks and its proof.");
+    }
+    const checked = readProof(proof ?? {});
+    const subject = { userId: id, ip: "" };
+    const via = { via: "application" };
+    const outcome = await backend.withTransaction(async (tx) => {
+      const user = await tx.users.findById(id);
+      if (!user) {
+        return { refusal: REFUSALS.accountNotFound };
+      }
+      if (user.disabled) {
+        return { refusal: REFUSALS.accountDisabled };
+      }
+      const factor = await tx.secondFactors.find(id);
+      return factor?.confirmedAt ? proveFactor(tx, id, factor, checked) : { refusal: REFUSALS.notSetUp };
+    });
+    await refuseFailed(outcome, subject, via);
+    const recoveryCodesLeft = outcome.factor.recoveryCodes.length;
+    await recordEvent("verified", subject, { ...via, method: outcome.method, recoveryCodesLeft });
+    return { verifiedAt: outcome.verifiedAt, method: outcome.method, recoveryCodesLeft };
+  }
+
   async function replaceSecondFactorRecoveryCodes(request, input) {
     const session = await signedInSession(request);
     const proof = readProof(input);
@@ -398,6 +458,7 @@ function createLocalSecondFactor({ backend, config, logger, secondFactorEvents, 
     startSecondFactorSetup,
     confirmSecondFactorSetup,
     verifySecondFactor,
+    verifySecondFactorOf,
     replaceSecondFactorRecoveryCodes,
     removeSecondFactor,
     listSecondFactors,
