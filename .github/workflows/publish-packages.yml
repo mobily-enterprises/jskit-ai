@@ -19,7 +19,8 @@ env:
 jobs:
   browser-contracts:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Its steps' switches now run every browser test file they turn on, as verify's do; 20 minutes, as there.
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -36,60 +37,61 @@ jobs:
       - name: Install Chromium
         run: npx --yes --allow-scripts=fsevents playwright@1.61.1 install --with-deps chromium
 
+      # Each step sets JSKIT_* switches; npm run test:browser runs every browser test file whose switches are set.
       - name: Verify foundation loading before JavaScript
         env:
           JSKIT_FOUNDATION_STARTUP_INTEGRATION: "1"
-        run: npx jskit test packages/agent-docs/test/foundationStartup.browser.test.js
+        run: npm run test:browser
 
       - name: Verify linked application package caching
         env:
           JSKIT_VITE_LINKED_PACKAGE_CACHE_INTEGRATION: "1"
-        run: npx jskit test packages/agent-docs/test/viteLinkedPackageCache.browser.test.js
+        run: npm run test:browser
 
       - name: Verify responsive CRUD date filters
         env:
           JSKIT_HTTP_WEB_DATE_FILTER_VISUAL_INTEGRATION: "1"
-        run: npx jskit test packages/http-web/test/crudListDateFilterSurface.browser.test.js
+        run: npm run test:browser
 
       - name: Verify select fields never show stored ids
         env:
           JSKIT_HTTP_WEB_SELECT_FIELD_BROWSER: "1"
-        run: npx jskit test packages/http-web/test/selectField.browser.test.js
+        run: npm run test:browser
 
       - name: Verify list record action menus are menus
         env:
           JSKIT_HTTP_WEB_RECORD_ACTION_MENU_BROWSER: "1"
-        run: npx jskit test packages/http-web/test/crudListRecordActionMenu.browser.test.js
+        run: npm run test:browser
 
-      - name: Verify shared assistant conversation UI
+      - name: Verify shared assistant conversation UI: scrolling, message delivery and the transcript theme
         env:
           JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/assistant-core/test/assistantScroll.browser.test.js
+        run: npm run test:browser
 
-      - name: Verify ready-made assistant lifecycle
+      - name: Verify the ready-made assistant: its lifecycle, conversation binding and the settings pane's app bar Save
         env:
           JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/assistant-runtime/test/conversation.browser.test.js
+        run: npm run test:browser
 
-      - name: Verify adaptive shell behavior and the inert page behind a dialog
+      - name: Verify the adaptive shell, the inert page behind a dialog, pending actions' focus, the environment banner and the production build
         env:
           JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/shell-web/test/adaptiveShell.browser.test.js packages/shell-web/test/inertBehindDialog.browser.test.js
+        run: npm run test:browser
 
       - name: Verify the Material 3 baselines
         env:
           JSKIT_MATERIAL_BASELINES: "1"
-        run: npx jskit test packages/shell-web/test/materialBaselines.browser.test.js packages/http-web/test/crudScreensMaterialBaselines.browser.test.js
+        run: npm run test:browser
 
       - name: Verify sign-in, second-factor, strict-cookie and pass sign-in behavior
         env:
           JSKIT_AUTH_WEB_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/auth-web/test/signIn.browser.test.js packages/auth-web/test/secondFactor.browser.test.js packages/auth-web/test/sameSiteStrict.browser.test.js packages/auth-web/test/passSignIn.browser.test.js
+        run: npm run test:browser
 
-      - name: Verify account settings behavior
+      - name: Verify account settings behavior and a translated app with no English
         env:
           JSKIT_USERS_WEB_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/users-web/test/accountSettings.browser.test.js
+        run: npm run test:browser
 
   publish:
     needs: browser-contracts
