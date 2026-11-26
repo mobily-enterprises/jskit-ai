@@ -330,8 +330,8 @@ export function createClaudeConversationOwner({
     return entry.nativeTurn.readFinalAssistantResult(conversationId, turnId);
   }
 
-  function readHistory(entry, options) { // A live conversation's own parsed history: reading others never re-parses it.
-    return readClaudeHistory({ configRoot, workdir: entry.nativeWorkdir, conversationId: entry.id, ...options, history: ownClaudeHistory(entry) });
+  function readHistory(entry, options) { // A live conversation's own parsed history, kept while it is read or runs a turn.
+    return readClaudeHistory({ configRoot, workdir: entry.nativeWorkdir, conversationId: entry.id, ...options, history: ownClaudeHistory(entry, { busy: () => isTurnActive(entry) }) });
   }
 
   function savedState(saved, conversationId) {

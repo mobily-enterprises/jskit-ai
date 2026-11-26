@@ -137,6 +137,7 @@ function claudeMessageBlocks(frame, { includeNested = false, commentary = false 
 // conversation keeps its own history state (claudeTurn's entry owns it), so
 // reading other conversations never evicts it; other reads share a small cache.
 const HISTORY_CACHE_LIMIT = 8;
+const OWNED_HISTORY_IDLE_MS = 10 * 60_000;
 const HISTORY_CHECK_BYTES = 256;
 const historyCache = new Map();
 
@@ -146,12 +147,26 @@ export function createClaudeHistoryState() {
 }
 
 /**
- * The history state a live conversation keeps for its whole life, on its own entry and never saved with it.
+ * The history state a live conversation keeps while it is in use, on its own entry and never saved with it. Ten minutes
+ * after its last read, unless a turn is in flight (busy), it lets the state go: an idle session holds none of its
+ * transcript (about a sixth of the file's size, held on every open conversation's entry), and its next read parses the
+ * file again from its start, about 2 s for 350 MB.
  * @param {object} owner the conversation's entry
+ * @param {{ busy?: () => boolean }} [use]
  */
-export function ownClaudeHistory(owner) {
-  if (!owner.nativeHistory) Object.defineProperty(owner, "nativeHistory", { value: createClaudeHistoryState() });
-  return owner.nativeHistory;
+export function ownClaudeHistory(owner, { busy = () => false } = {}) {
+  if (!owner.nativeHistory) Object.defineProperty(owner, "nativeHistory", { value: { state: null, idle: null } });
+  const held = owner.nativeHistory;
+  held.state ??= createClaudeHistoryState();
+  const release = () => {
+    if (!busy()) return Object.assign(held, { state: null, idle: null });
+    held.idle = setTimeout(release, OWNED_HISTORY_IDLE_MS);
+    held.idle.unref();
+  };
+  clearTimeout(held.idle);
+  held.idle = setTimeout(release, OWNED_HISTORY_IDLE_MS);
+  held.idle.unref();
+  return held.state;
 }
 
 // Retain only the fields the history projection reads. Tool results, tool
