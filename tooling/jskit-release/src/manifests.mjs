@@ -150,9 +150,17 @@ function assertNoOutsidePathDependencies(records, repoRoot) {
 
 async function releaseConfig(repoRoot) {
   const config = (await readJsonFile(path.join(repoRoot, "package.json"))).jskitRelease || {};
+  // A command and its arguments, run without a shell: anything else is refused before a release or pin changes a file.
+  const afterPin = config.afterPin ?? [];
+  if (!Array.isArray(afterPin) || (Object.hasOwn(config, "afterPin") && afterPin.length === 0)
+    || !afterPin.every(part => typeof part === "string" && part.trim() !== "")) {
+    throw new Error("package.json jskitRelease.afterPin must be a command and its arguments, a non-empty array of " +
+      `non-empty strings run without a shell; it is ${JSON.stringify(config.afterPin)}.`);
+  }
   return {
     prepare: String(config.prepare || ""),
-    nestedManifests: Array.isArray(config.nestedManifests) ? config.nestedManifests.map(String) : []
+    nestedManifests: Array.isArray(config.nestedManifests) ? config.nestedManifests.map(String) : [],
+    afterPin: [...afterPin]
   };
 }
 

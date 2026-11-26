@@ -34,6 +34,9 @@ import { createPublicationInspection, fileState, inParallel, planPublication, sn
 //   nestedManifests  package subdirectories whose package.json pins follow the release
 //   manifests        further package directories (or `*` patterns) the repository owns
 //                    without declaring them as npm workspaces
+//   afterPin         a command and its arguments (an array, run without a shell) that `pin` runs in the repository
+//                    root once the released versions are installed, with its node_modules/.bin first on PATH; the
+//                    files it changes join the pin commit (a generated copy that must follow a pinned package, say)
 // and per package in its own `jskitRelease` field:
 //   pack             command printing a custom tarball path (see npm-publication.mjs)
 //   versionFiles     JSON files whose `version` must equal the package version
@@ -638,6 +641,7 @@ async function pinCommand({ cwd: repoRoot, from, dryRun, noCommit, noPush, branc
   for (const dir of from) {
     for (const record of await discoverReleasePackages(dir)) versions.set(record.name, record.packageJson.version);
   }
+  const { afterPin } = await releaseConfig(repoRoot);
   if (!dryRun) assertReleaseCheckout(repoRoot, { allowAhead: noCommit, branch });
   const changes = [];
   for (const manifest of await discoverManifests(repoRoot)) {
@@ -652,12 +656,27 @@ async function pinCommand({ cwd: repoRoot, from, dryRun, noCommit, noPush, branc
     return;
   }
   for (const change of changes) process.stdout.write(`${path.basename(repoRoot)}: ${change}\n`);
+  const after = afterPin.join(" ");
   if (dryRun) {
+    if (afterPin.length) process.stdout.write(`${path.basename(repoRoot)}: would run ${after} after the install (jskitRelease.afterPin)\n`);
     process.stdout.write("Pin dry-run complete.\n");
     return;
   }
   await forgetPinnedLockEntries(repoRoot, new Set(versions.keys()));
   await installReleasedPins(repoRoot);
+  if (afterPin.length) {
+    // The repository's own step on the versions just installed; whatever it changes is committed with the pins.
+    process.stdout.write(`${path.basename(repoRoot)}: running ${after} (jskitRelease.afterPin)\n`);
+    const bin = path.join(repoRoot, "node_modules", ".bin");
+    const ran = spawnSync(afterPin[0], afterPin.slice(1), { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, PATH: process.env.PATH ? `${bin}${path.delimiter}${process.env.PATH}` : bin } });
+    const output = `${ran.stdout || ""}${ran.stderr || ""}`.trim();
+    if (ran.error || ran.status !== 0) {
+      throw new Error(`jskitRelease.afterPin \`${after}\` ${ran.error ? `could not start (${ran.error.message})`
+        : `failed with exit code ${ran.status ?? ran.signal}`}, so the pin was not committed.${output ? ` ${output}` : ""}`);
+    }
+    if (output) process.stdout.write(`${output}\n`);
+  }
   if (noCommit) {
     process.stdout.write(`${path.basename(repoRoot)}: pins installed; not committed\n`);
     return;
