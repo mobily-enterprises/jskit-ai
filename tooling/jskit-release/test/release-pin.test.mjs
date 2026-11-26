@@ -287,7 +287,7 @@ test("pin runs the repository's afterPin command on the installed versions, and 
 
   const dry = f.run(["pin", "--from", f.repo, "--dry-run"], {}, consumer);
   assert.equal(dry.status, 0, dry.stderr);
-  assert.match(dry.stdout, /consumer: would run .+ after the install \(jskitRelease\.afterPin\)/u);
+  assert.match(dry.stdout, /^consumer: would run \[".+"\] after the install \(jskitRelease\.afterPin\)$/mu, "one line, the argv as JSON");
   assert.deepEqual(await runs(), [], "a dry run runs nothing");
 
   const result = f.run(["pin", "--from", f.repo], {}, consumer);
@@ -339,7 +339,7 @@ test("a failing afterPin command fails the pin before its commit, showing its ou
   const head = git("rev-parse", "HEAD").toString();
   const failed = f.run(["pin", "--from", f.repo], {}, consumer);
   assert.notEqual(failed.status, 0, failed.stdout);
-  assert.match(failed.stderr, /jskitRelease\.afterPin `.+` failed with exit code 3, so the pin was not committed\. the copies could not be synced/u);
+  assert.match(failed.stderr, /jskitRelease\.afterPin \[".+\] failed with exit code 3, so the pin was not committed\. the copies could not be synced/u);
   assert.equal(git("rev-parse", "HEAD").toString(), head);
   assert.equal(git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0] + "\n", head, "nothing pushed");
 

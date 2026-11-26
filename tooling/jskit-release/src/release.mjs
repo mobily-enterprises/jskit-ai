@@ -656,7 +656,8 @@ async function pinCommand({ cwd: repoRoot, from, dryRun, noCommit, noPush, branc
     return;
   }
   for (const change of changes) process.stdout.write(`${path.basename(repoRoot)}: ${change}\n`);
-  const after = afterPin.join(" ");
+  // Shown as its argv, one line however its arguments are written.
+  const after = JSON.stringify(afterPin);
   if (dryRun) {
     if (afterPin.length) process.stdout.write(`${path.basename(repoRoot)}: would run ${after} after the install (jskitRelease.afterPin)\n`);
     process.stdout.write("Pin dry-run complete.\n");
@@ -672,7 +673,7 @@ async function pinCommand({ cwd: repoRoot, from, dryRun, noCommit, noPush, branc
       env: { ...process.env, PATH: process.env.PATH ? `${bin}${path.delimiter}${process.env.PATH}` : bin } });
     const output = `${ran.stdout || ""}${ran.stderr || ""}`.trim();
     if (ran.error || ran.status !== 0) {
-      throw new Error(`jskitRelease.afterPin \`${after}\` ${ran.error ? `could not start (${ran.error.message})`
+      throw new Error(`jskitRelease.afterPin ${after} ${ran.error ? `could not start (${ran.error.message})`
         : `failed with exit code ${ran.status ?? ran.signal}`}, so the pin was not committed.${output ? ` ${output}` : ""}`);
     }
     if (output) process.stdout.write(`${output}\n`);
