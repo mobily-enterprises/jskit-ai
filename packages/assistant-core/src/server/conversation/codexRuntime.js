@@ -65,6 +65,32 @@ function codexAppServerLivenessIdentity(pid, alive) {
   };
 }
 
+// The pause between a starting app-server's checks: its socket file, then a probe of a socket not yet answering.
+const CODEX_APP_SERVER_READY_POLL_MS = 100;
+
+/**
+ * Whether a starting Codex app-server answers before the deadline: its socket file appears, then `probe(remainingMs)`
+ * finds it responsive. A socket that exists but refuses or drops a connection (bound and not yet listening, a window a
+ * busy host stretches) is probed again after a short pause, until the server answers or the deadline passes.
+ * @param {string} socketPath
+ * @param {{ timeoutMs: number, probe: (remainingMs: number) => Promise<string> }} options
+ * @returns {Promise<boolean>}
+ */
+export async function waitForCodexAppServerEndpoint(socketPath, { timeoutMs, probe }) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (await fileExists(socketPath) &&
+      await probe(Math.max(1, deadline - Date.now())) === CODEX_APP_SERVER_ENDPOINT_STATUS.RESPONSIVE) {
+      return true;
+    }
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) {
+      return false;
+    }
+    await delay(Math.min(CODEX_APP_SERVER_READY_POLL_MS, remainingMs));
+  }
+}
+
 /**
  * The production shared runtime: one process owner per stable runtime directory.
  * Execution and credential facilities retain host policy; threads do not own this process.
@@ -308,15 +334,10 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
     if (!socketPath) {
       return false;
     }
-    const startedAt = Date.now();
-    while (!await fileExists(socketPath) && Date.now() - startedAt <= timeoutMs) {
-      await delay(100);
-    }
-    const remainingMs = Math.max(1, timeoutMs - (Date.now() - startedAt));
-    if (!await fileExists(socketPath)) {
-      return false;
-    }
-    return await probeCodexAppServer(endpoint, remainingMs, WebSocketImpl) === CODEX_APP_SERVER_ENDPOINT_STATUS.RESPONSIVE;
+    return await waitForCodexAppServerEndpoint(socketPath, {
+      timeoutMs,
+      probe: (remainingMs) => probeCodexAppServer(endpoint, remainingMs, WebSocketImpl)
+    });
   }
 
   async function ensureCodexAppServerRuntime(options = {}) {
