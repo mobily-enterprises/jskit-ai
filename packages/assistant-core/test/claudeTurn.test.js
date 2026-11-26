@@ -94,6 +94,53 @@ test("Claude native no-response placeholders are excluded from live and cold rep
   assert.deepEqual(history.userIds, ["original-request"]);
 });
 
+// The live turn shows Claude's answer to a message steered into its tool loop
+// as a reply (claudeAssistantRoles.js); a read of Claude's saved history, as
+// delivery recovery after an editor restart makes, classifies it the same way.
+test("Claude's saved history keeps the answer to a message typed while it works a reply, and its narration progress", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "claude-steer-history-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await mkdir(directory, { recursive: true });
+  const conversationId = "0d8f3c55-5b1e-4a63-9f0e-2f4c1a7b9e10";
+  const tool = id => ({ type: "tool_use", id, name: "Bash", input: { command: "true" } });
+  // Claude saves one frame per block of an API message.
+  const step = (id, text, toolId) => [
+    { type: "assistant", uuid: `${id}-text`, message: { id, content: [{ type: "text", text }] } },
+    ...(toolId ? [{ type: "assistant", uuid: `${id}-tool`, message: { id, content: [tool(toolId)] } },
+      { type: "user", uuid: `${id}-result`, message: { content: [{ type: "tool_result", tool_use_id: toolId, content: "ok" }] } }] : [])
+  ];
+  const user = (uuid, text) => ({ type: "user", uuid, message: { content: text } });
+  await writeFile(path.join(directory, `${conversationId}.jsonl`), [
+    user("first", "Run the data pass."),
+    ...step("api-1", "Checking the indexes.", "tool-1"),
+    user("question", "Which pass are you on?"),
+    ...step("api-2", "Done: Security. Now: Data. Next: Speed.", "tool-2"),
+    ...step("api-3", "Now checking the migrations.", "tool-3"),
+    ...step("api-4", "The Data pass is done."),
+    user("next", "Now the speed pass."),
+    ...step("api-5", "Measuring the suite.", "tool-5"),
+    user("stop", "[Request interrupted by user for tool use]"),
+    user("after-stop", "Check the build instead."),
+    ...step("api-6", "Reading the build log.", "tool-6"),
+    { type: "user", uuid: "task", origin: { kind: "task-notification" },
+      message: { content: "<task-notification><status>completed</status></task-notification>" } },
+    ...step("api-6b", "Reading the test output.", "tool-6b"),
+    ...step("api-7", "The build is fine.")
+  ].map(JSON.stringify).join("\n") + "\n");
+  const history = await readClaudeHistory({ configRoot: root, workdir: root, conversationId });
+  assert.deepEqual(history.messages.map(message => [message.role, message.text, message.userId]), [
+    ["commentary", "Checking the indexes.", "first"],
+    ["assistant", "Done: Security. Now: Data. Next: Speed.", "question"],
+    ["commentary", "Now checking the migrations.", "question"],
+    ["assistant", "The Data pass is done.", "question"],
+    ["commentary", "Measuring the suite.", "next"],
+    ["commentary", "Reading the build log.", "after-stop"],
+    ["commentary", "Reading the test output.", "task"],
+    ["assistant", "The build is fine.", "task"]
+  ], "Only the steered message's answer is a reply; a message sent once the loop ended or was stopped starts its own, and Claude's own task notification is no message to answer");
+});
+
 test("Claude successful native clear removes a failed goal without a clearing sentinel", async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), "claude-clear-goal-"));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -367,6 +414,99 @@ for (const lifecycle of [true, false]) test(`steering queues behind the running 
   const answer = events.findLast(event => event.type === "message" && event.message.complete && event.message.role === "assistant");
   assert.equal(answer.message.userId, followUp, "The joined answer belongs to the newest accepted input");
   assert.equal(interrupts, 0);
+});
+
+// One API message as Claude Code streams it: with --include-partial-messages its
+// text streams first, then one native frame per content block arrives before
+// that block's stop event, then the message's stop reason. Without partial
+// messages one frame carries the whole message.
+async function receiveClaudeApiMessage(turn, { id, text = "", tool = "", partial = true }) {
+  const content = [...(text ? [{ type: "text", text }] : []),
+    ...(tool ? [{ type: "tool_use", id: tool, name: "Bash", input: { command: tool } }] : [])];
+  if (!partial) {
+    await turn.receive({ type: "assistant", uuid: `${id}-frame`, message: { id, content, stop_reason: tool ? "tool_use" : "end_turn" } });
+    return;
+  }
+  await turn.receive({ type: "stream_event", event: { type: "message_start", message: { id } } });
+  for (const [index, block] of content.entries()) {
+    await turn.receive({ type: "stream_event", event: { type: "content_block_start", index,
+      content_block: block.type === "text" ? { type: "text", text: "" } : { type: "tool_use", id: block.id, name: block.name, input: {} } } });
+    if (block.type === "text") await turn.receive({ type: "stream_event", event: { type: "content_block_delta", index, delta: { type: "text_delta", text: block.text } } });
+    await turn.receive({ type: "assistant", uuid: `${id}-${index}`, apiBlockIndex: index, message: { id, content: [block], stop_reason: null } });
+    await turn.receive({ type: "stream_event", event: { type: "content_block_stop", index } });
+  }
+  await turn.receive({ type: "stream_event", event: { type: "message_delta", delta: { stop_reason: tool ? "tool_use" : "end_turn" } } });
+}
+
+const completeClaudeMessages = events => events.filter(event => event.type === "message" && event.message.complete && event.message.role !== "thinking")
+  .map(event => [event.message.role, event.message.text]);
+
+// The owner, 2026-11-26: a question typed while a pass worked was answered in
+// the turn, but shown only as a folded progress update, never as a reply.
+// Captured 2.1.307 order (see the steering test above): Claude acknowledges the
+// message as queued, replays it once the running tool call returns, answers it
+// and works on, often with a tool call in the same API message.
+for (const partial of [true, false]) test(`the text Claude answers a message typed while it works with is a reply, and its later narration stays progress, partial=${partial}`, async () => {
+  const { turn, send, client, events } = fixture();
+  const first = claudeNativeMessageId("first");
+  const question = claudeNativeMessageId("question");
+  client.send = async (_message, input) => {
+    await turn.receive({ type: "command_lifecycle", command_uuid: input.messageId, state: "queued" });
+  };
+  await send();
+  await turn.receive({ type: "command_lifecycle", command_uuid: first, state: "started" });
+  await turn.receive({ type: "user", uuid: first });
+  await receiveClaudeApiMessage(turn, { id: "work-api", text: "Checking the indexes.", tool: "indexes", partial });
+  await turn.prepareSteering();
+  await send("question", { steer: true });
+  await turn.receive({ type: "user", uuid: "indexes-result", message: { content: [{ type: "tool_result", tool_use_id: "indexes", content: "ok" }] } });
+  await turn.receive({ type: "user", uuid: question });
+  await turn.receive({ type: "command_lifecycle", command_uuid: question, state: "started" });
+  await receiveClaudeApiMessage(turn, { id: "reply-api", text: "Done: Security. Now: Data. Next: Speed.", tool: "migrations", partial });
+  await turn.receive({ type: "user", uuid: "migrations-result", message: { content: [{ type: "tool_result", tool_use_id: "migrations", content: "ok" }] } });
+  await receiveClaudeApiMessage(turn, { id: "narration-api", text: "Now checking the migrations.", tool: "constraints", partial });
+  await turn.receive({ type: "user", uuid: "constraints-result", message: { content: [{ type: "tool_result", tool_use_id: "constraints", content: "ok" }] } });
+  await receiveClaudeApiMessage(turn, { id: "final-api", text: "The Data pass is done.", partial });
+  await turn.receive({ type: "command_lifecycle", command_uuid: question, state: "completed" });
+  await turn.receive({ type: "result", subtype: "success", terminal_reason: "completed", result: "The Data pass is done." });
+  await turn.receive({ type: "command_lifecycle", command_uuid: first, state: "completed" });
+  assert.deepEqual(completeClaudeMessages(events), [
+    ["commentary", "Checking the indexes."],
+    ["assistant", "Done: Security. Now: Data. Next: Speed."],
+    ["commentary", "Now checking the migrations."],
+    ["assistant", "The Data pass is done."]
+  ], "Only the answer to the typed message becomes a reply; the pass's narration stays progress");
+  const reply = events.find(event => event.type === "message" && event.message.complete && event.message.text.startsWith("Done:"));
+  assert.equal(reply.message.userId, question, "The reply belongs to the message it answers");
+  assert.deepEqual([turn.read().status, turn.read().text], ["completed", "The Data pass is done."]);
+  assert.equal(events.filter(event => event.type === "settled").length, 1);
+});
+
+test("a message Claude runs as its own loop, after the running one ended, narrates as progress before its answer", async () => {
+  const { turn, send, client, events } = fixture();
+  const first = claudeNativeMessageId("first");
+  const next = claudeNativeMessageId("next");
+  client.send = async (_message, input) => {
+    await turn.receive({ type: "command_lifecycle", command_uuid: input.messageId, state: "queued" });
+  };
+  await send();
+  await turn.receive({ type: "command_lifecycle", command_uuid: first, state: "started" });
+  await turn.receive({ type: "user", uuid: first });
+  await receiveClaudeApiMessage(turn, { id: "story-api", text: "Story" });
+  await turn.prepareSteering();
+  await send("next", { steer: true });
+  await turn.receive({ type: "result", subtype: "success", terminal_reason: "completed", result: "Story" });
+  await turn.receive({ type: "command_lifecycle", command_uuid: first, state: "completed" });
+  await turn.receive({ type: "command_lifecycle", command_uuid: next, state: "started" });
+  await turn.receive({ type: "user", uuid: next });
+  await receiveClaudeApiMessage(turn, { id: "look-api", text: "Looking at the files.", tool: "read" });
+  await turn.receive({ type: "user", uuid: "read-result", message: { content: [{ type: "tool_result", tool_use_id: "read", content: "ok" }] } });
+  await receiveClaudeApiMessage(turn, { id: "next-api", text: "Next answer" });
+  await turn.receive({ type: "result", subtype: "success", terminal_reason: "completed", result: "Next answer" });
+  await turn.receive({ type: "command_lifecycle", command_uuid: next, state: "completed" });
+  assert.deepEqual(completeClaudeMessages(events), [
+    ["assistant", "Story"], ["commentary", "Looking at the files."], ["assistant", "Next answer"]
+  ], "A message that starts its own loop is answered by that loop's final reply");
 });
 
 test("Claude output before a queued follow-up keeps its input identity after the follow-up is accepted", async t => {

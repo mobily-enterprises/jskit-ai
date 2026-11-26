@@ -64,6 +64,7 @@ export function createCodexAppServerOutput({
     liveProgressFingerprints: codexAppServerLiveProgressFingerprints,
     mirroredTerminalItems: codexAppServerMirroredTerminalItems,
     writeLiveProgress: writeCodexAppServerLiveProgress,
+    observeTurnItem: observeCodexAppServerTurnItem,
     writeMirroredTerminalMessage: writeMirroredCodexAppServerTerminalMessage,
     mirrorTerminalAssistantMessage: mirrorCodexAppServerTerminalAssistantMessage,
     forgetTurnItems: forgetCodexAppServerLiveTurnItems
@@ -584,6 +585,7 @@ export function createCodexAppServerOutput({
     streamMessage: codexAppServerStreamMessage,
     writeStream: writeCodexAppServerStream,
     writeLiveProgress: writeCodexAppServerLiveProgress,
+    observeTurnItem: observeCodexAppServerTurnItem,
     submitAssistantResult: submitCodexAppServerAssistantResult,
     writeMirroredTerminalMessage: writeMirroredCodexAppServerTerminalMessage,
     mirrorTerminalAssistantMessage: mirrorCodexAppServerTerminalAssistantMessage,

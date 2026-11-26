@@ -1,5 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { claudeMessageBlocks } from "./claudeHistory.js";
+import { createClaudeAssistantRoles } from "./claudeAssistantRoles.js";
 import { setClaudeTurnState, stopClaudeEntryProcess } from "./claudeEntryStop.js";
 import { createClaudeConversationAdapter } from "./providers/claude.js";
 import { createClaudeSteeringBackground } from "./claudeSteeringBackground.js";
@@ -140,6 +141,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
   // Steers written into a running loop that Claude has not begun reading. Claude
   // Code reads queued input only when the running tool call returns.
   const waitingSteers = new Set();
+  const assistantText = createClaudeAssistantRoles({ roles: assistantRoles, pending: pendingAssistantMessages, started: startedInputs, messages, publishMessage });
   let steeringClient = null;
   const tasks = new Set();
   const stopState = createClaudeStopState();
@@ -343,19 +345,6 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     return conversationTurn;
   }
 
-  async function flushAssistantMessages(apiMessageId, role, emit) {
-    assistantRoles.set(apiMessageId, role);
-    const pending = pendingAssistantMessages.get(apiMessageId) || [];
-    pendingAssistantMessages.delete(apiMessageId);
-    for (const block of pending) {
-      await publishMessage({ ...block, role }, emit);
-      if (block.outputId) {
-        if (block.outputId !== block.id) messages.delete(block.outputId);
-        await emit({ type: "message-complete", messageId: block.outputId });
-      }
-    }
-  }
-
   /**
    * One native frame. The process's reader hands over frames one at a time;
    * Stop, a reset and the next turn's start are synchronous steps that advance
@@ -408,6 +397,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
       // Native notifications have their own lifecycle UUIDs, including work
       // folded into this input. They must not steal its receipt/result owner.
       if ((frame.state === "started" || frame.type === "user") && inFlight.has(uuid)) {
+        assistantText.read(uuid);
         currentCommandId = uuid;
         startedInputs.add(uuid);
         stopState.loopStarted();
@@ -499,17 +489,18 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
           await emit({ type: "message-complete", messageId: id });
         }
       } else if (event.type === "message_delta" && event.delta?.stop_reason) {
-        await flushAssistantMessages(messageId, event.delta.stop_reason === "tool_use" ? "commentary" : "assistant", emit);
+        await assistantText.flush(messageId, assistantText.role(messageId, event.delta.stop_reason === "tool_use"), emit);
       }
     } else if (frame.type === "assistant") {
       const apiMessageId = frame.message?.id;
       if (apiMessageId && frame.message.content?.some(block => block.type === "tool_use")) {
-        await flushAssistantMessages(apiMessageId, "commentary", emit);
+        await assistantText.flush(apiMessageId, assistantText.role(apiMessageId, true, frame, currentCommandId), emit);
       }
       for (const block of frame.message?.content || []) steeringBackground.called(block);
       for (const block of claudeMessageBlocks(frame)) {
         block.userId = currentCommandId;
         checkOutput(block.text, block.role);
+        if (block.role === "commentary" && apiMessageId && assistantRoles.get(apiMessageId) === "assistant") block.role = "assistant";
         const live = liveClaudeBlock(messages, messageId, frame, block.role);
         if (live) {
           block.outputId = live.id;
@@ -526,13 +517,13 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
         } else await publishMessage(block, emit);
       }
       if (apiMessageId && frame.message.stop_reason) {
-        await flushAssistantMessages(apiMessageId, frame.message.stop_reason === "tool_use" ? "commentary" : "assistant", emit);
+        await assistantText.flush(apiMessageId, assistantText.role(apiMessageId, frame.message.stop_reason === "tool_use"), emit);
       }
     } else if (frame.type === "result") {
       const failed = frame.is_error || frame.subtype !== "success";
       const interrupted = ["aborted_streaming", "aborted_tools"].includes(frame.terminal_reason);
       const role = failed || interrupted ? "commentary" : "assistant";
-      for (const id of pendingAssistantMessages.keys()) await flushAssistantMessages(id, role, emit);
+      for (const id of pendingAssistantMessages.keys()) await assistantText.flush(id, role, emit);
       const output = typeof frame.structured_output === "object" ? JSON.stringify(frame.structured_output) : String(frame.result || "");
       checkOutput(output);
       const message = !failed ? "" : claudeResultError(frame, output);

@@ -267,6 +267,11 @@ export function createCodexNotificationObserver({
       }
       // Automatic hook turns stay out of the visible conversation phase and output.
       const hookOwned = codexAppServerAutomaticHookThreads.has(normalizedThreadId);
+      // In arrival order, before any of this item's writes are queued.
+      for (const settled of hookOwned ? [] : output.observeTurnItem(normalizedSessionId, normalizedThreadId, notification)) {
+        notificationQueue.run(notificationContext, () =>
+          output.writeLiveProgress(normalizedSessionId, normalizedThreadId, settled, { settled: true }));
+      }
       const contextRefreshReason = codexAppServerContextRefreshReason(notification);
       const itemType = codexAppServerNotificationItem(notification)?.type;
       const retrying = classification.phase === "retrying";

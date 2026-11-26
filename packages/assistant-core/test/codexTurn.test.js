@@ -1187,6 +1187,95 @@ async function receiptFixture(options = {}) {
   return f;
 }
 
+// The owner, 2026-11-26: a question typed while a pass worked was answered in
+// the turn, but shown only as progress, never as a reply. Codex records a
+// message steered into its running turn as a user item of that turn, reads it
+// at its next step and answers it in a commentary message, then works on.
+test("Codex's first agent message after a message steered into its running turn is a reply; its other commentary stays progress", async () => {
+  const f = await receiptFixture();
+  f.observe();
+  const item = (method, value) => ({ method, params: { threadId: f.threadId, turnId: f.turnId, item: value } });
+  const command = { id: "indexes", type: "commandExecution", command: "true" };
+  f.emit(f.receipt("first", "Run the data pass."));
+  f.emit(item("item/completed", outputItem("work", "Checking the indexes.", "commentary")));
+  f.emit(item("item/started", command));
+  f.emit(item("item/completed", { ...command, status: "completed" }));
+  f.emit(item("item/started", { type: "userMessage", id: "receipt-question", clientId: "question", content: [] }));
+  f.emit(f.receipt("question", "Which pass are you on?"));
+  f.emit(item("item/completed", outputItem("answer", "Done: Security. Now: Data. Next: Speed.", "commentary")));
+  f.emit(item("item/completed", outputItem("narration", "Now checking the migrations.", "commentary")));
+  await f.drain();
+  const written = (await f.store.readConversationLog(f.sessionId)).flatMap(row => [
+    ...(row.commentary || []).map(message => ["commentary", message.text]),
+    ...(row.assistant ? [["assistant", row.assistant.text]] : [])
+  ]);
+  assert.deepEqual(written, [
+    ["commentary", "Checking the indexes."],
+    ["assistant", "Done: Security. Now: Data. Next: Speed."],
+    ["commentary", "Now checking the migrations."]
+  ], "Only the answer to the steered message becomes a reply; the turn's own message opens it and its narration stays progress");
+  assert.equal(f.observationFailures.length, 0);
+});
+
+function writtenConversation(rows) {
+  return rows.flatMap(row => [
+    ...(row.commentary || []).map(message => ["commentary", message.text]),
+    ...(row.assistant ? [["assistant", row.assistant.text]] : [])
+  ]);
+}
+
+// Providers without phases (DeepSeek, GLM and custom endpoints through Codex)
+// send every agent message without one; the answer to a steered message is
+// still the first of them after its user item.
+test("Codex's phase-less answer to a message steered into its running turn is a reply; its other updates stay progress", async () => {
+  const f = await receiptFixture();
+  f.observe();
+  const item = (method, value) => ({ method, params: { threadId: f.threadId, turnId: f.turnId, item: value } });
+  const command = id => ({ id, type: "commandExecution", command: "true" });
+  f.emit(f.receipt("first", "Run the data pass."));
+  f.emit(item("item/completed", outputItem("work", "Checking the indexes.", "")));
+  f.emit(item("item/started", command("indexes")));
+  f.emit(item("item/started", { type: "userMessage", id: "receipt-question", clientId: "question", content: [] }));
+  f.emit(f.receipt("question", "Which pass are you on?"));
+  f.emit(item("item/completed", outputItem("answer", "Done: Security. Now: Data. Next: Speed.", "")));
+  f.emit(item("item/started", command("migrations")));
+  f.emit(item("item/completed", outputItem("narration", "Now checking the migrations.", "")));
+  f.emit(item("item/started", command("constraints")));
+  await f.drain();
+  assert.deepEqual(writtenConversation(await f.store.readConversationLog(f.sessionId)), [
+    ["commentary", "Checking the indexes."],
+    ["assistant", "Done: Security. Now: Data. Next: Speed."],
+    ["commentary", "Now checking the migrations."]
+  ]);
+  assert.equal(f.observationFailures.length, 0);
+});
+
+// A phase-less agent message is progress when another item follows it and the
+// turn's answer when it ends the turn; its length decides neither.
+test("Codex keeps a long or multi-line phase-less update once work follows it, in order, and leaves the turn's last message to its answer", async () => {
+  const f = await receiptFixture();
+  f.observe();
+  const item = (method, value) => ({ method, params: { threadId: f.threadId, turnId: f.turnId, item: value } });
+  const command = id => ({ id, type: "commandExecution", command: "true" });
+  const findings = "Found three problems:\n1. The orders index is missing.\n2. Two migrations conflict.";
+  const plan = `Next I will ${"rebuild the reporting tables and check every query against them, ".repeat(6)}then run the suite.`;
+  f.emit(f.receipt("first", "Run the data pass."));
+  f.emit(item("item/completed", outputItem("findings", findings, "")));
+  f.emit(item("item/completed", outputItem("short", "Starting with the index.", "")));
+  f.emit(item("item/started", command("index")));
+  f.emit(item("item/completed", outputItem("plan", plan, "")));
+  f.emit(item("item/started", command("tests")));
+  f.emit(item("item/completed", outputItem("summary", "All done:\n- index added\n- migrations fixed", "")));
+  await f.drain();
+  assert.ok(plan.length > 320);
+  assert.deepEqual(writtenConversation(await f.store.readConversationLog(f.sessionId)), [
+    ["commentary", findings],
+    ["commentary", "Starting with the index."],
+    ["commentary", plan]
+  ], "The turn's last message is its answer, saved from its history when the turn ends");
+  assert.equal(f.observationFailures.length, 0);
+});
+
 test("original receipt owner persists authored metadata before releasing the receipt and queued answer", async () => {
   const decorating = Promise.withResolvers();
   const release = Promise.withResolvers();
