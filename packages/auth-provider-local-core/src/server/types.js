@@ -142,7 +142,9 @@
  * authenticator removed by its person, or reset by the application for the
  * account `byUserId` names. `userId` is the local account's id, `ip` the
  * request's address ("" for a reset, and for a proof the application checked
- * with verifySecondFactorOf, which has no request), `at` an ISO time.
+ * with verifySecondFactorOf, which has no request), `at` an ISO time. `via` is
+ * "application" on the events of verifySecondFactorOf, and absent on a
+ * session's own.
  * @typedef {object} AuthLocalSecondFactorEvent
  * @property {"setupStarted" | "setupConfirmed" | "verified" | "failed" | "recoveryCodesReplaced" | "removed" | "reset"} type
  * @property {string} userId
@@ -152,6 +154,7 @@
  * @property {number} [recoveryCodesLeft]
  * @property {"codeInvalid" | "codeUsed" | "recoveryCodeInvalid" | "locked"} [reason]
  * @property {string} [byUserId]
+ * @property {"application"} [via]
  */
 
 /**

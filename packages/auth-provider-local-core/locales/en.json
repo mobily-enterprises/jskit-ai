@@ -59,6 +59,7 @@
         "secondFactor": {
           "notSetUp": "No authenticator is set up for this account.",
           "accountNotFound": "There is no such account.",
+          "accountDisabled": "This account is disabled.",
           "alreadySetUp": "An authenticator is already set up for this account. Remove it before setting up another.",
           "setupNotStarted": "Start setting up the authenticator again.",
           "proofRequired": "Enter a code from your authenticator app or one of your recovery codes.",

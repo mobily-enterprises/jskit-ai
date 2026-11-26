@@ -22,6 +22,7 @@ const RECOVERY_CODE_COUNT = 10;
 const REFUSALS = Object.freeze({
   notSetUp: Object.freeze({ status: 409, code: "auth.local.secondFactor.notSetUp", message: "No authenticator is set up for this account." }),
   accountNotFound: Object.freeze({ status: 404, code: "auth.local.secondFactor.accountNotFound", message: "There is no such account." }),
+  accountDisabled: Object.freeze({ status: 403, code: "auth.local.secondFactor.accountDisabled", message: "This account is disabled." }),
   alreadySetUp: Object.freeze({
     status: 409,
     code: "auth.local.secondFactor.alreadySetUp",
@@ -358,8 +359,10 @@ function createLocalSecondFactor({ backend, config, logger, secondFactorEvents, 
    * (a local account id), which decides whose and when: for a caller with no
    * session of that account, such as a command signed in with an API key that
    * asks for its creator's code. It proves what verifySecondFactor proves, with
-   * the same attempts, waits and once-only codes, but marks no session. A
-   * refusal throws, as verifySecondFactor's do.
+   * the same attempts, waits and once-only codes, but marks no session. An
+   * unknown or disabled account is refused before anything is checked, and a
+   * refusal throws, as verifySecondFactor's do. Its events say `via`
+   * "application", with no request's address.
    * @param {{ userId: string, proof: import("@jskit-ai/auth-core/server/types").AuthSecondFactorProof }} input
    */
   async function verifySecondFactorOf({ userId, proof } = {}) {
@@ -369,16 +372,21 @@ function createLocalSecondFactor({ backend, config, logger, secondFactorEvents, 
     }
     const checked = readProof(proof ?? {});
     const subject = { userId: id, ip: "" };
+    const via = { via: "application" };
     const outcome = await backend.withTransaction(async (tx) => {
-      if (!(await tx.users.findById(id))) {
+      const user = await tx.users.findById(id);
+      if (!user) {
         return { refusal: REFUSALS.accountNotFound };
+      }
+      if (user.disabled) {
+        return { refusal: REFUSALS.accountDisabled };
       }
       const factor = await tx.secondFactors.find(id);
       return factor?.confirmedAt ? proveFactor(tx, id, factor, checked) : { refusal: REFUSALS.notSetUp };
     });
-    await refuseFailed(outcome, subject);
+    await refuseFailed(outcome, subject, via);
     const recoveryCodesLeft = outcome.factor.recoveryCodes.length;
-    await recordEvent("verified", subject, { method: outcome.method, recoveryCodesLeft });
+    await recordEvent("verified", subject, { ...via, method: outcome.method, recoveryCodesLeft });
     return { verifiedAt: outcome.verifiedAt, method: outcome.method, recoveryCodesLeft };
   }
 
