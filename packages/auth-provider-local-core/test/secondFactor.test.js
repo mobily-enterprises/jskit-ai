@@ -6,6 +6,7 @@ import test from "node:test";
 import { resolveLocalAuthConfig } from "../src/server/lib/config.js";
 import { createLocalAuthService, createLocalFileBackend } from "../src/server/lib/index.js";
 import { __testables, deriveSecondFactorKeys, openSecret, sealSecret } from "../src/server/lib/secondFactorCrypto.js";
+import { NO_PASSWORD } from "../src/server/lib/accounts.js";
 import { localServiceOptions } from "../test-support/localService.js";
 import { sessionCookies } from "../test-support/oauthHarness.js";
 import {
@@ -74,6 +75,7 @@ const RECOVERY_CODE_INVALID = Object.freeze({ status: 400, code: "auth.local.sec
 const PROOF_REQUIRED = Object.freeze({ status: 400, code: "auth.local.secondFactor.proofRequired" });
 const NOT_SET_UP = Object.freeze({ status: 409, code: "auth.local.secondFactor.notSetUp" });
 const ACCOUNT_NOT_FOUND = Object.freeze({ status: 404, code: "auth.local.secondFactor.accountNotFound" });
+const ACCOUNT_DISABLED = Object.freeze({ status: 403, code: "auth.local.secondFactor.accountDisabled" });
 
 /** A refusal while the account waits after wrong codes, for `seconds`. */
 function lockedFor(seconds) {
@@ -102,7 +104,8 @@ function wrongCode(secret) {
 async function enrolledAda(t) {
   t.mock.timers.enable({ apis: ["Date"], now: SCENARIO_START });
   const { events, options } = secondFactorServiceOptions();
-  const service = createLocalAuthService({ ...options, backend: createLocalFileBackend({ storeDir: await storeDirFor(t) }) });
+  const backend = createLocalFileBackend({ storeDir: await storeDirFor(t) });
+  const service = createLocalAuthService({ ...options, backend });
   await service.register({ email: "ada@example.com", password: PASSWORD });
   await service.register({ email: "bob@example.com", password: PASSWORD });
   const signIn = async (email) => {
@@ -117,7 +120,7 @@ async function enrolledAda(t) {
   const { secret } = await service.startSecondFactorSetup(ada());
   const { recoveryCodes } = await service.confirmSecondFactorSetup(ada(), { code: codeAt(secret) });
   t.mock.timers.tick(30_000);
-  return { service, events, ada, adaPhone, bob, adaId, bobId, secret, recoveryCodes };
+  return { service, backend, events, ada, adaPhone, bob, adaId, bobId, secret, recoveryCodes };
 }
 
 test("verifySecondFactorOf accepts the named account's current code once, answers the verification and marks no session", async (t) => {
@@ -133,7 +136,9 @@ test("verifySecondFactorOf accepts the named account's current code once, answer
   // The code is used up for every path: the same one again, here or by a session, is refused.
   await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: typed } }), CODE_USED);
   await assert.rejects(service.verifySecondFactor(adaPhone(), { code: typed }), CODE_USED);
-  assert.deepEqual(events.at(-3), { type: "verified", userId: adaId, ip: "", at, method: "code", recoveryCodesLeft: 10 });
+  assert.deepEqual(events.at(-3), { type: "verified", userId: adaId, ip: "", via: "application", at, method: "code", recoveryCodesLeft: 10 });
+  assert.equal(events.at(-2).via, "application");
+  assert.equal(Object.hasOwn(events.at(-1), "via"), false, "a session's own event has no via");
 });
 
 test("verifySecondFactorOf refuses a wrong code or recovery code, and a proof that is not exactly one of them", async (t) => {
@@ -147,10 +152,10 @@ test("verifySecondFactorOf refuses a wrong code or recovery code, and a proof th
     PROOF_REQUIRED);
   await assert.rejects(service.verifySecondFactorOf({ proof: { code: codeAt(secret) } }), TypeError);
   const failures = events.filter((event) => event.type === "failed");
-  assert.deepEqual(failures.map((event) => [event.userId, event.ip, event.reason]), [
-    [adaId, "", "codeInvalid"],
-    [adaId, "", "codeInvalid"],
-    [adaId, "", "recoveryCodeInvalid"]
+  assert.deepEqual(failures.map((event) => [event.userId, event.ip, event.via, event.reason]), [
+    [adaId, "", "application", "codeInvalid"],
+    [adaId, "", "application", "codeInvalid"],
+    [adaId, "", "application", "recoveryCodeInvalid"]
   ]);
   const everyEvent = JSON.stringify(events);
   for (const shown of [secret, ...recoveryCodes]) {
@@ -211,9 +216,28 @@ test("verifySecondFactorOf uses a recovery code up once, shared with the session
   assert.equal((await service.getSecondFactorStatus(ada())).recoveryCodesLeft, 8);
 });
 
-test("verifySecondFactorOf refuses an unknown account, an account without an authenticator and a waiting one, each with its own code", async (t) => {
-  const { service, bob, adaId, bobId, secret } = await enrolledAda(t);
+test("verifySecondFactorOf refuses an unknown account, a disabled one, one without an authenticator and a waiting one, each with its own code", async (t) => {
+  const { service, backend, bob, adaId, bobId, secret } = await enrolledAda(t);
   await assert.rejects(service.verifySecondFactorOf({ userId: "usr_missing", proof: { code: "123456" } }), ACCOUNT_NOT_FOUND);
+  // A disabled account is refused even with its authenticator's right code.
+  const offSecret = toBase32(Buffer.from("12345678901234567890"));
+  const at = new Date().toISOString();
+  await backend.withTransaction(async (tx) => {
+    await tx.users.create({ id: "usr_off", email: "off@example.com", displayName: "Off", password: NO_PASSWORD, disabled: true });
+    await tx.secondFactors.save({
+      userId: "usr_off",
+      secretSealed: sealSecret(deriveSecondFactorKeys(SECOND_FACTOR_KEY), "usr_off", offSecret),
+      confirmedAt: at,
+      lastUsedStep: 0,
+      recoveryCodes: [],
+      failures: 0,
+      lastFailedAt: "",
+      lockedUntil: "",
+      createdAt: at,
+      updatedAt: at
+    });
+  });
+  await assert.rejects(service.verifySecondFactorOf({ userId: "usr_off", proof: { code: codeAt(offSecret) } }), ACCOUNT_DISABLED);
   await assert.rejects(service.verifySecondFactorOf({ userId: bobId, proof: { code: "123456" } }), NOT_SET_UP);
   const { secret: started } = await service.startSecondFactorSetup(bob());
   await assert.rejects(service.verifySecondFactorOf({ userId: bobId, proof: { code: codeAt(started) } }), NOT_SET_UP,

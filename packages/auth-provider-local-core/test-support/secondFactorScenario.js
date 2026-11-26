@@ -21,6 +21,7 @@ const PROOF_REQUIRED = Object.freeze({ status: 400, code: "auth.local.secondFact
 const CODE_INVALID = Object.freeze({ status: 400, code: "auth.local.secondFactor.codeInvalid" });
 const CODE_USED = Object.freeze({ status: 400, code: "auth.local.secondFactor.codeUsed" });
 const RECOVERY_CODE_INVALID = Object.freeze({ status: 400, code: "auth.local.secondFactor.recoveryCodeInvalid" });
+const ACCOUNT_NOT_FOUND = Object.freeze({ status: 404, code: "auth.local.secondFactor.accountNotFound" });
 const NOTHING_PROVED = Object.freeze({ enrolled: false, enrolledAt: null, recoveryCodesLeft: 0, verifiedAt: null });
 
 /** Checks a refusal while the account waits after wrong codes: the minutes, the seconds and Retry-After. */
@@ -178,6 +179,12 @@ async function exerciseSecondFactor(t, { service, events, storedText }) {
   await assert.rejects(service.removeSecondFactor(ada(), { recoveryCode: bobConfirmed.recoveryCodes[0], userId: bobId }),
     RECOVERY_CODE_INVALID);
   assert.equal((await service.verifySecondFactor(bob(), { recoveryCode: bobConfirmed.recoveryCodes[0] })).recoveryCodesLeft, 9);
+  // The application checks Bob's recovery code for him, with no session of his: it is used up for his sessions too.
+  const checkedAt = now();
+  assert.equal((await service.verifySecondFactorOf({ userId: bobId, proof: { recoveryCode: bobConfirmed.recoveryCodes[1] } }))
+    .recoveryCodesLeft, 8);
+  await assert.rejects(service.verifySecondFactor(bob(), { recoveryCode: bobConfirmed.recoveryCodes[1] }), RECOVERY_CODE_INVALID);
+  await assert.rejects(service.verifySecondFactorOf({ userId: "usr_missing", proof: { code: "123456" } }), ACCOUNT_NOT_FOUND);
   assert.equal((await service.getSecondFactorStatus(ada())).recoveryCodesLeft, 8);
 
   // Ada's next proof forgets that failure. Then five wrong codes make the account wait, even for a right code or a
@@ -243,15 +250,20 @@ async function exerciseSecondFactor(t, { service, events, storedText }) {
     "setupConfirmed",
     "failed:recoveryCodeInvalid",
     "verified:recoveryCode",
+    "verified:recoveryCode",
+    "failed:recoveryCodeInvalid",
     "verified:code",
     "reset"
+  ]);
+  assert.deepEqual(events.filter((event) => event.via), [
+    { type: "verified", userId: bobId, ip: "", via: "application", at: checkedAt, method: "recoveryCode", recoveryCodesLeft: 8 }
   ]);
   assert.deepEqual(events.find((event) => event.type === "reset"), { type: "reset", userId: bobId, ip: "", at: now(), byUserId: adaId });
   assert.deepEqual(events.find((event) => event.type === "removed"), { type: "removed", userId: adaId, ip: IP, at: now(), method: "code" });
   const adaFailures = events.filter((event) => event.userId === adaId && event.type === "failed").map((event) => event.reason);
   assert.equal(adaFailures.filter((reason) => reason === "locked").length, 4);
   for (const event of events) {
-    assert.equal(event.ip === IP || event.type === "reset", true, `${event.type} names where it came from`);
+    assert.equal(event.ip === IP || event.type === "reset" || event.via === "application", true, `${event.type} names where it came from`);
   }
   const everyEvent = JSON.stringify(events);
   for (const shown of [setup.secret, secret, bobSetup.secret, ...confirmed.recoveryCodes, ...replaced.recoveryCodes]) {
