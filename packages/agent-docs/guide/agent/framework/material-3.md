@@ -298,6 +298,15 @@ dialog, chip or FAB.
   `outline-variant` bottom border. `ShellTabLinkItem` is the navigation bar's
   destination; placed in a page it draws a section tab. material.css draws an
   app's own `v-bottom-navigation` the same way, keeping its colour props.
+- **Navigation bar labels:** a phone's bar gives each destination about 68px
+  (390px, five destinations), so its label is short. A destination whose
+  `label` runs wider (such as "Metal servers") gives its placement a
+  `shortLabel` for the bar ("Servers"); menus, the rail and the drawer keep
+  `label`. A bar label wider than its slot ends in an ellipsis, never cut at
+  both ends, but that is a fallback: `runAdaptiveShellSmoke` and
+  `expectWholeNavigationBarLabels`
+  (`@jskit-ai/shell-web/test/adaptiveShellSmoke`) fail on any bar label that is
+  cut or ends in an ellipsis, naming it.
 
 ## Colour
 
