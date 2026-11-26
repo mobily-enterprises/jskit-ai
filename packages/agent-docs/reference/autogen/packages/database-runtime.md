@@ -86,6 +86,7 @@ Local functions
 Exports
 - `POSTGRES_MAINTENANCE_DATABASE`
 - `dropCopiesIfThrows(knexConfig, databases, work)`
+- `dropLeftTestDatabaseCopies(knexConfig, name, count)`
 - `dropTestDatabaseCopies(knexConfig, databases)`
 - `endTestDatabaseRun(knexConfig, databases, directory)`
 - `rememberTestDatabaseCopies(knexConfig, databases)`

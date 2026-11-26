@@ -356,6 +356,10 @@ Exports
 Local functions
 - `boundedResponseSchema(outputSchema, descriptors)`
 
+### `src/server/conversation/claudeAssistantRoles.js`
+Exports
+- `createClaudeAssistantRoles({ roles, pending, started, messages, publishMessage })`
+
 ### `src/server/conversation/claudeClient.js`
 Exports
 - `CLAUDE_JSON_MAX_FRAME_BYTES`
@@ -378,6 +382,13 @@ Exports
 - `recordClaudeEntryInterrupted({ entry, onEvent, updateState, readResult, resolveCompletion }, reason = "", settled = () => {}, { completed = false } = {})`
 - `stopClaudeEntryProcess(turn, reason = "", { preparing = false } = {})`
 
+### `src/server/conversation/claudeFrames.js`
+Exports
+- `claudeAuthoredMessage(frame)`
+- `claudeInterruptMarker(frame)`
+- `claudeNoResponsePlaceholder(frame)`
+- `claudeUserText(content)`
+
 ### `src/server/conversation/claudeHistory.js`
 Exports
 - `claudeNativeMessageId(id)`
@@ -394,9 +405,6 @@ Exports
 - `matchingClaudeProjectDirectories(names, directory)`
 Local functions
 - `claudeProjectDirectoryName(canonical)`
-- `claudeUserText(content)`
-- `claudeAuthoredMessage(frame)`
-- `claudeNoResponsePlaceholder(frame)`
 - `retainedClaudeBlock(block)`
 - `retainedClaudeFrame(frame)`
 - `historyState(file, own)`
