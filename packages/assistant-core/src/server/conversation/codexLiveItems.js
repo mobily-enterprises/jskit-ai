@@ -124,6 +124,47 @@ export function createCodexAppServerLiveItems({
   const codexAppServerLiveProgressItems = new Set();
   const codexAppServerLiveProgressFingerprints = new Set();
   const codexAppServerMirroredTerminalItems = new Set();
+  // Each turn's replies to messages steered into it, by turn (see observeCodexAppServerTurnItem).
+  const codexAppServerTurnReplies = new Map();
+
+  /**
+   * Codex records a message steered into its running turn as a user item of
+   * that turn, which it reads at its next step and answers in its next agent
+   * message, before it works on. That message is a reply to the person, not
+   * progress. Items are observed in Codex's own order, as they arrive; the
+   * writes they cause run later, in that order.
+   */
+  function observeCodexAppServerTurnItem(sessionId = "", threadId = "", notification = {}) {
+    const method = normalizeText(notification.method);
+    const item = codexAppServerNotificationItem(notification);
+    const itemId = codexAppServerNotificationItemId(notification);
+    const turnId = codexAppServerNotificationTurnId(notification);
+    if (!["item/started", "item/completed"].includes(method) || !isRecord(item) || !itemId || !turnId) {
+      return;
+    }
+    const key = [normalizeText(sessionId), normalizeText(threadId), turnId, "steer-replies"].join(":");
+    const turn = codexAppServerTurnReplies.get(key) || { working: false, owed: false, replies: new Set() };
+    codexAppServerTurnReplies.set(key, turn);
+    if (normalizeText(item.type) === "userMessage") {
+      // The turn's own message opens it; one that arrives once it works was steered in.
+      if (method === "item/completed") {
+        turn.owed ||= turn.working;
+        turn.working = true;
+      }
+      return;
+    }
+    turn.working = true;
+    if (method === "item/completed" && turn.owed && normalizeText(item.type) === "agentMessage" &&
+        codexAppServerAssistantItemText(item)) {
+      turn.owed = false;
+      turn.replies.add(itemId);
+    }
+  }
+
+  function codexAppServerSteerReply(sessionId = "", threadId = "", turnId = "", notification = {}) {
+    const key = [normalizeText(sessionId), normalizeText(threadId), normalizeText(turnId), "steer-replies"].join(":");
+    return Boolean(codexAppServerTurnReplies.get(key)?.replies.has(codexAppServerNotificationItemId(notification)));
+  }
 
   function codexAppServerLiveProgressText(notification = {}) {
     const candidate = codexAppServerLiveProgressCandidate(notification);
@@ -298,10 +339,15 @@ export function createCodexAppServerLiveItems({
     codexAppServerLiveProgressFingerprints.add(fingerprintKey);
     let written = null;
     try {
-      const role = !candidate.phase || candidate.phase === "commentary" ? "commentary" : "thinking";
-      const writer = role === "commentary"
-        ? store.writeConversationCommentaryMessage
-        : store.writeConversationThinkingMessage;
+      const progressRole = !candidate.phase || candidate.phase === "commentary" ? "commentary" : "thinking";
+      // Commentary that answers a steered message is that message's reply.
+      const reply = persistCommentary && candidate.phase === "commentary" &&
+        codexAppServerSteerReply(normalizedSessionId, normalizedThreadId, ownerTurnId, notification);
+      const role = reply ? "assistant" : progressRole;
+      const writer = reply ? store.writeConversationAssistantMessage
+        : role === "commentary"
+          ? store.writeConversationCommentaryMessage
+          : store.writeConversationThinkingMessage;
       if (role !== "commentary" || persistCommentary) {
         written = await writer.call(store, normalizedSessionId, {
           ...(streamMessageId ? { outputId: streamMessageId } : {}),
@@ -330,9 +376,9 @@ export function createCodexAppServerLiveItems({
       }
       await publish(normalizedSessionId, {
         payload,
-        reason: role === "commentary"
-          ? "codex-app-server-commentary"
-          : "codex-app-server-live-progress"
+        reason: role === "thinking"
+          ? "codex-app-server-live-progress"
+          : "codex-app-server-commentary"
       });
       return written;
     } catch (error) {
@@ -357,9 +403,10 @@ export function createCodexAppServerLiveItems({
     for (const set of [
       codexAppServerLiveProgressItems,
       codexAppServerLiveProgressFingerprints,
-      codexAppServerMirroredTerminalItems
+      codexAppServerMirroredTerminalItems,
+      codexAppServerTurnReplies
     ]) {
-      for (const key of set) {
+      for (const key of set.keys()) {
         if (markers.some((marker) => key.includes(marker))) {
           set.delete(key);
         }
@@ -372,6 +419,7 @@ export function createCodexAppServerLiveItems({
     liveProgressFingerprints: codexAppServerLiveProgressFingerprints,
     mirroredTerminalItems: codexAppServerMirroredTerminalItems,
     writeLiveProgress: writeCodexAppServerLiveProgress,
+    observeTurnItem: observeCodexAppServerTurnItem,
     writeMirroredTerminalMessage: writeMirroredCodexAppServerTerminalMessage,
     mirrorTerminalAssistantMessage: mirrorCodexAppServerTerminalAssistantMessage,
     forgetTurnItems: forgetCodexAppServerLiveTurnItems
