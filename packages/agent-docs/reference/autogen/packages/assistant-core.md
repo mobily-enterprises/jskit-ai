@@ -990,6 +990,7 @@ Local functions
 
 ### `src/server/conversation/codexRuntime.js`
 Exports
+- `waitForCodexAppServerEndpoint(socketPath, { timeoutMs, probe })`
 - `createCodexAppServerRuntime({ execution, credentials, configuration = {} })`
 - `type CodexRuntimeExecution`
 - `type CodexProcessIdentity`
