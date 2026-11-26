@@ -56,7 +56,9 @@ backend adds it, and without it acting by email fails naming the fix.
 Only routes that declare `config: { credentials: "bearer" }` take a key. Every
 other route ignores `Authorization` and signs in by cookies alone, and a cookie
 never signs in a bearer route, so a key never becomes a browser session and a
-browser session never acts as anyone. A bearer route takes no CSRF token, since
+browser session never acts as anyone. auth-core holds both ways whatever the
+provider answers: a route that takes cookies treats a bearer answer as signed
+out, and a bearer route a cookie answer. A bearer route takes no CSRF token, since
 it reads no cookies. The call's sign-in has no address and no second factor, so
 a route that asks for either refuses it.
 

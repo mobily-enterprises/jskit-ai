@@ -15,6 +15,9 @@ import { createSurfaceAwareToolCatalog } from "./support/createSurfaceAwareToolC
 
 const ASSISTANT_MCP_ACTION_ID = "assistant.mcp.request";
 const MCP_RELATIVE_PATH = "/mcp";
+// The actions a caller never reaches through the endpoint: those that change how the person signs in (signing out,
+// their sessions, sign-in methods and linked providers). A key acts as the person; their sign-in stays theirs.
+const MCP_SKIPPED_ACTION_PREFIXES = Object.freeze(["auth.", "settings.security."]);
 
 const workspaceInputValidator = Object.freeze({
   schema: createSchema({ workspaceSlug: { type: "string", required: true, lowercase: true, minLength: 1, maxLength: 160 } }),
@@ -44,7 +47,11 @@ function createAssistantMcp({ actions, config, workspaceScopeSupport = null }) {
   }
   const catalog = createSurfaceAwareToolCatalog(actions, {
     appConfig: config,
-    createCatalog: (source, options) => createServiceToolCatalog(source, { ...MCP_TOOL_CATALOG_OPTIONS, ...options })
+    createCatalog: (source, options) => createServiceToolCatalog(source, {
+      ...MCP_TOOL_CATALOG_OPTIONS,
+      ...options,
+      skipActionPrefixes: [...(options.skipActionPrefixes || []), ...MCP_SKIPPED_ACTION_PREFIXES]
+    })
   });
   const appName = normalizeText(config.app?.name) || "JSKIT application";
   return Object.freeze({

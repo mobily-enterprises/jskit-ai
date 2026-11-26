@@ -131,8 +131,9 @@ function authPolicyPlugin(deps = {}, options = {}) {
       }
 
       const resolution = normalizeActorResolution(await resolveActor(request, reply, meta));
-      // A provider that signs requests in by cookies alone does not sign in a bearer route's caller.
-      const actorResolution = bearer && resolution.authenticated && resolution.credentials !== "bearer"
+      // A route is signed in only by the credentials it takes: a cookie answer never signs in a bearer route's caller,
+      // and a bearer answer (a service key's) never signs in a route that takes cookies, whatever the provider does.
+      const actorResolution = resolution.authenticated && (resolution.credentials === "bearer") !== bearer
         ? { ...resolution, authenticated: false, actor: null, refusal: null }
         : resolution;
       if (actorResolution.transientFailure) {

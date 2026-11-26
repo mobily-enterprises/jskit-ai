@@ -1042,8 +1042,11 @@ assistant's tools (`crud.ports.list` is `crud_ports_list`), with its input schem
 and its hints as MCP annotations (`readOnlyHint`, `destructiveHint`,
 `openWorldHint`). Unlike the in-app assistant, there are no discovery tools, and
 an action without an output schema is a tool too: it answers as it ran, as its
-route does. Unsaved actions and streams are never tools here. `tools/list` pages
+route does. Unsaved actions and streams are never tools here, nor are the
+actions that change how the person signs in (`auth.*` and `settings.security.*`:
+signing out, their sessions, sign-in methods and linked providers), since a
+key acts as the person and their sign-in stays theirs. `tools/list` pages
 50 tools at a time. The surface's `assistantServer` barred ids and skipped
-prefixes apply, and a result is held to 256 KiB unless the surface sets
+prefixes apply too, and a result is held to 256 KiB unless the surface sets
 `maxToolResultBytes`.
 
