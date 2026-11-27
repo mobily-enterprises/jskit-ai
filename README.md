@@ -79,6 +79,10 @@ these are the `@jskit-ai/*` workspaces. Repository-specific steps are declared
 in the root `package.json` `jskitRelease` field: JSKIT declares
 `prepare` (`scripts/check-generated-files.mjs --regenerate`, which rebuilds the
 catalog and agent documentation) and `nestedManifests` (`patterns`, `examples`).
+A repository that `pin` updates may declare `afterPin`: an argv array run without
+a shell, in the repo root, with `node_modules/.bin` first on `PATH`, after the
+pins install and before the commit, so its files join that commit (a generated
+copy that must follow a pinned package, say).
 A package can also declare its own `jskitRelease.pack` command, which builds a
 custom tarball and prints its path (or JSON `{"tarball": path}`) as its last
 output line, and `jskitRelease.versionFiles`, JSON files whose `version` must
