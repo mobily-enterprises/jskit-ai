@@ -130,6 +130,65 @@ test("each test database is restored from one snapshot, rebuilt only when a migr
   assert.equal(Number(application.count), 0);
 });
 
+test("a restore replaces only the tables that differ from the snapshot: rows, a moved counter, a definition, a trigger, a table missing or added", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-mysql-partial-"));
+  await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
+  await writeFile(path.join(appRoot, "migrations", "20200101000000_books.cjs"), BOOKS);
+  const name = `${process.env.TEST_DB_NAME}_partial`;
+  const environment = { ...process.env, DB_NAME: `${process.env.TEST_DB_NAME}_application`, DATABASE_URL: "", TEST_DB_NAME: name };
+  const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment, appRoot });
+  const server = { ...knexConfig.connection, database: undefined };
+  const admin = knex({ client: "mysql2", connection: server });
+  const db = knex({ client: "mysql2", connection: { ...server, database: name } });
+  context.after(async () => {
+    await db.destroy();
+    await admin.raw("DROP DATABASE IF EXISTS ??", [name]);
+    await admin.destroy();
+    await rm(appRoot, { recursive: true, force: true });
+  });
+  const { snapshot } = await prepareTestDatabases({ knexConfig, environment, appRoot });
+  const restore = () => restoreTestDatabase(knexConfig, name, snapshot);
+
+  // A file that wrote nothing leaves nothing to replace; one that wrote a table, that table alone.
+  assert.deepEqual(await restore(), []);
+  await db("reviews").insert({ book_id: 1 });
+  assert.deepEqual(await restore(), ["reviews"]);
+  assert.deepEqual(await db("reviews").pluck("id"), []);
+  // Only the counter moved: a row written and deleted, or a write rolled back. The next row takes the snapshot's id.
+  await db("reviews").insert({ book_id: 1 });
+  await db("reviews").del();
+  assert.deepEqual(await restore(), ["reviews"]);
+  await assert.rejects(db.transaction(async (transaction) => {
+    await transaction("reviews").insert({ book_id: 1 });
+    throw new Error("rolled back");
+  }), /rolled back/u);
+  assert.deepEqual(await restore(), ["reviews"]);
+  assert.deepEqual(await db("reviews").insert({ book_id: 1 }), [1]);
+  assert.deepEqual(await restore(), ["reviews"]);
+  // A row of the snapshot's changed in place, the count unchanged; the restored books still guard reviews' key.
+  await db("books").where({ id: 1 }).update({ title: "Changed" });
+  assert.deepEqual(await restore(), ["books"]);
+  assert.deepEqual(await db("books").pluck("title"), ["Written by the migration"]);
+  await assert.rejects(db("reviews").insert({ book_id: 99 }), /foreign key constraint/iu);
+  // A definition changed with the migrations unchanged, a trigger on a table whose rows are the snapshot's, a table
+  // of the file's own and a ledger row deleted; then a table dropped.
+  await db.schema.alterTable("books", (table) => table.string("note"));
+  await db.raw("CREATE TRIGGER reviews_kept BEFORE INSERT ON reviews FOR EACH ROW SET NEW.book_id = NEW.book_id");
+  await db.schema.createTable("scratch", (table) => table.increments("id"));
+  await db("knex_migrations").del();
+  assert.deepEqual(await restore(), ["books", "knex_migrations", "reviews", "scratch"]);
+  assert.equal(await db.schema.hasColumn("books", "note"), false);
+  assert.deepEqual((await db.raw("SHOW TRIGGERS"))[0], []);
+  assert.equal(await db.schema.hasTable("scratch"), false);
+  assert.deepEqual(await db("knex_migrations").pluck("name"), ["20200101000000_books.cjs"]);
+  await db.schema.dropTable("reviews");
+  assert.deepEqual(await restore(), ["reviews"]);
+  assert.equal(await matchesSnapshot(knexConfig, name, snapshot), true);
+  assert.deepEqual(await restore(), []);
+});
+
 test("a jskit test --databases run on MySQL or MariaDB drops the numbered copies it made when it ends, and keeps TEST_DB_NAME and its snapshot", {
   skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
 }, async (context) => {
@@ -344,7 +403,8 @@ test("${name}", async (t) => {
   }));
 });
 `;
-// Each file records the books it found, then writes one of its own.
+// Each file records the books it found, then writes one of its own, and writes a review and deletes it: the reviews
+// are the snapshot's again, their counter is not. It records the id its review took.
 const FIXTURE_ROWS_TEST = (name) => `import { writeFileSync } from "node:fs";
 import test from "node:test";
 import knex from "knex";
@@ -352,8 +412,11 @@ test("${name}", async () => {
   const { DB_HOST: host, DB_PORT: port, DB_USER: user, DB_PASSWORD: password, DB_NAME: database } = process.env;
   const db = knex({ client: "mysql2", connection: { host, port: Number(port), user, password, database } });
   try {
-    writeFileSync("seen-${name}.json", JSON.stringify({ db: database, titles: await db("books").orderBy("id").pluck("title") }));
+    const titles = await db("books").orderBy("id").pluck("title");
     await db("books").insert({ title: "Written by ${name}" });
+    const [review] = await db("reviews").insert({ book_id: 1 });
+    await db("reviews").where({ id: review }).del();
+    writeFileSync("seen-${name}.json", JSON.stringify({ db: database, titles, review }));
   } finally {
     await db.destroy();
   }
@@ -446,7 +509,7 @@ test("jskit test --databases gives each test file running at once its own restor
   assert.match(focused.stderr, /jskit test: 1 test database\(s\) from .+_cli ready in \d+ms: stored snapshot/u);
 });
 
-test("jskit test --databases gives a file that follows another on the same copy the snapshot again, rows included", {
+test("jskit test --databases gives a file that follows another on the same copy the snapshot again, rows and counters included", {
   skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
 }, async (context) => {
   const { appRoot, name, env } = await fixtureApplication(context, "rows", {
@@ -457,7 +520,7 @@ test("jskit test --databases gives a file that follows another on the same copy 
   assert.match(stderr, /jskit test: 1 test file\(s\) at a time \(test databases\)\./u);
   for (const file of ["a", "b"]) {
     const seen = JSON.parse(await readFile(path.join(appRoot, `seen-${file}.json`), "utf8"));
-    assert.deepEqual(seen, { db: name, titles: ["Written by the migration"] }, `test file ${file}`);
+    assert.deepEqual(seen, { db: name, titles: ["Written by the migration"], review: 1 }, `test file ${file}`);
   }
 });
 
