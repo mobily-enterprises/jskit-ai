@@ -627,7 +627,7 @@ test("socket audience bootstrap rejects unauthenticated handshakes when the auth
   assert.deepEqual(socket.joinedRooms, ["clients", "users", "user:17"]);
 });
 
-async function startRealtimeClient({ mobile = null } = {}) {
+async function startRealtimeClient(t, { mobile = null, appConfig = {} } = {}) {
   const registrations = new Map();
   const provided = new Map();
   let realtime = null;
@@ -656,16 +656,27 @@ async function startRealtimeClient({ mobile = null } = {}) {
   if (mobile) {
     inputs["client.mobile"] = mobile;
   }
+  const previousAppConfig = globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
+  // The provider's Socket.IO client connects as it is made (autoConnect): the app config's own option keeps it closed.
+  setClientAppConfig({ ...appConfig, realtimeClient: { options: { autoConnect: false } } });
   const runtime = createCapabilityRuntime({
     inputs,
     providers: [RealtimeClientProvider, probe]
   });
+  t.after(async () => {
+    await runtime.shutdown();
+    if (previousAppConfig === undefined) delete globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
+    else globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY] = previousAppConfig;
+  });
   await runtime.start();
-  return { provided, realtime, registrations, runtime };
+  // In Node there is no page to connect back to: a URL-less socket would look up the host "undefined", and the
+  // Capacitor URL is whatever listens on 127.0.0.1:3000.
+  assert.equal(realtime.socket.active, false, "The client provider opened a connection from the test.");
+  return { provided, realtime, registrations };
 }
 
-test("RealtimeClientProvider publishes one explicit client capability", async () => {
-  const fixture = await startRealtimeClient();
+test("RealtimeClientProvider publishes one explicit client capability", async (t) => {
+  const fixture = await startRealtimeClient(t);
   assert.deepEqual(Object.keys(fixture.realtime).sort(), [
     "config", "dispose", "initialize", "onServedClientBuild", "setBeforeReconnect", "socket"
   ]);
@@ -675,25 +686,17 @@ test("RealtimeClientProvider publishes one explicit client capability", async ()
     fixture.provided.get("jskit.realtime.runtime.client.socket"),
     fixture.realtime.socket
   );
-  await fixture.runtime.shutdown();
 });
 
 for (const [name, available, expectedUrl] of [
   ["uses the configured API URL inside Capacitor", true, "http://127.0.0.1:3000"],
   ["keeps web socket connections URL-less outside Capacitor", false, ""]
 ]) {
-  test(`RealtimeClientProvider ${name}`, async () => {
-    const previousAppConfig = globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
-    try {
-      setClientAppConfig({ mobile: { enabled: true, apiBaseUrl: "http://127.0.0.1:3000" } });
-      const fixture = await startRealtimeClient({
-        mobile: { adapter: { available } }
-      });
-      assert.equal(fixture.realtime.config.url, expectedUrl);
-      await fixture.runtime.shutdown();
-    } finally {
-      if (previousAppConfig === undefined) delete globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
-      else globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY] = previousAppConfig;
-    }
+  test(`RealtimeClientProvider ${name}`, async (t) => {
+    const fixture = await startRealtimeClient(t, {
+      mobile: { adapter: { available } },
+      appConfig: { mobile: { enabled: true, apiBaseUrl: "http://127.0.0.1:3000" } }
+    });
+    assert.equal(fixture.realtime.config.url, expectedUrl);
   });
 }
