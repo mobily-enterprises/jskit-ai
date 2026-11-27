@@ -20,6 +20,7 @@ import { checkProject, updateProject } from "./project-packages.mjs";
 import { runTests } from "./test-command.mjs";
 import { runMigrationHistory } from "./test-databases.mjs";
 import { checkTestRuns, formatTestRunsReport } from "./test-runs.mjs";
+import { checkTestSources, formatTestSourcesReport } from "./test-sources.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
@@ -375,6 +376,7 @@ async function main(argv = process.argv.slice(2)) {
   });
   const ui = await checkMaterial3({ projectRoot: options.projectRoot });
   const tests = await checkTestRuns({ projectRoot: options.projectRoot, manifests: result.manifests });
+  const sources = await checkTestSources({ projectRoot: options.projectRoot });
   const data = await checkDataAccess({ projectRoot: options.projectRoot });
   const capabilities = await checkManifestCapabilities({ projectRoot: options.projectRoot, manifests: result.manifests });
   const nixPackage = await checkPackageNix({ projectRoot: options.projectRoot });
@@ -387,10 +389,11 @@ async function main(argv = process.argv.slice(2)) {
       : `JSKIT project graph is inconsistent:\n- ${result.issues.join("\n- ")}`,
     formatMaterial3Report(ui),
     formatTestRunsReport(tests),
+    formatTestSourcesReport(sources),
     formatManifestCapabilitiesReport(capabilities),
     formatPackageNixReport(nixPackage)
   ];
-  if (!result.ok || !ui.ok || !tests.ok || !data.ok || !capabilities.ok || !nixPackage.ok) {
+  if (!result.ok || !ui.ok || !tests.ok || !sources.ok || !data.ok || !capabilities.ok || !nixPackage.ok) {
     throw new Error(reports.join("\n"));
   }
   process.stdout.write(`${reports.join("\n")}\n`);
