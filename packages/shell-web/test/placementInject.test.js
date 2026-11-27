@@ -26,6 +26,7 @@ test("an application without the provider places nothing", () => {
   assert.deepEqual(result.runtime.getPlacements(), []);
   assert.deepEqual(result.placement.context.value, {});
   assert.deepEqual(result.placement.mergeContext({ a: 1 }), {});
+  assert.equal(result.runtime.isContextPending(), false);
   app.unmount();
 });
 
@@ -40,6 +41,17 @@ test("the placement context follows the runtime while mounted", () => {
 
   result.replaceContext({ only: true }, "test");
   assert.deepEqual(runtime.getContext(), { only: true });
+
+  // A source says its part is still loading, and ends the wait by setting it again.
+  result.mergeContext({ permissions: [] }, "session", { pending: true });
+  assert.equal(runtime.isContextPending(), true);
+  result.mergeContext({ permissions: ["builds.read"] }, "session");
+  assert.equal(runtime.isContextPending(), false);
+  result.replaceContext({ permissions: [] }, "session", { pending: true });
+  assert.equal(runtime.isContextPending(), true);
+  assert.deepEqual(result.context.value, { permissions: [] });
+  result.replaceContext({ permissions: [] }, "session");
+  assert.equal(runtime.isContextPending(), false);
 
   app.unmount();
   runtime.setContext({ after: true });

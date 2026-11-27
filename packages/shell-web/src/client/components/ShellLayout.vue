@@ -7,6 +7,7 @@ import { useShellInertBehindDialog } from "../composables/useShellInertBehindDia
 import { useShellOutletPlacements } from "../composables/useShellOutletPlacements.js";
 import { useShellLayoutState } from "../composables/useShellLayoutState.js";
 import { useShellPullToRefresh } from "../composables/useShellPullToRefresh.js";
+import { useShellSettled } from "../composables/useShellSettled.js";
 import { useShellTopRightOverflow } from "../composables/useShellTopRightOverflow.js";
 import {
   DEFAULT_SHELL_NAVIGATION_ITEM_SPACING,
@@ -135,8 +136,11 @@ const {
   handleDrawerVisibilityChange,
   resolvedDrawerWidth,
   resolvedNavigationItemSpacing,
-  resolvedRailWidth
-} = useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, layoutState });
+  resolvedRailWidth,
+  settleDrawerWidth
+} = useShellDrawer({ props, hasDrawer, modalLayout, viewportWidth, navigationToggle, layoutState });
+// Each part shows only once the placement context its navigation reads has arrived, its drawer fitted, where it stays.
+const { settlingClass, waiting } = useShellSettled({ settleNavigation: settleDrawerWidth });
 
 const standardDrawerVisible = computed(() => hasDrawer.value && !modalLayout.value && drawerPresentation.value.visible);
 // The menu control sits in the rail or drawer header when one shows, otherwise first in the app bar of a top-level
@@ -193,7 +197,7 @@ onBeforeUnmount(() => {
     flat
     :height="64"
     class="shell-layout__app-bar"
-    :class="`shell-layout--size-${sizeClass}`"
+    :class="[`shell-layout--size-${sizeClass}`, settlingClass]"
     data-shell-page
     data-testid="jskit-shell-app-bar"
     :data-size-class="sizeClass"
@@ -272,6 +276,7 @@ onBeforeUnmount(() => {
   <v-navigation-drawer
     v-if="showsMediumRail"
     class="shell-layout__rail"
+    :class="settlingClass"
     data-shell-page
     data-testid="jskit-shell-rail"
     data-presentation="rail"
@@ -308,6 +313,7 @@ onBeforeUnmount(() => {
     id="jskit-shell-drawer"
     :model-value="drawerPresentation.visible"
     class="shell-layout__drawer"
+    :class="settlingClass"
     data-shell-page
     data-testid="jskit-shell-drawer"
     :data-layout="layoutClass"
@@ -367,7 +373,7 @@ onBeforeUnmount(() => {
     </slot>
   </v-navigation-drawer>
 
-  <v-main class="bg-background" data-shell-page>
+  <v-main class="bg-background" :class="settlingClass" :aria-busy="waiting ? 'true' : undefined" data-shell-page>
     <div class="shell-layout__content" :class="{ 'shell-layout__content--compact': isCompactLayout }">
       <ShellRouteTransition>
         <slot />
@@ -378,6 +384,7 @@ onBeforeUnmount(() => {
   <v-bottom-navigation
     v-if="showsBottomNavigation"
     class="shell-layout__bottom-nav"
+    :class="settlingClass"
     data-shell-page
     data-testid="jskit-shell-bottom-nav"
     bg-color="surface-container"
@@ -699,5 +706,24 @@ onBeforeUnmount(() => {
   letter-spacing: 0.03125rem;
   line-height: 1rem;
   white-space: nowrap;
+}
+
+/* While the shell waits for the context its navigation reads (useShellSettled), its parts are laid out unseen and
+   untouchable, and nothing in them animates into place, nor in the pass that shows them. Last, to hold over each
+   part's own rules. */
+.shell-layout--waiting {
+  opacity: 0;
+}
+
+.shell-layout--waiting,
+.shell-layout--waiting :deep(*) {
+  pointer-events: none;
+}
+
+.shell-layout--waiting,
+.shell-layout--waiting :deep(*),
+.shell-layout--placing,
+.shell-layout--placing :deep(*) {
+  transition: none;
 }
 </style>

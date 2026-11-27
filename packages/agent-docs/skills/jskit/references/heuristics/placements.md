@@ -39,6 +39,7 @@ Placement entries:
 - Use `props` for the rendered component props, including labels, icons, `surface`, `scopedSuffix`, `unscopedSuffix`, or explicit `to`.
 - A main navigation link whose `label` is wider than a phone's navigation bar slot (about 68px) also takes `shortLabel`, the label the bar shows; menus, the rail and the drawer show `label`. The adaptive shell smoke check fails on a bar label that is cut or ends in an ellipsis.
 - Use `when(context)` only for auth, permissions, feature flags, and runtime state. Do not use `when()` for layout adaptation.
+- Context that a `when(context)` reads and the app loads after the page opens, such as its own session's permissions, is marked pending while it loads: `mergeContext({ permissions: [] }, "app.session", { pending: true })` in the setup of the component that loads it, before `ShellLayout` mounts, then `mergeContext({ permissions }, "app.session")` once it arrives or fails. `ShellLayout` keeps the page unseen until no source is pending, so its drawer, rail and navigation bar never arrive under a person's pointer; a source that never ends its wait keeps the page unseen.
 - Direct concrete placement must use `target: "host:position"` plus `internal: true`. Treat this as low-level infrastructure, not normal app authoring.
 
 Placement topology:

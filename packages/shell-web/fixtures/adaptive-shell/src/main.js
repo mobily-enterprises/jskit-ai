@@ -15,6 +15,7 @@ import ButtonContrastPage from "./ButtonContrastPage.vue";
 import ButtonStatesPage from "./ButtonStatesPage.vue";
 import ButtonsPage from "./ButtonsPage.vue";
 import ComponentsPage from "./ComponentsPage.vue";
+import ConsolePage from "./ConsolePage.vue";
 import { adminTheme, theme } from "./theme/index.js";
 import RecordListPage from "./RecordListPage.vue";
 import RecordPage from "./RecordPage.vue";
@@ -198,6 +199,43 @@ const placements = [
     order: 10,
     props: { label: "Home", surface: "solo", scopedSuffix: "/", unscopedSuffix: "/", exact: true }
   },
+  // The console: its Console entry is everyone's, and each other destination needs a permission of the console
+  // session, which loads after the page opens (App.vue).
+  {
+    id: "fixture.console.entry",
+    target: "shell.secondary-nav",
+    kind: "link",
+    surfaces: ["console"],
+    order: 100,
+    props: { label: "Console", surface: "console", scopedSuffix: "/", unscopedSuffix: "/", exact: true }
+  },
+  {
+    id: "fixture.console.builds",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["console"],
+    order: 10,
+    when: ({ consolePermissions = [] }) => consolePermissions.includes("builds.read"),
+    props: { label: "Builds", surface: "console", scopedSuffix: "/builds", unscopedSuffix: "/builds" }
+  },
+  {
+    id: "fixture.console.machines",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["console"],
+    order: 20,
+    when: ({ consolePermissions = [] }) => consolePermissions.includes("machines.read"),
+    props: { label: "Machines", surface: "console", scopedSuffix: "/machines", unscopedSuffix: "/machines" }
+  },
+  {
+    id: "fixture.console.alerts",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["console"],
+    order: 30,
+    when: ({ consolePermissions = [] }) => consolePermissions.includes("alerts.read"),
+    props: { label: "Alerts", surface: "console", scopedSuffix: "/alerts", unscopedSuffix: "/alerts" }
+  },
   {
     id: "fixture.help",
     target: "shell.secondary-nav",
@@ -300,13 +338,14 @@ placementRuntime.setContext({
   surfaceConfig: {
     tenancyMode: "path",
     defaultSurfaceId: "home",
-    enabledSurfaceIds: ["home", "admin", "account", "solo"],
+    enabledSurfaceIds: ["home", "admin", "account", "solo", "console"],
     surfacesById: {
       home: { id: "home", routeBase: "/home", enabled: true },
       admin: { id: "admin", routeBase: "/w/:workspaceSlug/admin", enabled: true },
       // A surface whose shell has no navigation, as an account page's.
       account: { id: "account", routeBase: "/account", enabled: true },
-      solo: { id: "solo", routeBase: "/solo", enabled: true }
+      solo: { id: "solo", routeBase: "/solo", enabled: true },
+      console: { id: "console", routeBase: "/console", enabled: true }
     }
   }
 });
@@ -370,6 +409,7 @@ const routes = [
   { path: "/w/:workspaceSlug/admin/:section?", component: ScreenPage, meta: { title: "Admin surface" } },
   { path: "/help", component: ScreenPage, meta: { title: "Help and support" } },
   { path: "/solo", component: ScreenPage, meta: { title: "Solo", jskit: { title: "Solo" } } },
+  { path: "/console/:section?", component: ConsolePage, meta: { jskit: { title: "Builds" } } },
   { path: "/solo/settings", component: DialogFeedbackPage, meta: { jskit: { title: "Settings", parent: "/" } } },
   { path: "/home/reports", redirect: "/home/reports/overview" },
   { path: "/home/reports/:section", component: ReportsPage, meta: { jskit: { title: "Reports" } } },
@@ -428,5 +468,18 @@ app.provide(SHELL_WEB_REFRESH_RUNTIME_KEY, {
   }
 });
 useShellLayoutStore(pinia).setDrawerDefaultOpen(true);
+// Opens the layout's supporting content (the side panel beside a medium or wider page) with `title`, as a page does.
+window.__shellFixtureOpenSupportingContent = (title) => useShellLayoutStore(pinia).openSupportingContent({ title });
 await router.isReady();
+// The fixture boots as an app does. An app makes its Vuetify options (createMaterialVuetifyOptions) before its shell
+// bootstrap, whose bootstrapClientShellApp awaits bootClientModules, onAfterModulesBootstrapped and router.isReady
+// before app.mount (kernel/client/shellBootstrap.js), and the requests the page has started go out while it waits.
+// This one awaited boot request stands for those awaits; any answer will do.
+await fetch("/api/fixture/boot").catch(() => null);
+// The moment the shell mounts, and where the page's Roboto Flex faces stand then, which the late-navigation test
+// compares with the font file's request.
+window.__fixtureMount = {
+  at: performance.now(),
+  robotoFlex: [...document.fonts].filter((face) => face.family.includes("Roboto Flex")).map((face) => face.status)
+};
 app.mount("#app");

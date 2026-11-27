@@ -44,6 +44,7 @@ Exports
 - `createMaterialVuetifyOptions({ seed = DEFAULT_SEED, colors = {}, icons = {}, typography = {} } = {})`
 Local functions
 - `typefaceVariables({ brand = ROBOTO_FLEX, plain = ROBOTO_FLEX } = {})`
+- `startLoadingTypefaces(view, typefaces)`
 - `appIconAliases(icons)`
 
 ### `src/client/keyboardRipple.js`

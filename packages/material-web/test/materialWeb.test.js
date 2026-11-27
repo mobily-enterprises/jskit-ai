@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
+import process from "node:process";
 import test from "node:test";
 import { Hct, argbFromHex } from "@material/material-color-utilities";
 import { materialThemes, createMaterialVuetifyOptions } from "../src/client/index.js";
@@ -269,6 +270,57 @@ test("a browser that refuses storage still gets its theme", async (t) => {
   pageStarts += 1;
   const sandboxed = await import(`../src/client/colorSchemes.js?start=${pageStarts}`);
   assert.deepEqual(sandboxed.materialThemes(...VIBE64_INPUT), materialThemes(...VIBE64_INPUT));
+});
+
+// A window whose document's fonts list each face asked for, answering with `answer`.
+function fontsWindow(t, answer = () => Promise.resolve([])) {
+  const loads = [];
+  globalThis.window = {
+    addEventListener() {},
+    removeEventListener() {},
+    document: {
+      fonts: {
+        load(font) {
+          loads.push(font);
+          return answer(font);
+        }
+      }
+    }
+  };
+  t.after(() => delete globalThis.window);
+  return loads;
+}
+
+test("in a browser the Vuetify options start loading the theme's typefaces, regular and medium, without waiting", (t) => {
+  const loads = fontsWindow(t, () => new Promise(() => {}));
+  const robotoFlex = '"Roboto Flex Variable", "Roboto Flex", Roboto, system-ui, sans-serif';
+
+  createMaterialVuetifyOptions();
+  assert.deepEqual(loads, [`400 1em ${robotoFlex}`, `500 1em ${robotoFlex}`]);
+
+  loads.length = 0;
+  createMaterialVuetifyOptions({ typography: { brand: '"Fraunces", serif', plain: '"Inter", sans-serif' } });
+  assert.deepEqual(loads, [
+    '400 1em "Fraunces", serif',
+    '500 1em "Fraunces", serif',
+    '400 1em "Inter", sans-serif',
+    '500 1em "Inter", sans-serif'
+  ]);
+});
+
+test("a typeface that fails to load leaves the fallback in place, with no unhandled failure", async (t) => {
+  const unhandled = [];
+  const onUnhandled = (reason) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  t.after(() => process.off("unhandledRejection", onUnhandled));
+  const loads = fontsWindow(t, () => Promise.reject(new Error("NetworkError: the font did not load")));
+
+  const options = createMaterialVuetifyOptions();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(loads.length, 2);
+  assert.equal(options.theme.themes.light.variables["font-body"], '"Roboto Flex Variable", "Roboto Flex", Roboto, system-ui, sans-serif');
+  assert.deepEqual(unhandled, []);
 });
 
 test("a seed that is not a six-digit hex colour is refused", () => {

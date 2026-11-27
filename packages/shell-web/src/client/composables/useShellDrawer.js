@@ -19,6 +19,11 @@ import {
   resolveMaterialDrawerWidth
 } from "../support/drawerWidth.js";
 
+// How long the drawer waits for the page's fonts as the shell settles, before it fits in the fallback font: the longest
+// block period the CSS Fonts spec recommends for font-display: swap (Chromium's is none). material-web asks for its
+// typefaces as the app boots, so they are usually in by then.
+const FONT_WAIT_MS = 100;
+
 // VNavigationDrawer has no root element of its own to reach through a template ref.
 function navigationDrawerElement() {
   return document.getElementById("jskit-shell-drawer");
@@ -31,12 +36,14 @@ function navigationDrawerElement() {
  * "material" (Material 3's full width) or a number, which fixes it.
  * @param {object} options
  * @param {{ desktopDrawerClosedMode: string, drawerWidth: number | string | null, railWidth: number, navigationItemSpacing: number }} options.props
+ * @param {import("vue").Ref<boolean>} options.hasDrawer Whether the shell draws the drawer, which can arrive after it
+ *   mounted, with its destinations.
  * @param {import("vue").Ref<boolean>} options.modalLayout
  * @param {import("vue").Ref<number>} options.viewportWidth
  * @param {import("vue").Ref<{ $el: HTMLElement } | null>} options.navigationToggle
  * @param {ReturnType<typeof import("./useShellLayoutState.js").useShellLayoutState>} options.layoutState
  */
-function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, layoutState }) {
+function useShellDrawer({ props, hasDrawer, modalLayout, viewportWidth, navigationToggle, layoutState }) {
   const {
     drawerDefaultOpen,
     drawerOpen,
@@ -47,6 +54,8 @@ function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, l
   const measuredDrawerWidth = ref(DEFAULT_SHELL_DRAWER_WIDTH);
   let drawerContentObserver = null;
   let drawerMeasurementFrame = null;
+  // Ends the settle's wait for the page's fonts while it lasts.
+  let endFontWait = null;
   let shellMounted = false;
 
   const drawerPresentation = computed(() => resolveShellDrawerPresentation({
@@ -87,6 +96,8 @@ function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, l
   watch(drawerPresentation, scheduleDrawerWidthMeasurement, { flush: "post" });
   watch(resolvedSurface, scheduleDrawerWidthMeasurement, { flush: "post" });
   watch(resolvedNavigationItemSpacing, scheduleDrawerWidthMeasurement, { flush: "post" });
+  // A drawer that arrives after the shell mounted is watched and fitted as one drawn from the start is.
+  watch(hasDrawer, initializeDrawerMeasurement, { flush: "post" });
 
   onMounted(attachShellListeners);
   onBeforeUnmount(detachShellListeners);
@@ -108,9 +119,9 @@ function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, l
     document.fonts.removeEventListener("loadingdone", scheduleDrawerWidthMeasurement);
     drawerContentObserver?.disconnect();
     drawerContentObserver = null;
-    if (drawerMeasurementFrame !== null) {
-      window.cancelAnimationFrame(drawerMeasurementFrame);
-      drawerMeasurementFrame = null;
+    cancelDrawerWidthMeasurement();
+    if (endFontWait) {
+      endFontWait();
     }
   }
 
@@ -144,33 +155,84 @@ function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, l
   }
 
   function initializeDrawerMeasurement() {
-    const drawerElement = navigationDrawerElement();
-    if (drawerElement) {
-      drawerContentObserver?.disconnect();
-      drawerContentObserver = new MutationObserver(scheduleDrawerWidthMeasurement);
-      drawerContentObserver.observe(drawerElement.querySelector(".v-navigation-drawer__content") || drawerElement, {
-        childList: true,
-        characterData: true,
-        subtree: true
-      });
-    }
+    observeDrawerContent();
     scheduleDrawerWidthMeasurement();
   }
 
+  function observeDrawerContent() {
+    drawerContentObserver?.disconnect();
+    drawerContentObserver = null;
+    const drawerElement = navigationDrawerElement();
+    if (!shellMounted || !drawerElement) {
+      return;
+    }
+    drawerContentObserver = new MutationObserver(scheduleDrawerWidthMeasurement);
+    drawerContentObserver.observe(drawerElement.querySelector(".v-navigation-drawer__content") || drawerElement, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+  }
+
+  // Only an open drawer that fits its content is measured: a fixed width, a closed drawer and the rail are not.
+  function drawerFitsContentNow() {
+    return shellMounted &&
+      !fixedDrawerWidth.value &&
+      drawerPresentation.value.visible &&
+      !drawerPresentation.value.rail;
+  }
+
+  function cancelDrawerWidthMeasurement() {
+    if (drawerMeasurementFrame !== null) {
+      window.cancelAnimationFrame(drawerMeasurementFrame);
+      drawerMeasurementFrame = null;
+    }
+  }
+
   function scheduleDrawerWidthMeasurement() {
-    if (
-      !shellMounted ||
-      fixedDrawerWidth.value ||
-      !drawerPresentation.value.visible ||
-      drawerPresentation.value.rail
-    ) {
+    if (!drawerFitsContentNow()) {
       return;
     }
 
-    if (drawerMeasurementFrame !== null) {
-      window.cancelAnimationFrame(drawerMeasurementFrame);
-    }
+    cancelDrawerWidthMeasurement();
     drawerMeasurementFrame = window.requestAnimationFrame(updateMeasuredDrawerWidth);
+  }
+
+  /**
+   * Fits the drawer to its content now, as the shell settles (useShellSettled), instead of at the next frame, so the
+   * page first shows beside the drawer's final width rather than sliding to it. It measures once the fonts the page is
+   * loading have arrived, or after FONT_WAIT_MS in the fallback font: labels measured in the fallback would refit the
+   * drawer, and move the page, when the font came, and a slow font must not keep the page unseen.
+   */
+  async function settleDrawerWidth() {
+    observeDrawerContent();
+    if (!drawerFitsContentNow()) {
+      return;
+    }
+    // Laying the page out asks for the fonts its text uses, so `ready` waits for them.
+    navigationDrawerElement()?.getBoundingClientRect();
+    await fontsOrFontWait();
+    if (!drawerFitsContentNow()) {
+      return;
+    }
+    cancelDrawerWidthMeasurement();
+    updateMeasuredDrawerWidth();
+  }
+
+  // Resolves when the page's fonts are in, after FONT_WAIT_MS, or when the shell unmounts, whichever comes first.
+  function fontsOrFontWait() {
+    return new Promise((resolve) => {
+      const timer = window.setTimeout(end, FONT_WAIT_MS);
+      function end() {
+        window.clearTimeout(timer);
+        if (endFontWait === end) {
+          endFontWait = null;
+        }
+        resolve();
+      }
+      endFontWait = end;
+      void document.fonts.ready.then(end);
+    });
   }
 
   function updateMeasuredDrawerWidth() {
@@ -199,7 +261,8 @@ function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, l
     handleDrawerVisibilityChange,
     resolvedDrawerWidth,
     resolvedNavigationItemSpacing,
-    resolvedRailWidth
+    resolvedRailWidth,
+    settleDrawerWidth
   };
 }
 
