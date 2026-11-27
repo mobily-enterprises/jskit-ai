@@ -166,6 +166,47 @@
     border-radius: inherit;
   }
 
+  /* A control's state layer and container tint lie under its content, as Material 3 orders them. Vuetify draws a
+     button's, chip's, list item's, card's and avatar's overlay and underlay over the label, so axe found a layer over
+     every label and judged the contrast of none (color-contrast incomplete, bgOverlap). Each control is its own
+     stacking context with its layers at z-index -1 in it, and its content parts are positioned: axe-core 4.14 reads
+     the first, 4.11 the second, and each still found layers over labels with only one of the two. */
+  :is(.v-btn, .v-chip, .v-list-item, .v-card, .v-avatar) {
+    isolation: isolate;
+  }
+
+  .v-btn > :is(.v-btn__overlay, .v-btn__underlay),
+  .v-chip > :is(.v-chip__overlay, .v-chip__underlay),
+  .v-list-item > :is(.v-list-item__overlay, .v-list-item__underlay),
+  .v-card > :is(.v-card__overlay, .v-card__underlay),
+  .v-avatar > .v-avatar__underlay {
+    z-index: -1;
+  }
+
+  .v-btn > :is(.v-btn__prepend, .v-btn__content, .v-btn__append),
+  .v-chip > :is(.v-chip__filter, .v-chip__prepend, .v-chip__content, .v-chip__append, .v-chip__close),
+  .v-list-item > :is(.v-list-item__prepend, .v-list-item__content, .v-list-item__append),
+  .v-card > :is(.v-card-item, .v-card-title, .v-card-subtitle, .v-card-text, .v-card-actions),
+  .v-avatar > :not(.v-avatar__underlay) {
+    position: relative;
+  }
+
+  /* A filled or elevated button has no activated state layer: Material 3 gives these buttons none (a selected
+     segment is secondary-container), and Vuetify's, the label's colour at 10% over the container, took a primary
+     button's white label under WCAG's 4.5:1 (4.11:1 in JSKIT's fixture theme) for as long as the button stayed
+     active, as one whose route is current does. Hovered or focused, it shows that state's layer alone. */
+  .v-btn--active:is(.v-btn--variant-flat, .v-btn--variant-elevated) > .v-btn__overlay {
+    opacity: 0;
+  }
+
+  .v-btn--active:is(.v-btn--variant-flat, .v-btn--variant-elevated):hover > .v-btn__overlay {
+    opacity: calc(var(--v-hover-opacity) * var(--v-theme-overlay-multiplier));
+  }
+
+  .v-btn--active:is(.v-btn--variant-flat, .v-btn--variant-elevated):focus-visible > .v-btn__overlay {
+    opacity: calc(var(--v-focus-opacity) * var(--v-theme-overlay-multiplier));
+  }
+
   /* A label stays on one line, as Material 3 draws it; one longer than its button ends in an ellipsis. */
   .v-btn:not(.v-btn--stacked, .v-btn--icon) > .v-btn__content:not(:has(> *)) {
     display: block;
@@ -282,12 +323,16 @@
     padding: 4px 8px;
   }
 
-  /* A hidden tooltip is hidden whole. Vuetify 4.3 mounts a tooltip before it first shows (eager), and while it is
-     hidden only its text is: the role="tooltip" overlay around it stays drawn, an empty tooltip to assistive
-     technology (axe aria-tooltip-name), and its activator's aria-describedby reads nothing, since hidden text counts
-     only when the element the activator names is hidden itself. The overlay hides only while its text does, so a
-     showing or fading tooltip is untouched. */
-  .v-tooltip:has(> .v-overlay__content[style*="display: none"]) {
+  /* A hidden overlay (tooltip, menu, dialog, snackbar) is hidden whole. Vuetify hides only an overlay's content when
+     it closes, and keeps the overlay around it whenever the content stays mounted: a tooltip, which Vuetify 4.3 mounts
+     before it first shows, or an eager menu, such as ShellLayout's overflow menu holding the app bar's own items on a
+     phone. A hidden tooltip's role="tooltip" overlay was an empty tooltip to assistive technology (axe
+     aria-tooltip-name), and its activator's aria-describedby read nothing, since hidden text counts only when the
+     element the activator names is hidden itself. A closed menu's overlay lay over the whole window at z-index 2000,
+     so axe found it over every text on the page and judged the contrast of none (color-contrast incomplete,
+     bgOverlap), letting text no one can read pass. The overlay hides only once its content has, so an opening or
+     closing one still animates. */
+  .v-overlay:has(> .v-overlay__content[style*="display: none"]) {
     display: none;
   }
 
@@ -678,6 +723,19 @@
     --v-theme-overlay-multiplier: var(--v-theme-surface-container-high-overlay-multiplier);
     background-color: rgb(var(--v-theme-surface-container-high));
     color: rgb(var(--v-theme-on-surface-container-high));
+  }
+
+  /* A tonal card (or an outlined, text or plain one) draws its text and its tint in its colour, which for the default
+     surface-container-low colour was near-white on the near-white page: a tonal card's text read 1.04:1. Such a card
+     has on-surface text, tinted with on-surface, and on-surface-variant supporting text. A card given its own colour
+     keeps it. */
+  .v-card.text-surface-container-low {
+    color: rgb(var(--v-theme-on-surface));
+  }
+
+  .v-card.text-surface-container-low > .v-card-subtitle:not([class*=" text-"]),
+  .v-card.text-surface-container-low > .v-card-item > .v-card-item__content > .v-card-subtitle:not([class*=" text-"]) {
+    color: rgb(var(--v-theme-on-surface-variant));
   }
 
   .text-on-background {

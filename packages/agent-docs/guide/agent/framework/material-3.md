@@ -322,8 +322,10 @@ dialog, chip or FAB.
   color alone.
 - Surfaces are separated by tone (`surface-container-lowest` to
   `-highest`), not borders: no `variant="outlined"` cards and no `border` on
-  cards or sheets. A VCard default `color` becomes the text colour on outlined
-  and tonal cards.
+  cards or sheets. A tonal card on the default colour has `on-surface` text
+  (material.css draws it so: the `VCard` default `color` would otherwise be its
+  text colour); a tonal card given its own `color` takes that colour's tint and
+  text.
 - Keep WCAG AA contrast in both schemes. Use elevation `0` through `5` and
   component variants instead of arbitrary shadows.
 

@@ -485,8 +485,8 @@ test("material.css draws segmented buttons, filter chips, fixed tabs and dialog 
     css,
     /\.v-card:not\(\[class\*="bg-"\], \[class\*=" text-"\]\) \.v-card-subtitle,\s*\.v-card\[class\*="bg-surface"\]:not\(\[class\*=" text-"\]\) \.v-card-subtitle \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*\}/u
   );
-  // A tooltip is hidden whole while its text is.
-  assert.match(css, /\.v-tooltip:has\(> \.v-overlay__content\[style\*="display: none"\]\) \{\s*display: none;\s*\}/u);
+  // An overlay (a tooltip, a closed eager menu) is hidden whole while its content is.
+  assert.match(css, /\.v-overlay:has\(> \.v-overlay__content\[style\*="display: none"\]\) \{\s*display: none;\s*\}/u);
   // A disabled container button is on-surface 12% and 38%, unlayered over its colour class.
   assert.match(
     css,

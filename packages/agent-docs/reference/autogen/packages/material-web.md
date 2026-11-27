@@ -35,6 +35,8 @@ Local functions
 ### `src/client/defaults.js`
 Exports
 - `materialDefaults`
+Local functions
+- `closeTooltipOnFocusLoss(event)`
 
 ### `src/client/index.js`
 Exports

@@ -101,9 +101,15 @@ export const theme = {
   end in an ellipsis, 12dp card corners, 28dp dialogs on
   `surface-container-high` at level 3 and bottom sheets with a square card on
   `surface-container-low`, square full-screen dialogs on `surface`, a 48dp touch target on clickable chips,
-  inverse-surface tooltips hidden whole while their text is (Vuetify mounts a
-  tooltip before it shows, and its hidden overlay was an empty tooltip to
-  assistive technology), 40dp outlined segmented buttons and outlined
+  inverse-surface tooltips, and every other overlay (menu, dialog, snackbar),
+  hidden whole while their content is (Vuetify keeps a mounted overlay around
+  its hidden content: a hidden tooltip was an empty tooltip to assistive
+  technology, and a closed eager menu lay over the whole page, so axe judged the
+  contrast of no text under it), state layers and tints under the label on
+  buttons, chips, list items, cards and avatars (axe judges the label's
+  contrast), no activated state layer on a filled or elevated button (it took a
+  primary button's label under 4.5:1), `on-surface` text on a tonal card of the
+  default colour, 40dp outlined segmented buttons and outlined
   filter chips that lead with a check when selected (chips with
   `aria-pressed` too), fixed tabs that share the width or else scroll, dialog
   actions 24dp from the edges, a menu's own list as its container
@@ -155,6 +161,22 @@ Each one comes off when the upstream fix ships; its test says when.
   would make an inline style). shell-web's browser test "a virtual-scroll list
   in a dialog reaches its last item after the page around it re-renders"
   guards it; it fails with `VDialog: { VCard: {} }` in the defaults.
+- **Vuetify 4.3.2 (measured): a tooltip opened by focus stays open when its
+  activator loses focus to nothing.** Its activator ignores a blur with no
+  `relatedTarget` (as `blur()` gives), which it keeps for a click on an empty
+  area inside an open menu, so the tooltip a keyboard user opened stayed over
+  the page, and neither hovering nor leaving its button closed it. JSKIT's
+  `VTooltip` default `activatorProps` listens for the `focusout` that follows
+  (an event Vuetify's activator does not use) and hands Vuetify's handler the
+  blur it acts on, with the page as where focus went, unless the pointer is on
+  the tooltip itself. It first sets the tooltip's click-outside record
+  (`lastMousedownWasOutside`, as a click elsewhere does), so the closing
+  overlay leaves the focus where `blur()` put it instead of handing it back to
+  the activator. material-web's browser test "a tooltip opened by focus closes
+  when its button loses focus to nothing" guards both; it fails without the
+  default, and without the record the button is focused again. Drop the default once a Vuetify release passes that test
+  without it. A tooltip given its own `activator-props` replaces the default
+  and keeps Vuetify's behaviour.
 - **Vuetify 4.3.2 and 4.3.3 (measured): idle loaders read layout as they
   mount.** Every field built on `VField` (`v-text-field`, `v-select`,
   `v-textarea` and the others) mounts an idle `VProgressLinear` in its loader

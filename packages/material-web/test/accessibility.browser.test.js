@@ -101,6 +101,37 @@ test("a hidden tooltip leaves no tooltip without a name and still describes its 
   await expect(button).toHaveAccessibleDescription("Delete this report");
 });
 
+// A tooltip opened by focus closes when its button loses focus, wherever focus goes, and leaves the focus there.
+// Vuetify 4.3.2 kept it open when blur() took the focus nowhere, as it keeps a menu open for a click on an empty area
+// inside it, so the tooltip stayed over the page, and neither hovering nor leaving the button closed it. A click on an
+// empty part of the page closes it as a click outside.
+test("a tooltip opened by focus closes when its button loses focus to nothing", {
+  skip: SKIP,
+  timeout: 120_000
+}, async (t) => {
+  const { vite, browser } = await open(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, reducedMotion: "reduce" });
+  t.after(() => page.close());
+  const button = page.getByTestId("tooltip-activator");
+  const tooltip = page.getByRole("tooltip", { name: "Delete this report" });
+  // Each way of losing focus on a fresh page: Vuetify ignores focus for 50ms after a tooltip closes.
+  const losses = [
+    ["a click on an empty part of the page", () => page.mouse.click(4, 4)],
+    ["the button's blur()", () => button.evaluate((element) => element.blur())]
+  ];
+  for (const [loss, loseFocus] of losses) {
+    await page.goto("/");
+    await expect(button).toBeVisible();
+    await page.keyboard.press("Tab");
+    await expect(button).toBeFocused();
+    await expect(tooltip).toBeVisible();
+    await loseFocus();
+    await expect(tooltip, `closed after ${loss}`).toBeHidden();
+    // Closing leaves the focus where it went, rather than handing it back to the button.
+    await expect(button, `not focused again once closed after ${loss}`).not.toBeFocused();
+  }
+});
+
 // A card's subtitle is its supporting text, at full strength: on-surface-variant on a surface card or one without a
 // colour, the card's own text colour on a coloured card, and its own class's colour when it has one. At Vuetify's
 // medium-emphasis opacity it measured 4.35:1 on JSKIT's default surface-container-low card, under WCAG's 4.5:1.
