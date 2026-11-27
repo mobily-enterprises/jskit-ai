@@ -657,7 +657,8 @@ async function startRealtimeClient(t, { mobile = null, appConfig = {} } = {}) {
     inputs["client.mobile"] = mobile;
   }
   const previousAppConfig = globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
-  setClientAppConfig(appConfig);
+  // The provider's Socket.IO client connects as it is made (autoConnect): the app config's own option keeps it closed.
+  setClientAppConfig({ ...appConfig, realtimeClient: { options: { autoConnect: false } } });
   const runtime = createCapabilityRuntime({
     inputs,
     providers: [RealtimeClientProvider, probe]
@@ -668,7 +669,8 @@ async function startRealtimeClient(t, { mobile = null, appConfig = {} } = {}) {
     else globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY] = previousAppConfig;
   });
   await runtime.start();
-  // In Node there is no page to connect back to: a URL-less socket would look up the host "undefined".
+  // In Node there is no page to connect back to: a URL-less socket would look up the host "undefined", and the
+  // Capacitor URL is whatever listens on 127.0.0.1:3000.
   assert.equal(realtime.socket.active, false, "The client provider opened a connection from the test.");
   return { provided, realtime, registrations };
 }
