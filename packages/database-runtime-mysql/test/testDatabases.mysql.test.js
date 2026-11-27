@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -35,7 +35,7 @@ exports.down = () => {};
 const execFileAsync = promisify(execFile);
 const SHELVES = "exports.up = (knex) => knex.schema.createTable(\"shelves\", (table) => table.increments(\"id\"));\nexports.down = () => {};\n";
 
-test("each test database is restored from one snapshot, rebuilt only when a migration changes", {
+test("each test database is copied on the server from one snapshot database, TEST_DB_NAME_0, which npm ci keeps and a changed migration rebuilds", {
   skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
 }, async (context) => {
   const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-mysql-"));
@@ -50,7 +50,7 @@ test("each test database is restored from one snapshot, rebuilt only when a migr
   const names = [name, `${name}_1`, `${name}_2`];
   const on = (database) => knex({ client: "mysql2", connection: { ...server, database } });
   context.after(async () => {
-    for (const database of names) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    for (const database of [...names, `${name}_0`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
     await admin.destroy();
     await rm(appRoot, { recursive: true, force: true });
   });
@@ -59,6 +59,16 @@ test("each test database is restored from one snapshot, rebuilt only when a migr
   const first = await prepareTestDatabases({ knexConfig, environment, count: 3, seed, appRoot });
   assert.deepEqual(first.databases, names);
   assert.match(first.summary, /1 migrations replayed once for a new snapshot/u);
+  // The snapshot is a database on the server holding what the migrations built, the seed aside; nothing is stored in
+  // the application's tree, so npm ci, which empties node_modules, leaves it, and every copy is made on the server.
+  assert.equal(first.snapshot.database, `${name}_0`);
+  const snapshotDatabase = on(`${name}_0`);
+  try {
+    assert.deepEqual(await snapshotDatabase("books").orderBy("id").pluck("title"), ["Written by the migration"]);
+  } finally {
+    await snapshotDatabase.destroy();
+  }
+  await assert.rejects(stat(path.join(appRoot, "node_modules")), { code: "ENOENT" });
   for (const database of names) {
     const db = on(database);
     try {
@@ -82,6 +92,7 @@ test("each test database is restored from one snapshot, rebuilt only when a migr
   }
   const again = await prepareTestDatabases({ knexConfig, environment, count: 3, seed, appRoot });
   assert.match(again.summary, /stored snapshot/u);
+  assert.equal(again.snapshot.database, `${name}_0`);
   const restored = on(names[1]);
   try {
     assert.deepEqual(await restored("books").orderBy("id").pluck("id"), [1, 2]);
@@ -104,6 +115,7 @@ test("each test database is restored from one snapshot, rebuilt only when a migr
   const changed = await prepareTestDatabases({ knexConfig, environment, count: 2, appRoot });
   assert.notEqual(changed.snapshot.key, again.snapshot.key);
   assert.match(changed.summary, /2 migrations replayed once for a new snapshot/u);
+  assert.equal(changed.snapshot.database, `${name}_0`);
   assert.deepEqual(changed.snapshot.tables, ["books", "knex_migrations", "knex_migrations_lock", "reviews", "shelves"]);
 
   // jskit test --databases: one database per file at once, handed to each file's process by the preload. The
@@ -201,7 +213,7 @@ test("a jskit test --databases run on MySQL or MariaDB drops the numbered copies
   const server = { ...knexConfig.connection, database: undefined };
   const admin = knex({ client: "mysql2", connection: server });
   // `_7` is a copy an earlier run left: a run of three files makes only `_1` and `_2`, and drops it as it starts.
-  const candidates = [name, `${name}_1`, `${name}_2`, `${name}_7`];
+  const candidates = [name, `${name}_0`, `${name}_1`, `${name}_2`, `${name}_7`];
   context.after(async () => {
     for (const database of candidates) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
     await admin.destroy();
@@ -214,12 +226,10 @@ test("a jskit test --databases run on MySQL or MariaDB drops the numbered copies
   const run = await testDatabaseRun({ knexConfig, environment, count: 3, appRoot });
   assert.equal(run.concurrency, 3);
   assert.match(run.summary, new RegExp(`; dropped 1 numbered test database\\(s\\) earlier runs left \\(${name}_7\\)$`, "u"));
-  assert.deepEqual(await present(), [name, `${name}_1`, `${name}_2`]);
-  const snapshotFile = JSON.parse(await readFile(path.join(run.env.JSKIT_TEST_DATABASES, RUN_SETTINGS_FILE), "utf8")).snapshot.file;
+  assert.deepEqual(await present(), [name, `${name}_0`, `${name}_1`, `${name}_2`]);
   assert.equal(await run.cleanup(), "dropped the run's 2 numbered test database(s)");
   await assert.rejects(stat(run.env.JSKIT_TEST_DATABASES), { code: "ENOENT" });
-  assert.deepEqual(await present(), [name]);
-  assert.equal((await stat(snapshotFile)).isFile(), true, "the stored snapshot stays");
+  assert.deepEqual(await present(), [name, `${name}_0`], "the snapshot database stays");
 
   // The next run in the same tree restores the stored snapshot. A copy a session is still connected to stays.
   const next = await testDatabaseRun({ knexConfig, environment, count: 3, appRoot });
@@ -232,14 +242,14 @@ test("a jskit test --databases run on MySQL or MariaDB drops the numbered copies
   } finally {
     await holding.destroy();
   }
-  assert.deepEqual(await present(), [name, `${name}_2`]);
+  assert.deepEqual(await present(), [name, `${name}_0`, `${name}_2`]);
 
   // A run whose check fails before any test file starts drops its copies as it fails.
   const checkDatabase = async () => {
     throw new Error("a declared foreign key is missing");
   };
   await assert.rejects(testDatabaseRun({ knexConfig, environment, count: 3, appRoot, checkDatabase }), /declared foreign key is missing/u);
-  assert.deepEqual(await present(), [name]);
+  assert.deepEqual(await present(), [name, `${name}_0`]);
 });
 
 // A child process that starts a `jskit test --databases` run of `count` files and then waits, as a run's files do, until
@@ -287,7 +297,7 @@ test("a jskit test --databases run on MySQL or MariaDB killed mid-way leaves its
   const candidates = [name, `${name}_1`, `${name}_2`, `${name}_3`];
   let settingsDirectory = "";
   context.after(async () => {
-    for (const database of candidates) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    for (const database of [...candidates, `${name}_0`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
     await admin.destroy();
     await rm(appRoot, { recursive: true, force: true });
     if (settingsDirectory) await rm(settingsDirectory, { recursive: true, force: true });
@@ -337,7 +347,7 @@ test("an application whose migrations start from a baseline schema builds its sn
   const server = { ...knexConfig.connection, database: undefined };
   const admin = knex({ client: "mysql2", connection: server });
   context.after(async () => {
-    for (const database of [name, `${name}_1`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    for (const database of [name, `${name}_0`, `${name}_1`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
     await admin.destroy();
     await rm(appRoot, { recursive: true, force: true });
   });
@@ -448,7 +458,9 @@ async function fixtureApplication(context, suffix, { tests, concurrency }) {
     password: process.env.DB_PASSWORD };
   const admin = knex({ client: "mysql2", connection: server });
   context.after(async () => {
-    for (const database of [name, `${name}_1`, `${name}_a`, `${name}_b`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    for (const database of [name, `${name}_0`, `${name}_1`, `${name}_a`, `${name}_b`]) {
+      await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    }
     await admin.destroy();
     await rm(appRoot, { recursive: true, force: true });
   });
@@ -587,7 +599,7 @@ test("a browser run's launcher, stopped by SIGTERM, drops the numbered copies of
     password: process.env.DB_PASSWORD };
   const admin = knex({ client: "mysql2", connection: server });
   // `_7` is a copy an earlier run left: a run of three workers makes only `_1` and `_2`, and drops it as it starts.
-  const candidates = [name, `${name}_1`, `${name}_2`, `${name}_7`];
+  const candidates = [name, `${name}_0`, `${name}_1`, `${name}_2`, `${name}_7`];
   let launcher;
   context.after(async () => {
     if (launcher?.exitCode === null) launcher.kill("SIGKILL");
@@ -629,18 +641,15 @@ test("a browser run's launcher, stopped by SIGTERM, drops the numbered copies of
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   assert.match(output, /jskit browser tests: 3 server\(s\) ready/u);
-  assert.deepEqual(await present(), [name, `${name}_1`, `${name}_2`]);
-  const cache = path.join(appRoot, "node_modules", ".cache", "jskit-test-databases");
-  const snapshots = (await readdir(cache)).filter((file) => file.endsWith(".json"));
-  assert.equal(snapshots.length, 1);
+  assert.deepEqual(await present(), [name, `${name}_0`, `${name}_1`, `${name}_2`]);
+  await assert.rejects(stat(path.join(appRoot, "node_modules", ".cache", "jskit-test-databases")), { code: "ENOENT" });
 
   const stopped = performance.now();
   launcher.kill("SIGTERM");
   assert.equal(await exited, 143, output);
   assert.ok(performance.now() - stopped < 10_000, "within the 10 s Playwright gives its webServer to stop");
   assert.match(output, /\[browser-tests\] dropped the run's 2 numbered test database\(s\)\./u);
-  assert.deepEqual(await present(), [name]);
-  assert.deepEqual((await readdir(cache)).filter((file) => file.endsWith(".json")), snapshots, "the stored snapshot stays");
+  assert.deepEqual(await present(), [name, `${name}_0`], "the snapshot database stays");
 
   // prepareTestDatabases() drops the copies it made when it throws: here its seed.
   const environment = { ...process.env, DB_NAME: `${name}_application`, DATABASE_URL: "", BROWSER_TEST_DB_NAME: name };
@@ -654,7 +663,7 @@ test("a browser run's launcher, stopped by SIGTERM, drops the numbered copies of
   };
   await assert.rejects(prepareTestDatabases({ knexConfig, environment, variable: "BROWSER_TEST_DB_NAME", count: 3, seed, appRoot }),
     /the seed failed/u);
-  assert.deepEqual(await present(), [name]);
+  assert.deepEqual(await present(), [name, `${name}_0`]);
 });
 
 test("prepareTestDatabases() drops the numbered copies it made when a restore throws, once every restore has ended", {

@@ -87,7 +87,7 @@ async function application(context, suffix, migrations) {
   const admin = knex({ client: "mysql2", connection: server, pool: { min: 0, max: 1 } });
   context.after(async () => {
     try {
-      await admin.raw("DROP DATABASE IF EXISTS ??", [name]);
+      for (const database of [name, `${name}_0`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
     } finally {
       await admin.destroy();
       await rm(appRoot, { recursive: true, force: true });
@@ -161,11 +161,9 @@ test("a migration history whose seed rows come from the clock (a column default,
   assert.match(proof.summary, /, the same tables, definitions and rows as the test snapshot \(4 tables\)$/u);
   assert.deepEqual(await preset(), built);
   assert.deepEqual(await settings(), seeded);
-  // A snapshot stored without its clock, as every one before it was frozen, is built again.
-  const stored = JSON.parse(await readFile(snapshot.file, "utf8"));
-  assert.equal(stored.clock, Number(built.created));
-  delete stored.clock;
-  await writeFile(snapshot.file, JSON.stringify(stored));
+  assert.equal(snapshot.clock, Number(built.created));
+  // A snapshot database without its label, as a build that never finished leaves it, is built again.
+  await admin.raw("DROP TABLE ??.jskit_test_snapshot", [`${name}_0`]);
   const again = await prepareTestDatabases({ knexConfig, environment, appRoot });
   assert.match(again.summary, / 2 migrations replayed once for a new snapshot, /u);
 });
