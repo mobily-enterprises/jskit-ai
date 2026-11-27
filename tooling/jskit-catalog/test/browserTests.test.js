@@ -119,6 +119,47 @@ test("a managed target starts no server and runs one worker unless the runner se
     "/tmp/state.json");
 });
 
+test("a managed target serving several app servers gives each Playwright worker its own from PLAYWRIGHT_WORKER_TARGETS, and refuses another count", () => {
+  const targets = [0, 1, 2].map((index) => ({ baseURL: `http://127.0.0.1:${4100 + index}`, storageState: `/run/state-${index}.json` }));
+  // As Vibe64 gives a suite on a target with three servers: worker 0's are also the single-server variables.
+  const environment = (more = {}) => ({
+    PLAYWRIGHT_BASE_URL: targets[0].baseURL, PLAYWRIGHT_STORAGE_STATE: targets[0].storageState,
+    PLAYWRIGHT_WORKER_TARGETS: JSON.stringify(targets), V64_TEST_CONCURRENCY: "16", ...more
+  });
+  const run = browserTestConfig({ environment: environment() });
+  assert.equal(run.workers, 3, "one worker per server, whatever the budget");
+  assert.equal(run.webServer, undefined, "the host serves the app");
+  assert.equal(run.use.baseURL, targets[0].baseURL);
+  assert.equal(run.use.storageState, targets[0].storageState);
+  assert.equal(run.globalTimeout, Math.ceil((80 * 60_000) / 3));
+  assert.equal(browserTestWorkers({ env: environment(), argv: [] }), 3);
+  // Playwright loads the config again in each worker, with its index: that worker's server and signed-in state.
+  for (const index of [1, 2]) {
+    const worker = browserTestConfig({ environment: environment({ TEST_PARALLEL_INDEX: String(index) }) });
+    assert.equal(worker.use.baseURL, targets[index].baseURL);
+    assert.equal(worker.use.storageState, targets[index].storageState);
+  }
+  const signedOut = targets.map(({ baseURL }) => ({ baseURL }));
+  const signedOutWorker = browserTestConfig({ environment: environment({
+    PLAYWRIGHT_STORAGE_STATE: "", PLAYWRIGHT_WORKER_TARGETS: JSON.stringify(signedOut), TEST_PARALLEL_INDEX: "2"
+  }) });
+  assert.equal(signedOutWorker.use.baseURL, targets[2].baseURL);
+  assert.equal(signedOutWorker.use.storageState, undefined);
+  // The same count asked again is no conflict; another would leave a worker without a server, or a server unused.
+  assert.equal(browserTestWorkers({ env: environment({ PLAYWRIGHT_WORKERS: "3" }), argv: ["test", "-j", "3"] }), 3);
+  assert.throws(() => browserTestConfig({ environment: environment({ PLAYWRIGHT_WORKERS: "2" }) }),
+    /PLAYWRIGHT_WORKER_TARGETS lists 3 app servers, one per Playwright worker, so this run cannot use 2 workers/u);
+  assert.throws(() => browserTestWorkers({ env: environment(), argv: ["test", "--workers=4"] }),
+    /PLAYWRIGHT_WORKER_TARGETS lists 3 app servers, one per Playwright worker, so this run cannot use 4 workers/u);
+  assert.throws(() => browserTestConfig({ environment: environment({ TEST_PARALLEL_INDEX: "3" }) }),
+    /PLAYWRIGHT_WORKER_TARGETS has no app server for Playwright worker 3/u);
+  for (const text of ["[", "{}", "[]", JSON.stringify([{ baseURL: "ftp://127.0.0.1/" }]), JSON.stringify([{}]),
+    JSON.stringify([{ baseURL: "http://127.0.0.1:4100", storageState: 1 }])]) {
+    assert.throws(() => browserTestConfig({ environment: environment({ PLAYWRIGHT_WORKER_TARGETS: text }) }),
+      /PLAYWRIGHT_WORKER_TARGETS is a JSON list of \{ baseURL, storageState\? \}/u, text);
+  }
+});
+
 test("a local run takes free ports of its own, so a second run on the machine never meets the first's servers", async () => {
   const first = { V64_TEST_CONCURRENCY: "6" };
   browserTestConfig({ environment: first });
@@ -573,6 +614,40 @@ test("jskit browser-test-server serves the app on a host's address as one worker
   });
 });
 
+test("jskit browser-test-server serves as many app servers as a host asks, each on its own port and prepared database, prepared once", async () => {
+  await withProject({
+    ...LAUNCHER_APP,
+    "tests/e2e/sign-in.mjs": SIGN_IN,
+    "playwright.config.mjs": TARGET_CONFIG
+  }, async (root) => {
+    const port = await freeConsecutivePorts(4);
+    // A suite runner's server list left in the host's environment is not this server's.
+    const target = serveTarget(root, ["127.0.0.1", String(port), "3"], {
+      PLAYWRIGHT_WORKER_TARGETS: JSON.stringify([{ baseURL: "http://127.0.0.1:9" }, { baseURL: "http://127.0.0.1:10" }])
+    });
+    try {
+      await outputMatches(target, [/Frontend built in/u, /^jskit browser tests: 3 server\(s\) ready/mu]);
+      assert.equal(target.output.match(/Frontend built in/gu).length, 1, "one build serves every server");
+      for (const index of [0, 1, 2]) {
+        assert.deepEqual(await (await fetch(`http://127.0.0.1:${port + index}/api/health`)).json(), {
+          port: String(port + index), database: `app_browser_${index}`, index: String(index),
+          publicUrl: `http://127.0.0.1:${port + index}`, driver: "simulate", appEnv: "test"
+        });
+      }
+      assert.equal(await answers(port + 3), false);
+      const cache = path.join(root, "node_modules", ".cache", "jskit-browser-tests");
+      assert.deepEqual(await readdir(cache), [`workers-${port}.json`]);
+      assert.equal(JSON.parse(await readFile(path.join(cache, `workers-${port}.json`), "utf8")).length, 3,
+        "the app's prepare ran once, for every server");
+      target.child.kill("SIGTERM");
+      assert.equal(await exitOf(target.child), 143);
+      for (const index of [0, 1, 2]) assert.equal(await answers(port + index), false);
+    } finally {
+      if (target.child.exitCode === null) process.kill(-target.child.pid, "SIGKILL");
+    }
+  });
+});
+
 test("jskit browser-test-server refuses, naming the fix, an app whose Playwright config is not browserTestConfig() and a missing port", async () => {
   const port = String(await freeConsecutivePorts(1));
   for (const [files, args, env, refusal] of [
@@ -582,7 +657,11 @@ test("jskit browser-test-server refuses, naming the fix, an app whose Playwright
       ["127.0.0.1", port], {},
       /browserTestConfig\(\) describes, and playwright\.config\.mjs does not use it: export defineConfig\(browserTestConfig/u],
     [{ "package.json": { name: "app", type: "module" }, "playwright.config.mjs": TARGET_CONFIG }, [], { PORT: "" },
-      /needs the port to serve on/u]
+      /needs the port to serve on/u],
+    ...["0", "65", "two", "1.5"].map((workers) => [{ "package.json": { name: "app", type: "module" }, "playwright.config.mjs": TARGET_CONFIG },
+      ["127.0.0.1", port, workers], {}, new RegExp(`serves 1 to 64 app servers, not ${workers.replace(".", "\\.")}`, "u")]),
+    [{ "package.json": { name: "app", type: "module" }, "playwright.config.mjs": TARGET_CONFIG }, ["127.0.0.1", port, "2", "x"], {},
+      /Usage: jskit browser-test-server \[host\] \[port\] \[workers\]/u]
   ]) {
     await withProject(files, async (root) => {
       const target = serveTarget(root, args, env);
