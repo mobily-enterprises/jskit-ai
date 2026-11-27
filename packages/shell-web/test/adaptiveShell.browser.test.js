@@ -74,6 +74,20 @@ async function readRoleColor(page, role) {
   }, role);
 }
 
+// Holds the fixture's boot request, the one its main.js awaits before it mounts, until the returned function is
+// called: the page has loaded and the app is not there yet, as an app's page loads before its bootstrap answers.
+async function holdFixtureBoot(page) {
+  let release;
+  const released = new Promise((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/fixture/boot", async (route) => {
+    await released;
+    await route.continue().catch(() => undefined);
+  });
+  return release;
+}
+
 function symbolPath(alias) {
   return materialSymbols[alias].slice("svg:".length);
 }
@@ -1738,11 +1752,19 @@ test("an app's colours win over the navigation bar's, and a denser bar, a badge 
 }, async (t) => {
   const { vite, browser } = await startFixture(t);
   const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 390, height: 844 } });
+  const releaseBoot = await holdFixtureBoot(page);
   await page.goto("/home/components");
+  // The page has loaded and the app waits on its boot request, so the colours are read from an app that mounts
+  // only after the reads begin.
+  assert.equal(await page.locator(".v-application").count(), 0);
   const roles = {};
-  for (const role of ["primary", "on-primary", "secondary-container", "on-surface-variant"]) {
-    roles[role] = await readRoleColor(page, role);
-  }
+  const reading = (async () => {
+    for (const role of ["primary", "on-primary", "secondary-container", "on-surface-variant"]) {
+      roles[role] = await readRoleColor(page, role);
+    }
+  })();
+  releaseBoot();
+  await reading;
   const transparent = "rgba(0, 0, 0, 0)";
   const read = (testId) => page.getByTestId(testId).evaluate((button) => {
     const style = (node) => window.getComputedStyle(node);
