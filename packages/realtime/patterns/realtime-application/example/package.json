@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@jskit-ai/realtime": "0.2.57",
-    "@jskit-ai/shell-web": "0.2.54"
+    "@jskit-ai/realtime": "0.2.58",
+    "@jskit-ai/shell-web": "0.2.55"
   }
 }

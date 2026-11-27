@@ -434,6 +434,7 @@ Local functions
 - `aloneShard(files, options)`
 - `databaseShortfall(databases, asked)`
 - `runNode(args, env)`
+- `listTestFiles(args)`
 
 ### `scripts/test-databases.mjs`
 Exports
