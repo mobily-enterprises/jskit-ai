@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import knex from "knex";
 import { createKnexMigrationConfig } from "@jskit-ai/database-runtime/server/knexMigrationConfig";
@@ -33,6 +34,33 @@ exports.down = () => {};
 // A migration that writes another row on each replay, as one that reads the clock or a random value does.
 const RANDOM_BOOK = "exports.up = (knex) => knex(\"books\").insert({ title: require(\"node:crypto\").randomUUID() });\n" +
   "exports.down = () => {};\n";
+// Seed rows filled from the clock, as a migration that has run cannot stop doing: a column default, NOW(), the current
+// month and JavaScript's Date.
+const CLOCK = `exports.up = async (knex) => {
+  await knex.schema.createTable("presets", (table) => {
+    table.increments("id");
+    table.string("name");
+    table.timestamp("created_at").notNullable().defaultTo(knex.fn.now());
+    table.date("month");
+    table.dateTime("noted_at");
+  });
+  await knex.raw("INSERT INTO presets (name, month, noted_at) VALUES ('Core Coach', DATE_FORMAT(NOW(), '%Y-%m-01'), ?)", [new Date()]);
+};
+exports.down = () => {};
+`;
+// A settings row a migration seeds with knex.fn.now() (SQL's CURRENT_TIMESTAMP) beside JavaScript's Date, as
+// BeePollen's console_settings, allowed_login_email_settings and driers migrations do.
+const SETTINGS = `exports.up = async (knex) => {
+  await knex.schema.createTable("console_settings", (table) => {
+    table.increments("id");
+    table.string("name");
+    table.dateTime("created_at");
+    table.dateTime("updated_at");
+  });
+  await knex("console_settings").insert({ name: "default", created_at: knex.fn.now(), updated_at: new Date() });
+};
+exports.down = () => {};
+`;
 const SHELF_COLOUR = "exports.up = (knex) => knex.schema.alterTable(\"shelves\", (table) => table.string(\"colour\"));\n" +
   "exports.down = () => {};\n";
 const KNEXFILE = `import { createKnexMigrationConfig } from "@jskit-ai/database-runtime/server/knexMigrationConfig";
@@ -103,9 +131,43 @@ test("a migration history that builds other rows on each replay fails the proof,
     "20200102000000_random_book.cjs": RANDOM_BOOK
   });
   const { snapshot } = await prepareTestDatabases({ knexConfig, environment, appRoot });
+  // The rows that differ are named, as read.
   await assert.rejects(proveMigrationHistory({ knexConfig, environment, appRoot }), new RegExp(
-    `^Error: The migration history proof: ${name}, built from empty, differs from the test snapshot in books: `, "u"));
+    `^Error: The migration history proof: ${name}, built from empty, differs from the test snapshot in books: books: 1 row\\(s\\) ` +
+    'only in the replay \\(\\{"id":2,"title":"[0-9a-f-]{36}"\\}\\) and 1 only in the snapshot \\(\\{"id":2,"title":"[0-9a-f-]{36}"\\}\\)\\. ' +
+    "A migration builds something else on each replay \\(.*SYSDATE\\(\\)", "u"));
   assert.deepEqual(await restoreTestDatabase(knexConfig, name, snapshot), []);
+});
+
+test("a migration history whose seed rows come from the clock (a column default, NOW(), knex.fn.now(), the month, JavaScript's Date) passes the proof at another second, the clock frozen at the snapshot's own", {
+  skip: SKIP
+}, async (context) => {
+  const { appRoot, name, admin, environment, knexConfig } = await application(context, "hist5", {
+    "20200101000000_clock.cjs": CLOCK,
+    "20200102000000_settings.cjs": SETTINGS
+  });
+  const { snapshot } = await prepareTestDatabases({ knexConfig, environment, appRoot });
+  const preset = async () => (await admin.raw("SELECT UNIX_TIMESTAMP(created_at) AS created, CAST(month AS CHAR) AS month, " +
+    "CAST(noted_at AS CHAR) AS noted FROM ??.presets", [name]))[0][0];
+  const built = await preset();
+  const settings = async () => (await admin.raw("SELECT CAST(created_at AS CHAR) AS created, CAST(updated_at AS CHAR) AS updated " +
+    "FROM ??.console_settings", [name]))[0];
+  const seeded = await settings();
+  // The server's clock moves on to another second before the proof replays the history.
+  for (const deadline = Date.now() + 5000; Date.now() < deadline; await delay(50)) {
+    if (Number((await admin.raw("SELECT UNIX_TIMESTAMP() AS now"))[0][0].now) > Number(built.created)) break;
+  }
+  const proof = await proveMigrationHistory({ knexConfig, environment, appRoot });
+  assert.match(proof.summary, /, the same tables, definitions and rows as the test snapshot \(4 tables\)$/u);
+  assert.deepEqual(await preset(), built);
+  assert.deepEqual(await settings(), seeded);
+  // A snapshot stored without its clock, as every one before it was frozen, is built again.
+  const stored = JSON.parse(await readFile(snapshot.file, "utf8"));
+  assert.equal(stored.clock, Number(built.created));
+  delete stored.clock;
+  await writeFile(snapshot.file, JSON.stringify(stored));
+  const again = await prepareTestDatabases({ knexConfig, environment, appRoot });
+  assert.match(again.summary, / 2 migrations replayed once for a new snapshot, /u);
 });
 
 test("a schema build that leaves a migration unapplied fails the migration history proof, naming the migration", {
