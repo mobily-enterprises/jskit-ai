@@ -24,6 +24,33 @@ import { createLoggedSignInEvents } from "../lib/sessions.js";
 // The emails each started auth service is still sending, by the service its setup gave out, for its shutdown.
 const deliveriesByService = new WeakMap();
 
+// What each method local auth calls on an installed auth.local.backend must do, for the refusal that names one missing.
+const BACKEND_METHODS = Object.freeze({
+  withTransaction: "withTransaction(callback) runs the callback in one transaction on the backend's records and " +
+    "answers what it answered.",
+  withRecords: "withRecords(callback) runs the callback on the same records outside a transaction, each call on its " +
+    "own, and answers what it answered: local auth reads each signed-in request's session and user through it since " +
+    "@jskit-ai/auth-provider-local-core 0.2.47 (JSKIT 0.2.111). A backend with no cheaper reads can give its " +
+    "withTransaction, as the file backend does."
+});
+
+/**
+ * Refuses, as the server starts, an installed auth.local.backend without a method local auth calls, which would
+ * otherwise fail at the first request that calls it: each signed-in request, for withRecords.
+ * @param {import("../types.js").AuthLocalBackend} backend
+ */
+function requireBackendMethods(backend) {
+  // readable-check: allow method-probe - input validation: an application supplies its own auth.local.backend
+  const missing =Object.keys(BACKEND_METHODS).filter((name) => typeof backend[name] !== "function");
+  if (missing.length === 0) return;
+  throw new Error([
+    `The installed auth.local.backend has no ${missing.join(" and no ")}.`,
+    ...missing.map((name) => BACKEND_METHODS[name]),
+    `Add ${missing.length === 1 ? "it" : "them"} to the provider of auth.local.backend ` +
+      "(@jskit-ai/auth-provider-local-core's CHANGELOG says how)."
+  ].join(" "));
+}
+
 /**
  * An installed email sender, sending as APP_ENV says (`deliverMessage`): production sends each email to its address;
  * staging only to STAGING_EMAIL_TO, passing the address it was for as `originalEmail`, or logs it when that is unset;
@@ -120,6 +147,7 @@ const AuthLocalProvider = defineProvider({
     { outputs }
   ) {
     const fileBackend = backend === null;
+    if (!fileBackend) requireBackendMethods(backend);
     const emailRecovery = recoverySender !== null;
     const emailConfirmationSender = confirmationSender !== null;
     const emailedChange = emailChangeSender !== null;
