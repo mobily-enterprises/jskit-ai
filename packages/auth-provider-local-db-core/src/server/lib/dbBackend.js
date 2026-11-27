@@ -641,7 +641,8 @@ function createRecords(resources, identities, options) {
 
 /**
  * The `auth.local.backend` that keeps local auth's records in the database: each withTransaction opens one
- * transaction on the records' handles, runs it again whole on a deadlock, and hands the callback the records in it.
+ * transaction on the records' handles, runs it again whole on a deadlock, and hands the callback the records in it;
+ * withRecords hands it the records outside a transaction, each call a statement of its own.
  * A failed callback rejects with the callback's own error (an AppError stays one); a failed commit rejects with
  * json-rest-api's RestApiWriteError. Every call runs in the feature's system context.
  * @param {object} dependencies
@@ -666,9 +667,15 @@ function createLocalDbBackend({ resources, identities, context }) {
     }
   }
 
+  // A request's reads, each on its own with no transaction around them.
+  function withRecords(callback) {
+    return callback(createRecords(resources, identities, { context }));
+  }
+
   return Object.freeze({
     tables: TABLES,
-    withTransaction
+    withTransaction,
+    withRecords
   });
 }
 

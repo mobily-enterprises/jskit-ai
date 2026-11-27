@@ -37,7 +37,7 @@ const account = (id, email, extra = {}) => ({ id, email, displayName: `Name ${id
 test("accounts: create answers the account it wrote, reads find it by id and email, and an email or id is taken once", async (context) => {
   requireTestDatabase(process.env);
   const { backend } = await openLocalAuthDatabase(context, "da_local_accounts");
-  assert.deepEqual(Object.keys(backend), ["tables", "withTransaction"]);
+  assert.deepEqual(Object.keys(backend), ["tables", "withTransaction", "withRecords"]);
   assert.deepEqual(backend.tables, {
     users: "auth_local_users",
     sessions: "auth_local_sessions",

@@ -209,9 +209,11 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
     await tx.sessions.touch(session.id, { lastSeenAt: new Date(now).toISOString(), ...requestClient(request) });
   }
 
+  // A request's session and user are read with no transaction around them: each read sees the latest rows, so a
+  // session revoked or an account disabled is refused from the next request on.
   async function resolveValidSessionByRefreshToken(refreshToken, request) {
     const tokenHash = sha256Base64url(refreshToken);
-    return backend.withTransaction(async (tx) => {
+    return backend.withRecords(async (tx) => {
       const session = await tx.sessions.findByTokenHash(tokenHash);
       if (!session || session.revokedAt || isExpiredIso(session.expiresAt)) {
         return null;
@@ -318,7 +320,7 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
     if (accessToken) {
       const payload = verifySignedToken(accessToken, config.sessionSecret);
       if (payload?.sid && payload?.sub) {
-        const resolved = await backend.withTransaction(async (tx) => {
+        const resolved = await backend.withRecords(async (tx) => {
           const session = await tx.sessions.findById(String(payload.sid));
           if (!session || session.revokedAt || isExpiredIso(session.expiresAt)) {
             return null;

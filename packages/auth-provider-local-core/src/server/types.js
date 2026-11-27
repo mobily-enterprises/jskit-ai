@@ -216,6 +216,9 @@
  * @typedef {object} AuthLocalBackend
  * @property {<T>(callback: (tx: AuthLocalBackendTransaction) => Promise<T>) => Promise<T>} withTransaction
  *   Runs the callback in one transaction and answers what it answered.
+ * @property {<T>(callback: (records: AuthLocalBackendTransaction) => Promise<T>) => Promise<T>} withRecords
+ *   Runs the callback on the same records outside a transaction, each call on its own, and answers what it answered:
+ *   a request's authentication reads its session and its user this way, without a transaction's BEGIN and COMMIT.
  */
 
 /**

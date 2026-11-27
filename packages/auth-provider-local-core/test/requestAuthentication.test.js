@@ -21,15 +21,17 @@ async function startService(t) {
     }
     return tx.sessions[method](...args);
   }
+  const counted = (tx) => ({
+    ...tx,
+    sessions: Object.create(tx.sessions, {
+      findById: { value: (...args) => readSession(tx, "findById", args) },
+      findByTokenHash: { value: (...args) => readSession(tx, "findByTokenHash", args) }
+    })
+  });
   const backend = {
     ...files,
-    withTransaction: (work) => files.withTransaction((tx) => work({
-      ...tx,
-      sessions: Object.create(tx.sessions, {
-        findById: { value: (...args) => readSession(tx, "findById", args) },
-        findByTokenHash: { value: (...args) => readSession(tx, "findByTokenHash", args) }
-      })
-    }))
+    withTransaction: (work) => files.withTransaction((tx) => work(counted(tx))),
+    withRecords: (work) => files.withRecords((tx) => work(counted(tx)))
   };
   const service = createLocalAuthService({ ...localServiceOptions(), backend });
   await service.register({ email: "ada@example.com", password: "correct horse" });

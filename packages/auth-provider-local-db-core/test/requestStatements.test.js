@@ -32,9 +32,11 @@ test("an authenticated request costs two statements, its session and its user, a
     assert.deepEqual(await requests(cookies, 1), { authenticated: [true], statements: 2 });
     assert.deepEqual(await requests(cookies, 20), { authenticated: Array(20).fill(true), statements: 40 });
   }
-  // Five minutes on, the first request notes the session as seen: one statement more, once.
+  // Five minutes on, the first request notes the session as seen: one UPDATE, in a transaction of its own, once.
   t.mock.timers.tick(5 * 60 * 1000 + 1000);
-  assert.deepEqual(await requests(byAccess, 2), { authenticated: [true, true], statements: 5 });
+  assert.deepEqual(await requests(byAccess, 2), { authenticated: [true, true], statements: 7 });
+  assert.deepEqual(statements.map((sql) => sql.split(" ")[0].toLowerCase().replace(/;$/u, "")),
+    ["select", "select", "begin", "update", "commit", "select", "select"]);
 
   const { sessionId } = await service.authenticateRequest({ cookies: byAccess });
   await sessions.revoke(sessionId);

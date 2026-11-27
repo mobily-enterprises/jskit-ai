@@ -684,7 +684,9 @@ function createLocalFileBackend({ storeDir }) {
 
   return Object.freeze({
     storeDir: resolvedStoreDir,
-    withTransaction
+    withTransaction,
+    // The files are read and written under the store's lock either way.
+    withRecords: withTransaction
   });
 }
 

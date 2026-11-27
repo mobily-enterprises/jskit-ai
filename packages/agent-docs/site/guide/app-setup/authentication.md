@@ -91,6 +91,12 @@ is signed in comes back at their next sign-in or session refresh, not at their
 next request. Authorization never rests on those rows: sign-out and revoked
 sessions take effect at the next request.
 
+Each request reads its session and its user, two statements with no
+transaction around them (the local auth backend's `withRecords`, beside
+`withTransaction`; a custom `auth.local.backend` implements both), so a
+revoked session or a disabled account is refused from the next request on
+without the request paying a transaction's `BEGIN` and `COMMIT`.
+
 ## Sign-in protection
 
 Two limits slow down password guessing, and both are on by default.
