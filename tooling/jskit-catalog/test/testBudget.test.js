@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -227,6 +228,35 @@ test("jskit test runs test files in parallel within V64_TEST_CONCURRENCY, then t
     const failure = await execFileAsync(process.execPath, [CLI_PATH, "test", "test/failing.test.js"], { cwd: root, env })
       .then(() => null, (error) => error);
     assert.equal(failure?.code, 1);
+  });
+});
+
+// A test file that leaves a mark when it runs.
+const MARKS = (name) => `import { writeFileSync } from "node:fs";
+import test from "node:test";
+test("${name}", () => writeFileSync("${name}.ran", ""));
+`;
+
+test("jskit test --list prints the files a run would take and their count, runs none and prepares no database", async () => {
+  await withProject({
+    "test/a.test.js": MARKS("a"),
+    "test/b.test.js": `${ALONE_LINE}\n${MARKS("b")}`,
+    "tests/server/c.integration.test.js": MARKS("c")
+  }, async (root) => {
+    const env = { ...process.env, V64_TEST_CONCURRENCY: "2" };
+    delete env.NODE_TEST_CONTEXT;
+    // No database settings at all: --databases with --list prepares nothing.
+    for (const name of ["DB_CLIENT", "DB_HOST", "DB_NAME", "TEST_DB_NAME", "DATABASE_URL"]) delete env[name];
+    const list = async (...args) => (await execFileAsync(process.execPath, [CLI_PATH, "test", ...args], { cwd: root, env })).stdout;
+    assert.equal(await list("--list"),
+      "test/a.test.js\ntest/b.test.js\ntests/server/c.integration.test.js\nTotal: 3 files\n");
+    // Named files and options are the run the script chose, as a run takes them.
+    assert.equal(await list("--databases", "--list", "test/a.test.js"), "test/a.test.js\nTotal: 1 file\n");
+    assert.equal(await list("--list", "--test-reporter", "dot", "tests/**/*.test.js"),
+      "tests/server/c.integration.test.js\nTotal: 1 file\n");
+    // A name that matches no file is no file of the run.
+    assert.equal(await list("--list", "test/a.test.js", "test/missing.test.js"), "test/a.test.js\nTotal: 1 file\n");
+    for (const name of ["a", "b", "c"]) assert.equal(existsSync(path.join(root, `${name}.ran`)), false, `${name} ran`);
   });
 });
 

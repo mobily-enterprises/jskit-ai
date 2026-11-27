@@ -22,7 +22,9 @@ import { reportTestTimes, writeFileStops } from "./test-time-report.mjs";
 // test databases let fewer files run at once than the budget asked for (no usable TEST_DB_NAME, or copies the database
 // user may not create) says so, and why, at its start and its end, and fails once its tests have run: a machine that
 // should run files in parallel never silently runs them one at a time. A budget set to what the databases allow
-// (V64_TEST_CONCURRENCY) runs that way on purpose.
+// (V64_TEST_CONCURRENCY) runs that way on purpose. With --list it prints the files that run would take, one per line,
+// then `Total: <n> file(s)` (the closing line Playwright's --list prints), and runs nothing: a host checks that a run
+// of named files takes exactly those before it sends them anywhere.
 
 // node --test's own default (Node 26) when it is given no files.
 const DEFAULT_PATTERN = "**/{test,test/**/*,test-*,*[._-]test}.{js,mjs,cjs,ts,mts,cts}";
@@ -218,7 +220,17 @@ function runNode(args, env) {
  * at once has a test database of its own (test-databases.mjs), and the run's concurrency is how many there are.
  * @param {string[]} args
  */
+const LIST_OPTION = "--list";
+
+/** The files a run of `args` would take, and their count, without running them or preparing a database. */
+function listTestFiles(args) {
+  const { paths } = planTestRuns(args.filter((argument) => argument !== LIST_OPTION && argument !== DATABASES_OPTION));
+  process.stdout.write(`${[...paths, `Total: ${paths.length} ${paths.length === 1 ? "file" : "files"}`].join("\n")}\n`);
+  return 0;
+}
+
 async function runTests(args) {
+  if (args.includes(LIST_OPTION)) return listTestFiles(args);
   // Every run, and its test databases, is APP_ENV=test.
   useTestAppEnvironment(process.env, "jskit test");
   const nodeArgs = args.filter((argument) => argument !== DATABASES_OPTION);
