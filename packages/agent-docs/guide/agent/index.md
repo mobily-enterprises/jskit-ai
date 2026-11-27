@@ -76,6 +76,38 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Embeddable assistant conversations](/guide/app-extras/assistant-conversation)
 - [Voice conversations](/guide/app-extras/assistant-voice)
 
+## Recipes
+
+Ready prompts for what people commonly ask an app to do, each naming JSKIT's
+own owners so nothing gets invented. Paste one into a session as it is. Each
+says how to answer the person: propose the simple way first, then say there
+are other options if you want to discuss. A study changes nothing and ends in
+a plan.
+
+- [An app people install from its website](/guide/recipes/installable-app):
+  use when someone wants the app on their phone, an icon, push
+  notifications, an unread badge or sharing into the app; a native store app
+  through Capacitor is the other option
+- [Offline study](/guide/recipes/offline-study): use when someone wants the
+  app to work offline or without signal; recommends what works offline,
+  section by section
+- [Usefulness study](/guide/recipes/usefulness-study): use when someone asks
+  whether the app is any good, what is missing or what to build next; judges
+  value and gaps, not ease of use
+- [Payments and subscriptions](/guide/recipes/payments-and-subscriptions): use
+  when someone wants to charge for the app, sell plans, gate features behind
+  a plan or sell credits
+- [Inviting people with roles](/guide/recipes/invite-people-with-roles): use
+  when someone wants to invite their team, share records with colleagues or
+  give people different permissions
+- [File uploads and images](/guide/recipes/file-uploads-and-images): use when
+  someone wants photos, documents or other files attached to records
+- [Reminders and digests](/guide/recipes/reminders-and-digests): use when
+  someone wants reminders, scheduled emails or a daily or weekly summary sent
+  to people
+- [Another language](/guide/recipes/another-language): use when someone wants
+  the app translated or available in more than one language
+
 ## How to use the guide
 
 Begin with the Quickstart and one application-foundation pattern. Add only the

@@ -2,6 +2,11 @@
 
 # Mobile Capacitor
 
+When someone wants the app on their phone, propose
+[an app people install from its website](/guide/recipes/installable-app)
+first: no store, push notifications and sharing in, from the same app. This
+page is that recipe's other option, a native app in the stores.
+
 Use `@jskit-ai/mobile-capacitor` when the web application should run inside a
 Capacitor Android shell.
 
