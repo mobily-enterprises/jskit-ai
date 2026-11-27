@@ -1,18 +1,25 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileExists } from "./files.mjs";
+import { DEFAULT_PATTERN, findTestFiles } from "./test-command.mjs";
+import { excusedWait, scanSource } from "./test-sources-scan.mjs";
 
 // The test-source part of plain `jskit check`: what an app's tests, test scripts, CI workflows and Vite config hold that
 // makes a run slow, fragile or unsafe, each found by its shape:
-// - test/fixed-sleep: a test file waits a fixed time instead of for its condition. The one fixed wait a test needs, a
-//   window that proves nothing happens (no second read within it), says so on the line before:
-//   `// jskit-test: fixed-wait - <what the window proves>`; a marker without a reason is a finding itself.
+// - test/fixed-sleep: a test file waits a fixed time instead of for its condition. A timer racing another wait in
+//   `Promise.race([...])` bounds that wait, and a wait in a loop that re-reads its condition each round is a poll's
+//   interval: neither is reported (test-sources-scan.mjs). The fixed waits a test needs, a window that proves nothing
+//   happens (no second read within it) or the latency a stand-in simulates, say so on the line before:
+//   `// jskit-test: fixed-wait - <what the window proves, or the latency the stand-in simulates>`; a marker without a
+//   reason is a finding itself.
 // - test/fixed-database-name: a test script, Playwright or Vitest config, or test source names the test database
 //   itself, so two runs (two sessions, two checkouts) share it and wipe each other's rows. The run's test-only env file
 //   or its host names it, `jskit test --databases` gives each file its own copy, and browserTestConfig()'s prepare module
-//   derives each browser worker's.
+//   derives each browser worker's. A name in a thrown error's message text names no database.
 // - test/test-database-is-app-database: a CI workflow gives TEST_DB_NAME or BROWSER_TEST_DB_NAME the value of its DB_NAME.
-// - test/script-files: a script gives `jskit test` its files, so `npm test -- <file>` runs every file and that one.
+// - test/script-files: a script gives `jskit test` the files node's default pattern selects anyway, so `npm test --
+//   <file>` runs every file and that one. A script that runs some of them, or files the pattern leaves out, names them
+//   for a reason.
 // - test/generated-into-src: the app's Vite config writes a generated file (`dts`) into src, which the browser tests'
 //   frontend build reads, so a build is never kept for reuse.
 // No other comment excuses them.
@@ -35,7 +42,9 @@ const PROMISE_SLEEP = new RegExp(
   "(?:\\1|\\(\\s*\\)\\s*=>\\s*\\{?\\s*\\1\\s*\\(\\s*\\)\\s*;?\\s*\\}?)\\s*,\\s*(\\d[\\d_]*(?:\\.\\d+)?)\\s*\\)\\s*;?\\s*\\}?\\s*\\)?",
   "u"
 );
-const AWAITED_SLEEP = /\bawait\s+(?:[A-Za-z_$][\w$]*\.)?(?:setTimeout|sleep|delay|wait|pause)\s*\(\s*(\d[\d_]*(?:\.\d+)?)\s*[,)]/u;
+// An awaited setTimeout, sleep, delay or pause, its own or an object's (timers.setTimeout), and wait: its own or node's
+// scheduler.wait. Another object's wait is that object's method, such as a fake clock's advance (page.wait(60_000)).
+const AWAITED_SLEEP = /\bawait\s+(?:(?:[A-Za-z_$][\w$]*\.)?(?:setTimeout|sleep|delay|pause)|(?:scheduler\.)?wait)\s*\(\s*(\d[\d_]*(?:\.\d+)?)\s*[,)]/u;
 
 // The options of `jskit test` (node's test runner) that take the next argument as their value.
 const VALUE_OPTIONS = new Set([
@@ -60,9 +69,12 @@ const GENERATED_INTO_SRC = /\bdts\s*:\s*(["'`])((?:\.\/)?src\/[^"'`]+)\1/gu;
 const DATABASE_FIX = "the run's test-only env file or the host names the database, `jskit test --databases` gives each " +
   "test file its own copy of TEST_DB_NAME, and browserTestConfig()'s prepare module derives each worker's from " +
   "BROWSER_TEST_DB_NAME.";
+const MARKER_FORM = "// jskit-test: fixed-wait - <what the window proves, or the latency the stand-in simulates>";
 const SLEEP_FIX = "wait for the condition instead: a web-first assertion (await expect(locator).toBeVisible()), " +
   "expect.poll(), the event itself, or a fake clock (mock.timers, vi.useFakeTimers(), page.clock). A window that proves " +
-  "nothing happens says so on the line before: // jskit-test: fixed-wait - <what the window proves>.";
+  `nothing happens, or the latency a stand-in simulates, says so on the line before: ${MARKER_FORM}.`;
+// A database name in a thrown error's message text, `throw new Error(\`DB_NAME (${process.env.DB_NAME || "unset"}) ...\`)`.
+const IN_THROWN_MESSAGE = /\bthrow\s+new\s+[A-Za-z_$][\w$.]*\s*\(\s*`(?:[^`\\]|\\.)*\$\{[^`}]*$/u;
 
 /** Every file of the app outside dependencies, builds, test output and dot-directories, relative and POSIX. */
 async function listFiles(root, relative = "") {
@@ -91,29 +103,36 @@ const isTestFile = (file) => SOURCE_FILE.test(file) &&
 
 const asNumber = (literal) => Number(String(literal).replace(/_/gu, ""));
 
-/** The fixed wait a line makes, as written, or "" (a zero-delay timer yields a turn, it waits for no time). */
+/** The fixed wait a line makes, as written, and where it starts; null for none (a zero-delay timer waits for no time). */
 function fixedWait(line) {
   const waitForTimeout = line.match(WAIT_FOR_TIMEOUT);
-  if (waitForTimeout) return waitForTimeout[0];
+  if (waitForTimeout) return { wait: waitForTimeout[0], column: waitForTimeout.index };
   for (const pattern of [PROMISE_SLEEP, AWAITED_SLEEP]) {
     const match = line.match(pattern);
-    if (match && asNumber(match[match.length - 1]) > 0) return match[0].trim();
+    if (match && asNumber(match[match.length - 1]) > 0) return { wait: match[0].trim(), column: match.index + match[0].search(/\S/u) };
   }
-  return "";
+  return null;
 }
 
-function checkFixedWaits(file, lines, report) {
+function checkFixedWaits(file, text, report) {
+  const lines = text.split("\n");
+  let tokens;
+  let offset = 0;
   lines.forEach((line, index) => {
+    const lineStart = offset;
+    offset += line.length + 1;
     if (COMMENT_LINE.test(line)) return;
-    const wait = fixedWait(line);
-    if (!wait) return;
+    const found = fixedWait(line);
+    if (!found) return;
+    tokens = tokens === undefined ? scanSource(text) : tokens;
+    if (excusedWait(text, lineStart + found.column, tokens)) return;
     const marker = index > 0 ? lines[index - 1].match(MARKER) : null;
     if (!marker) {
-      report({ file, line: index + 1, rule: "test/fixed-sleep", message: `waits a fixed time (${wait}); ${SLEEP_FIX}` });
+      report({ file, line: index + 1, rule: "test/fixed-sleep", message: `waits a fixed time (${found.wait}); ${SLEEP_FIX}` });
     } else if (!MARKER_REASON.test(marker[1])) {
       report({ file, line: index, rule: "test/fixed-sleep",
-        message: "has a jskit-test: fixed-wait marker without a reason; write what the window proves after it " +
-          "(// jskit-test: fixed-wait - <what the window proves>), or wait for the condition instead." });
+        message: "has a jskit-test: fixed-wait marker without a reason; write after it what the window proves, or the " +
+          `latency the stand-in simulates (${MARKER_FORM}), or wait for the condition instead.` });
     }
   });
 }
@@ -122,7 +141,7 @@ function checkDatabaseNames(file, lines, { configFile }, report) {
   lines.forEach((line, index) => {
     if (COMMENT_LINE.test(line)) return;
     const match = line.match(LITERAL_FALLBACK) || line.match(LITERAL_ASSIGNMENT) || (configFile && line.match(LITERAL_PROPERTY));
-    if (!match) return;
+    if (!match || IN_THROWN_MESSAGE.test(line.slice(0, match.index))) return;
     report({ file, line: index + 1, rule: "test/fixed-database-name",
       message: `names the test database itself (${match[0].replace(/^[\s{,]+/u, "")}); drop the name and read the variable ` +
         `as the run gives it: ${DATABASE_FIX}` });
@@ -151,17 +170,30 @@ function jskitTestFiles(script) {
   return files;
 }
 
-function checkScripts(file, contents, report) {
+/**
+ * Whether the files a script names are the ones `jskit test` runs given none: node's default pattern. A glob or folder
+ * that matches no file leaves `jskit test` with the default's files too.
+ */
+function selectsDefaultFiles(directory, files, defaults) {
+  const named = findTestFiles(files, directory);
+  const chosen = named.length > 0 ? named : defaults();
+  return chosen.length === defaults().length && chosen.every((file, index) => file === defaults()[index]);
+}
+
+function checkScripts(root, file, contents, report) {
   let manifest;
   try {
     manifest = JSON.parse(contents);
   } catch {
     return;
   }
+  const directory = path.join(root, path.posix.dirname(file));
+  let defaultFiles;
+  const defaults = () => (defaultFiles ??= findTestFiles([DEFAULT_PATTERN], directory));
   for (const [name, script] of Object.entries(manifest?.scripts || {})) {
     const line = lineOf(contents, `"${name}"`, '"scripts"');
     const files = jskitTestFiles(script);
-    if (files.length > 0) {
+    if (files.length > 0 && selectsDefaultFiles(directory, files, defaults)) {
       const run = name === "test" ? "npm test" : `npm run ${name}`;
       report({ file, line, rule: "test/script-files",
         message: `${file}'s ${name} script names ${files.join(" ")}: drop ${files.length > 1 ? "them" : "it"}. \`jskit test\` finds ` +
@@ -227,16 +259,16 @@ async function checkTestSources({ projectRoot }) {
     if (WORKFLOW.test(file)) {
       checkWorkflow(file, (await read()).split("\n"), report);
     } else if (name === "package.json") {
-      checkScripts(file, await read(), report);
+      checkScripts(root, file, await read(), report);
     } else if (VITE_CONFIG.test(file)) {
       checkViteConfig(file, await read(), report);
     } else if (RUNNER_CONFIG.test(name)) {
       checkDatabaseNames(file, (await read()).split("\n"), { configFile: true }, report);
     } else if (isTestFile(file)) {
       testFiles += 1;
-      const lines = (await read()).split("\n");
-      checkFixedWaits(file, lines, report);
-      checkDatabaseNames(file, lines, { configFile: false }, report);
+      const text = await read();
+      checkFixedWaits(file, text, report);
+      checkDatabaseNames(file, text.split("\n"), { configFile: false }, report);
     }
   }
   findings.sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line);

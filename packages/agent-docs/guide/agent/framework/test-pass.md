@@ -143,9 +143,12 @@ The rules it applies are in [Typed features](/guide/framework/typed-features),
   `types/typed-router.d.ts`, outside `src`.
 - No fixed sleep: a web-first assertion (`await expect(locator).toBeVisible()`),
   `expect.poll()`, the event itself, or a fake clock (`mock.timers`,
-  `vi.useFakeTimers()`, `page.clock`) for the app's own delays. The one fixed
-  wait that stays proves nothing happens in a window and says so on the line
-  before, `// jskit-test: fixed-wait - <reason>`.
+  `vi.useFakeTimers()`, `page.clock`) for the app's own delays. A poll's
+  interval, in a loop that re-reads its condition, and a timer racing another
+  wait in `Promise.race([…])` wait for a condition and are not reported. The
+  fixed waits that stay prove nothing happens in a window, or simulate a
+  stand-in's latency, and say so on the line before,
+  `// jskit-test: fixed-wait - <what the window proves, or the latency the stand-in simulates>`.
 - A file imports what it needs at its top level, so loading counts against the
   file, not a test's time limit.
 - The bounds stay: `jskit test`'s 10 minutes a file and 45 a run, and
