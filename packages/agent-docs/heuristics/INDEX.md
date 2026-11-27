@@ -12,7 +12,7 @@ How to use it:
 
 ## Keyword Map
 
-- tabs, menu items, icons, shell links, profile links, subpage tabs, placements
+- tabs, menu items, icons, shell links, profile links, subpage tabs, placements, page extension, page sections
   - [placements.md](./placements.md)
 - surfaces, app/admin/home/console, "which surface", route ownership, placement visibility
   - [surfaces.md](./surfaces.md)
@@ -20,7 +20,7 @@ How to use it:
   - [page-scaffolding.md](./page-scaffolding.md)
 - child crud, nested crud, embedded list, subroute, separate page, parent/child layout
   - [child-cruds.md](./child-cruds.md)
-- crud, crud server, crud ui, table resource, CRUD contract, table creation, migrations, ownership, JSON API, standard screens
+- crud, crud server, crud ui, table resource, CRUD contract, table creation, migrations, ownership, JSON API, standard screens, CRUD service or repository behavior, `jsonApiModule`
   - [crud-authoring.md](./crud-authoring.md)
 - CRUD links, record placeholders, `paths.page()`, `resolveViewUrl`, `resolveEditUrl`, `resolveParams`
   - [crud-links.md](./crud-links.md)
