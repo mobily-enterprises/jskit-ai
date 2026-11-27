@@ -4,6 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { readTableResourceSources } from "./data-access.mjs";
+import { useTestAppEnvironment } from "./test-environment.mjs";
 
 // `jskit test --databases`: each test file running at once gets a database of its own, a copy of TEST_DB_NAME restored
 // from a schema snapshot, from the application's installed @jskit-ai/database-runtime and its knexfile.js, which loads
@@ -137,12 +138,14 @@ async function testDatabaseRunFor(count, cwd = process.cwd()) {
 
 /**
  * `jskit migration-history`: the full-history migration proof of the application in `cwd` (proveMigrationHistory() in
- * @jskit-ai/database-runtime), written to stdout, or why it failed to stderr. Answers the exit code.
+ * @jskit-ai/database-runtime), written to stdout, or why it failed to stderr. Answers the exit code. It runs as
+ * APP_ENV=test, as `jskit test` does, and throws where APP_ENV is staging or production.
  * @param {string} [cwd]
  * @returns {Promise<number>}
  */
 async function runMigrationHistory(cwd = process.cwd()) {
   const command = "jskit migration-history";
+  useTestAppEnvironment(process.env, command);
   try {
     const { knexConfig, schema, environment, runtime } = await applicationTestDatabases(cwd, command);
     if (!runtime.proveMigrationHistory) {
