@@ -58,7 +58,7 @@ Exports
 - `DESIGNATED_TEST_DATABASE`
 - `MYSQL_DATABASE_OPTIONS`
 - `claimLetteredCopy(on, base, { timeoutMs = CLAIM_TIMEOUT_MS } = {})`
-- `createMysqlPackageTestKnex(context, { knexFactory, environment, testDatabase, pool })`
+- `createMysqlPackageTestKnex(context, { knexFactory, environment, testDatabase, pool, fill })`
 - `letteredCopies(base)`
 Local functions
 - `copiesOf(environment, testDatabase)`
@@ -113,7 +113,9 @@ Local functions
 ### `src/server/testDatabases.js`
 Exports
 - `RUN_SETTINGS_FILE`
+- `RUN_SETTINGS_VARIABLE`
 - `TestDatabaseMissingError`
+- `claimTestDatabaseCopy(context, { environment })`
 - `countQueries(knex, work)`
 - `createPackageTestKnex(context, { environment })`
 - `countRuntimeQueries(work)`
@@ -122,6 +124,7 @@ Exports
 - `proveMigrationHistory({ knexConfig, environment, schema = {}, appRoot = process.cwd() })`
 - `requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {})`
 - `requireTestDatabase(environment)`
+- `resetTestDatabase({ environment })`
 - `restoreTestDatabase(knexConfig, database, snapshot)`
 - `tableNames(knex)`
 - `testDatabaseNames`
@@ -135,6 +138,8 @@ Local functions
 - `refusedPrivilege(error)`
 - `recordStatements(listen, work)`
 - `dropPackageTestData(knex, admin, statement, name)`
+- `runSettings(environment, use)`
+- `claimPostgresCopy(context, { knexFactory, knexConfig, snapshot, base })`
 
 ### `src/server/testDatabaseSnapshots.js`
 Exports

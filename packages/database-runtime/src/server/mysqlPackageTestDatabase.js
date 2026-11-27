@@ -82,14 +82,17 @@ async function claimLetteredCopy(on, base, { timeoutMs = CLAIM_TIMEOUT_MS } = {}
 
 /**
  * createPackageTestKnex() on a mysql2 run: a Knex on the test's claimed copy (see the top), with an application's
- * mysql2 connection settings and `pool`; after the test the Knex is destroyed, the copy dropped and the claim given
- * up. Its sessions run with MariaDB's innodb_snapshot_isolation off, the MariaDB 11.4 default (11.6 turns it on), so
- * a test reads InnoDB's REPEATABLE READ as every supported server does by default; MySQL has no such setting.
+ * mysql2 connection settings and `pool`; `fill`, when given, fills the copy first (claimTestDatabaseCopy() restores
+ * the run's snapshot into it). After the test, passed or failed, and whether `fill` finished or not, the Knex is
+ * destroyed, the copy dropped and the claim given up. Its sessions run with MariaDB's innodb_snapshot_isolation off,
+ * the MariaDB 11.4 default (11.6 turns it on), so a test reads InnoDB's REPEATABLE READ as every supported server does
+ * by default; MySQL has no such setting.
  * @param {{ after(cleanup: () => unknown): unknown }} context
- * @param {{ knexFactory: Function, environment: Record<string, unknown>, testDatabase: string, pool: object }} options
+ * @param {{ knexFactory: Function, environment: Record<string, unknown>, testDatabase: string, pool: object,
+ *   fill?: (database: string) => Promise<unknown> }} options
  * @returns {Promise<import("knex").Knex>}
  */
-async function createMysqlPackageTestKnex(context, { knexFactory, environment, testDatabase, pool }) {
+async function createMysqlPackageTestKnex(context, { knexFactory, environment, testDatabase, pool, fill }) {
   const server = { ...resolveKnexConnectionFromEnvironment(environment, { client: "mysql2", defaultPort: 3306 }), database: undefined };
   const admin = knexFactory({ client: "mysql2", connection: server, pool: { min: 0, max: 1 } });
   let session;
@@ -112,19 +115,22 @@ async function createMysqlPackageTestKnex(context, { knexFactory, environment, t
     await giveUp();
     throw error;
   }
-  const afterCreate = (connection, done) =>
-    connection.query("SET SESSION innodb_snapshot_isolation = OFF", (error) => done(error, connection));
-  const testPool = { ...pool, ...(isolation.length > 0 && { afterCreate }) };
-  const knex = knexFactory({ client: "mysql2", connection: { ...server, database }, pool: testPool });
+  let knex = null;
+  // From here the test's teardown drops the copy, whatever the test or the filling does.
   context.after(async () => {
     try {
-      await knex.destroy();
+      await knex?.destroy();
       await on("DROP DATABASE IF EXISTS ??", [database]);
       await on("SELECT RELEASE_LOCK(?)", [database]);
     } finally {
       await giveUp();
     }
   });
+  if (fill) await fill(database);
+  const afterCreate = (connection, done) =>
+    connection.query("SET SESSION innodb_snapshot_isolation = OFF", (error) => done(error, connection));
+  const testPool = { ...pool, ...(isolation.length > 0 && { afterCreate }) };
+  knex = knexFactory({ client: "mysql2", connection: { ...server, database }, pool: testPool });
   return knex;
 }
 

@@ -69,7 +69,7 @@ async function claimDatabase(directory, databases) {
 const directory = process.env.JSKIT_TEST_DATABASES;
 if (isMainThread && process.env.NODE_TEST_CONTEXT && directory) {
   delete process.env.JSKIT_TEST_DATABASES;
-  const { RUN_SETTINGS_FILE, restoreTestDatabase } = await import("./testDatabases.js");
+  const { RUN_SETTINGS_FILE, RUN_SETTINGS_VARIABLE, restoreTestDatabase } = await import("./testDatabases.js");
   const { DESIGNATED_TEST_DATABASE, letteredCopies } = await import("./mysqlPackageTestDatabase.js");
   const { TEST_DATABASE_GUARD } = await import("./testDatabaseGuard.js");
   const { databases, snapshot, knexConfig } = JSON.parse(readFileSync(path.join(directory, RUN_SETTINGS_FILE), "utf8"));
@@ -88,6 +88,8 @@ if (isMainThread && process.env.NODE_TEST_CONTEXT && directory) {
     DB_NAME: database,
     TEST_DB_NAME: database,
     [DESIGNATED_TEST_DATABASE]: databases[0],
+    // For claimTestDatabaseCopy(): the run's settings, which only this user may read.
+    [RUN_SETTINGS_VARIABLE]: path.join(directory, RUN_SETTINGS_FILE),
     // The file, and what it starts, opens only its copy and the copies its package data tests claim.
     [TEST_DATABASE_GUARD]: JSON.stringify({
       databases: [database, ...letteredCopies(databases[0])],

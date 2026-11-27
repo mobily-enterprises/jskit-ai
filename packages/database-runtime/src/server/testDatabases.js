@@ -33,6 +33,7 @@ import diagnosticsChannel from "node:diagnostics_channel";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { assertNoRetiredVariables } from "@jskit-ai/kernel/server/runtime/appEnvironment";
 import { appEnvironment, isStagingOrProduction } from "@jskit-ai/kernel/shared/support/appEnvironment";
@@ -40,8 +41,9 @@ import { parseDatabaseUrl, resolveKnexConnectionFromEnvironment, resolveKnexPool
 import { detectDialectFromClient } from "../shared/dialect.js";
 import { RUNTIME_QUERY_CHANNEL } from "./database.js";
 import { loadKnexFactory } from "./knexFactory.js";
-import { createMysqlPackageTestKnex } from "./mysqlPackageTestDatabase.js";
+import { createMysqlPackageTestKnex, letteredCopies } from "./mysqlPackageTestDatabase.js";
 import {
+  POSTGRES_MAINTENANCE_DATABASE,
   dropCopiesIfThrows,
   dropLeftTestDatabaseCopies,
   endTestDatabaseRun,
@@ -67,6 +69,11 @@ const MYSQL_REFUSED_PRIVILEGE = new Set(["ER_DBACCESS_DENIED_ERROR", "ER_SPECIFI
 // The run's settings, connection password included, in a file only this user can read; the environment names its
 // directory only.
 const RUN_SETTINGS_FILE = "settings.json";
+// The run's settings file, in the environment of each file of a `jskit test --databases` run (testDatabaseFile.js),
+// for claimTestDatabaseCopy().
+const RUN_SETTINGS_VARIABLE = "JSKIT_TEST_DATABASE_SETTINGS";
+// How long a claim of a lettered copy waits for one to come free.
+const COPY_CLAIM_TIMEOUT_MS = 60_000;
 const TEST_DATABASE_FILE = fileURLToPath(new URL("./testDatabaseFile.js", import.meta.url));
 const LOCKFILE = "package-lock.json";
 
@@ -521,6 +528,122 @@ async function dropPackageTestData(knex, admin, statement, name) {
 }
 
 /**
+ * The settings of the `jskit test --databases` run whose file `environment` is (its databases, snapshot and Knex
+ * settings); outside such a run it fails, saying what `use` needs and naming the command.
+ */
+function runSettings(environment, use) {
+  const file = String(environment[RUN_SETTINGS_VARIABLE] || "").trim();
+  if (!file) {
+    throw new Error(`${use} the snapshot of a \`jskit test --databases\` run, and this file runs outside one: run it ` +
+      "with `jskit test --databases`.");
+  }
+  return JSON.parse(readFileSync(file, "utf8"));
+}
+
+/**
+ * Another database holding the run's snapshot, for a file of a `jskit test --databases` run that needs more than its
+ * own TEST_DB_NAME copy (a second tenant, a second server): one of the run's designated database's 26 lettered copies,
+ * `<name>_a` to `_z`, that no other test holds, claimed under a lock on the database server held for as long as the
+ * test runs (createPackageTestKnex() claims the same copies on MySQL and MariaDB, under the same locks), and restored
+ * from the run's snapshot, rows included. Each call claims another. The test's teardown destroys the Knex and drops the
+ * copy, whether the test passed or failed. Outside such a run it fails, naming the command.
+ * @param {{ after(cleanup: () => unknown): unknown }} context The test's context (node:test's `t`).
+ * @param {{ environment: import("@jskit-ai/kernel/server/types").RuntimeEnv }} options The file's environment, such as
+ *   `process.env`.
+ * @returns {Promise<{ database: string, knex: import("knex").Knex }>}
+ */
+async function claimTestDatabaseCopy(context, { environment }) {
+  const { databases, snapshot, knexConfig } = runSettings(environment, "claimTestDatabaseCopy() copies");
+  const knexFactory = loadKnexFactory();
+  if (knexConfig.client !== "pg") {
+    const knex = await createMysqlPackageTestKnex(context, { knexFactory, environment, testDatabase: databases[0],
+      pool: PACKAGE_TEST_POOL, fill: (database) => restoreTestDatabase(knexConfig, database, snapshot) });
+    return { database: knex.client.config.connection.database, knex };
+  }
+  return claimPostgresCopy(context, { knexFactory, knexConfig, snapshot, base: databases[0] });
+}
+
+/**
+ * claimTestDatabaseCopy() on PostgreSQL: the first lettered copy of `base` whose advisory lock no other session holds,
+ * the lock held by a session of its own on the maintenance database for as long as the test runs, recreated from the
+ * snapshot database.
+ */
+async function claimPostgresCopy(context, { knexFactory, knexConfig, snapshot, base }) {
+  const admin = knexFactory({ client: "pg", connection: { ...knexConfig.connection, database: POSTGRES_MAINTENANCE_DATABASE },
+    pool: { min: 0, max: 1 } });
+  let session;
+  const on = (sql, bindings = []) => admin.raw(sql, bindings).connection(session);
+  const giveUp = async () => {
+    try {
+      if (session) await admin.client.releaseConnection(session);
+    } finally {
+      await admin.destroy();
+    }
+  };
+  let database = "";
+  try {
+    session = await admin.client.acquireConnection();
+    for (const deadline = Date.now() + COPY_CLAIM_TIMEOUT_MS; !database; await delay(250)) {
+      for (const name of letteredCopies(base)) {
+        const { rows: [{ claimed }] } = await on("SELECT pg_try_advisory_lock(hashtext(?)) AS claimed", [name]);
+        if (claimed) {
+          database = name;
+          break;
+        }
+      }
+      if (!database && Date.now() >= deadline) {
+        throw new Error(`All 26 lettered copies of ${base} are held by other tests, and none came free within ` +
+          `${COPY_CLAIM_TIMEOUT_MS / 1000}s: let some finish, or run fewer at once.`);
+      }
+    }
+  } catch (error) {
+    await giveUp();
+    throw error;
+  }
+  let knex = null;
+  // From here the test's teardown drops the copy, whatever the test or the restore does.
+  context.after(async () => {
+    try {
+      await knex?.destroy();
+      await on("DROP DATABASE IF EXISTS ??", [database]);
+      await on("SELECT pg_advisory_unlock(hashtext(?))", [database]);
+    } finally {
+      await giveUp();
+    }
+  });
+  await restoreTestDatabase(knexConfig, database, snapshot);
+  knex = knexFactory({ client: "pg", connection: { ...knexConfig.connection, database },
+    pool: { ...resolveKnexPool("pg"), ...PACKAGE_TEST_POOL } });
+  return { database, knex };
+}
+
+/**
+ * Restores the file's own copy, its TEST_DB_NAME in a `jskit test --databases` run, to the run's snapshot mid-file, for
+ * a test that needs the snapshot afresh after earlier tests of the file wrote to it, and answers the tables it
+ * replaced, sorted: only those that differ from the snapshot's (restoreTestDatabase()), so a reset after a test that
+ * wrote one table costs one. The file's connections stay open; hold no transaction across it. MySQL and MariaDB only:
+ * on PostgreSQL a restore recreates the database, which the file's own connections hold, so it refuses, naming a file
+ * of its own or claimTestDatabaseCopy(). Outside such a run it fails, naming the command.
+ * @param {{ environment: import("@jskit-ai/kernel/server/types").RuntimeEnv }} options The file's environment, such as
+ *   `process.env`.
+ * @returns {Promise<string[]>}
+ */
+async function resetTestDatabase({ environment }) {
+  const { databases, snapshot, knexConfig } = runSettings(environment, "resetTestDatabase() restores");
+  if (knexConfig.client === "pg") {
+    throw new Error("resetTestDatabase() restores a MySQL or MariaDB copy in place; on PostgreSQL a restore recreates " +
+      "the database, which this file's own connections hold: put tests that each need the snapshot afresh in files of " +
+      "their own, or give such a test another copy with claimTestDatabaseCopy().");
+  }
+  const database = String(environment.TEST_DB_NAME || "").trim();
+  if (!databases.includes(database)) {
+    throw new Error(`resetTestDatabase() restores this file's own copy, and TEST_DB_NAME names ${database || "none"}, ` +
+      "which is not one of the run's: pass the file's environment (process.env).");
+  }
+  return restoreTestDatabase(knexConfig, database, snapshot);
+}
+
+/**
  * The tables of the database `knex` is connected to, sorted: MySQL's and MariaDB's base tables, PostgreSQL's in the
  * current schema, SQLite's own tables (its internal ones aside).
  * @param {import("knex").Knex | import("knex").Knex.Transaction} knex
@@ -542,7 +665,9 @@ async function tableNames(knex) {
 
 export {
   RUN_SETTINGS_FILE,
+  RUN_SETTINGS_VARIABLE,
   TestDatabaseMissingError,
+  claimTestDatabaseCopy,
   countQueries,
   createPackageTestKnex,
   countRuntimeQueries,
@@ -551,6 +676,7 @@ export {
   proveMigrationHistory,
   requireDisposableDatabase,
   requireTestDatabase,
+  resetTestDatabase,
   restoreTestDatabase,
   tableNames,
   testDatabaseNames,

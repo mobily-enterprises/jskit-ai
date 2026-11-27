@@ -223,6 +223,20 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(speedReference, /\[Provider subpaths\]\(client-features\.md#provider-subpaths\)/u);
   assert.match(speedReference, /`filter\[id\]`/u);
   assert.match(speedReference, /\[data pass\]\(data-pass\.md\)/u);
+  // Timings come from whole parallel runs on the test machine, never from single files run in turn; a file that needs a
+  // second copy of the snapshot, or its own afresh, has a supported way to get it. Matched across line breaks.
+  for (const phrase of [
+    "Take the baseline from one whole run of each part",
+    "its files in parallel at the real `V64_TEST_CONCURRENCY`",
+    "A single-file run (`npm test -- <file>`) is for one change's red and green, never the way to take a baseline",
+    "never one of serial runs queued one after another",
+    "Run where the project's test machine runs (inside Vibe64, `vibe64-helper check`)",
+    "a time taken while other work loads the machine is reported as such and never used as a baseline",
+    "`claimTestDatabaseCopy(t, { environment: process.env })`",
+    "`resetTestDatabase({ environment: process.env })`"
+  ]) {
+    assert.match(speedReference, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&").replaceAll(" ", "\\s+"), "u"), phrase);
+  }
   assert.match(skill, /\[speed pass\]\(references\/speed-pass\.md\)/u);
   assert.doesNotMatch(operationalSource, /@jskit-ai\/create-app|crud-server-generator|crud-ui-generator|ui-generator/u);
   assert.doesNotMatch(operationalSource, /\.jskit\/APP_BLUEPRINT|\.jskit\/WORKBOARD/u);

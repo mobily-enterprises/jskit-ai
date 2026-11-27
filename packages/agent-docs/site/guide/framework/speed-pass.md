@@ -36,6 +36,16 @@ database time, apply that page to the path.
 - Every Playwright run through `browserTestConfig()` ends with its 10 slowest
   tests. Compare a slow spec's time with the time of the app's requests it
   makes, so you know whether the test or the app is slow.
+- Take the baseline from one whole run of each part (the database tests, the
+  browser tests), its files in parallel at the real `V64_TEST_CONCURRENCY`:
+  its per-file times are the baseline table. After a batch of fixes, run the
+  part again for the times after, and compare per file and in total. A
+  single-file run (`npm test -- <file>`) is for one change's red and green,
+  never the way to take a baseline or a before-and-after table, and never one
+  of serial runs queued one after another. Run where the project's test
+  machine runs (inside Vibe64, `vibe64-helper check`), not on a shared
+  development host; a time taken while other work loads the machine is
+  reported as such and never used as a baseline.
 
 ### Fix
 
@@ -48,7 +58,12 @@ database time, apply that page to the path.
   `listen(0)`, a directory from `mkdtemp`, the database `jskit test --databases`
   gives each file, a scratch database from
   `createPackageTestKnex(t, { environment: process.env })` for a test that
-  needs an empty one (or several), and a Vite `cacheDir` of its own. The
+  needs an empty one (or several), another copy of the snapshot, rows
+  included, from `claimTestDatabaseCopy(t, { environment: process.env })` for
+  a test that needs a second one, and a Vite `cacheDir` of its own. On MySQL
+  and MariaDB, `resetTestDatabase({ environment: process.env })` gives a test
+  its file's copy afresh mid-file, replacing only the tables written since;
+  never build global-setup slots of your own. The
   `// jskit-test: alone - <reason>` marker is only for a file that holds a
   resource of the whole machine.
 - A `jskit test --databases` run whose databases let fewer files run at once
@@ -89,8 +104,8 @@ database time, apply that page to the path.
 
 ### Prove
 
-Run the whole suite before and after on the same machine with the same
-`V64_TEST_CONCURRENCY`, and report the wall time, each preparation phase, the
+Run the whole suite before and after on the project's test machine with the
+same `V64_TEST_CONCURRENCY`, and report the wall time, each preparation phase, the
 slowest files and the test counts, which stay the same.
 
 ## Client speed
