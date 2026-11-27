@@ -93,6 +93,51 @@ test("each PostgreSQL test database is a copy of the snapshot database, rebuilt 
   assert.deepEqual(changed.snapshot.tables, ["books", "knex_migrations", "knex_migrations_lock", "shelves"]);
 });
 
+// Two indexed tables: parts filled by the migration, labels left empty for a seed.
+const PARTS = `exports.up = async (knex) => {
+  await knex.schema.createTable("parts", (table) => { table.increments("id"); table.string("code").index(); });
+  await knex.schema.createTable("labels", (table) => { table.increments("id"); table.string("text").index(); });
+  await knex("parts").insert(Array.from({ length: 300 }, (_, index) => ({ code: "part-" + index })));
+};
+exports.down = () => {};
+`;
+
+test("on PostgreSQL every copy carries the snapshot's planner statistics, and a seed's tables are sampled again", {
+  skip: SKIP
+}, async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-pg-statistics-"));
+  await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
+  await writeFile(path.join(appRoot, "migrations", "20200101000000_parts.cjs"), PARTS);
+  const name = `${TEST_DB_NAME}_statistics`;
+  const environment = { ...process.env, DB_CLIENT: "pg", DB_NAME: TEST_DB_NAME, DATABASE_URL: "", TEST_DB_NAME: name };
+  const knexConfig = createKnexMigrationConfig({ client: "pg", environment, appRoot });
+  const on = (database) => knexFactory({ client: "pg", connection: { ...knexConfig.connection, database } });
+  context.after(async () => {
+    const admin = on(TEST_DB_NAME);
+    try {
+      for (const database of [name, `${name}_1`, `${name}_snapshot`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    } finally {
+      await admin.destroy();
+    }
+    await rm(appRoot, { recursive: true, force: true });
+  });
+  const seed = (transaction) => transaction("labels").insert(Array.from({ length: 300 }, (_, index) => ({ text: `label-${index}` })));
+
+  const { databases } = await prepareTestDatabases({ knexConfig, environment, count: 2, seed, appRoot });
+  for (const database of databases) {
+    const db = on(database);
+    try {
+      // The planner's column statistics, which only ANALYZE (or autovacuum, much later) writes: a copy of a template
+      // takes the template's.
+      const { rows } = await db.raw("SELECT tablename AS name FROM pg_stats WHERE schemaname = current_schema() AND " +
+        "attname IN ('code', 'text') ORDER BY tablename");
+      assert.deepEqual(rows.map((row) => row.name), ["labels", "parts"], database);
+    } finally {
+      await db.destroy();
+    }
+  }
+});
+
 test("a jskit test --databases run on PostgreSQL drops the numbered copies it made when it ends, and keeps TEST_DB_NAME and its snapshot", {
   skip: SKIP
 }, async (context) => {

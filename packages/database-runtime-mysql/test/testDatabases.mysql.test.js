@@ -201,6 +201,56 @@ test("a restore replaces only the tables that differ from the snapshot: rows, a 
   assert.deepEqual(await restore(), []);
 });
 
+// Two indexed tables: parts filled by the migration, labels left empty for a seed.
+const PARTS = `exports.up = async (knex) => {
+  await knex.schema.createTable("parts", (table) => { table.increments("id"); table.string("code").index(); });
+  await knex.schema.createTable("labels", (table) => { table.increments("id"); table.string("text").index(); });
+  await knex("parts").insert(Array.from({ length: 300 }, (_, index) => ({ code: "part-" + index })));
+};
+exports.down = () => {};
+`;
+
+test("a copy, a restore and a seed leave the planner the statistics of the rows they wrote, not an empty table's", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-mysql-statistics-"));
+  await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
+  await writeFile(path.join(appRoot, "migrations", "20200101000000_parts.cjs"), PARTS);
+  const name = `${process.env.TEST_DB_NAME}_statistics`;
+  const environment = { ...process.env, DB_NAME: `${process.env.TEST_DB_NAME}_application`, DATABASE_URL: "", TEST_DB_NAME: name };
+  const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment, appRoot });
+  const server = { ...knexConfig.connection, database: undefined };
+  const admin = knex({ client: "mysql2", connection: server });
+  context.after(async () => {
+    for (const database of [name, `${name}_1`, `${name}_0`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    await admin.destroy();
+    await rm(appRoot, { recursive: true, force: true });
+  });
+  // What the planner reads of each table: its index's distinct values (CARDINALITY), which InnoDB keeps from its last
+  // sample of the table, so a table created and then filled reads as empty until it is sampled again.
+  const distinct = async (database) => Object.fromEntries((await admin.raw("SELECT TABLE_NAME AS name, CARDINALITY AS " +
+    "cardinality FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND INDEX_NAME <> 'PRIMARY'", [database]))[0]
+    .map((row) => [row.name, Number(row.cardinality)]));
+  const seed = (transaction) => transaction("labels").insert(Array.from({ length: 300 }, (_, index) => ({ text: `label-${index}` })));
+
+  const { databases, snapshot } = await prepareTestDatabases({ knexConfig, environment, count: 2, seed, appRoot });
+  assert.deepEqual(databases, [name, `${name}_1`]);
+  for (const database of databases) {
+    const seen = await distinct(database);
+    assert.ok(seen.parts >= 250 && seen.labels >= 250, `${database}: ${JSON.stringify(seen)}`);
+  }
+  // A restore that creates a table again and fills it from the snapshot samples it again too.
+  const db = knex({ client: "mysql2", connection: { ...server, database: databases[1] } });
+  try {
+    await db("parts").where("id", ">", 10).del();
+  } finally {
+    await db.destroy();
+  }
+  assert.ok((await restoreTestDatabase(knexConfig, databases[1], snapshot)).includes("parts"));
+  const restored = await distinct(databases[1]);
+  assert.ok(restored.parts >= 250, JSON.stringify(restored));
+});
+
 test("a jskit test --databases run on MySQL or MariaDB drops the numbered copies it made when it ends, and keeps TEST_DB_NAME and its snapshot", {
   skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
 }, async (context) => {
