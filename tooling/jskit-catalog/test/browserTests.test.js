@@ -656,6 +656,11 @@ test("jskit browser-test-server serves the app on a host's address as one worker
     });
     try {
       await outputMatches(target, [/Frontend built in/u, /^jskit browser tests: 1 server\(s\) ready/mu, /the app server says hello/u]);
+      // Its start says when the server first answered and, on Linux, the CPU its start used: a start that computes
+      // reads near its time, one that waits on something shared far below it.
+      const cpu = process.platform === "linux" ? ", \\d+\\.\\ds of CPU" : "";
+      assert.match(target.output, new RegExp("The browser test server of worker 0 \\(http://127\\.0\\.0\\.1:\\d+\\) started in " +
+        `\\d+\\.\\ds \\(first answer at \\d+\\.\\ds${cpu}\\)\\.`, "u"));
       assert.equal(await readFile(path.join(root, "dist", "index.html"), "utf8"), "built");
       assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/api/health`)).json(), {
         port: String(port), database: "app_browser_0", index: "0", publicUrl: `http://127.0.0.1:${port}`,
