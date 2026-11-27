@@ -50,10 +50,9 @@ The rules it applies are in [Typed features](/guide/framework/typed-features),
   After a batch of fixes, run the part again for the times after, and compare
   per file and in total. A wall time near the sum of the files' times divided by
   the budget is right; near the plain sum, the files ran one after another. A
-  single-file run (`npm test -- <file>`, which runs exactly that file) is for
-  one change's red and green, never the way to take a baseline or a
-  before-and-after table, and never one of serial runs queued one after
-  another. Run on the host's test machine, when the host offers one, not on a
+  single-file run (`npm test -- <file>`) is for one change's red and green,
+  never the way to take a baseline or a before-and-after table, and never one
+  of serial runs queued one after another. Run on the host's test machine, when the host offers one, not on a
   shared development host; a time taken while other work loads the machine is
   reported as such and never used as a baseline.
 - The pass's own measurement, one run of each part before the work and one
@@ -63,8 +62,8 @@ The rules it applies are in [Typed features](/guide/framework/typed-features),
 ## Each test proves a behavior
 
 - Break the behavior and see its test fail: revert the line or return the
-  wrong value, several at once in one run (`npm test -- <files>`), then
-  restore it. A behavior no test catches gets one, seen to fail first.
+  wrong value, several at once in one run (`npm test -- <files>` runs exactly
+  those files), then restore it. A behavior no test catches gets one, seen to fail first.
 - Nothing is weakened: no `test.skip`, `test.only`, `{ skip: true }`,
   `test.fixme`, `retries` or raised `timeout` in a test or config without its
   stated reason and the run that covers the skipped behavior.
