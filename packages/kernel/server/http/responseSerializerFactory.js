@@ -140,23 +140,35 @@ function selfContainedBranch(ajv, ref) {
  * nothing outside itself on its own, once for every serializer the factory builds that has the same branch; any other
  * branch is validated by fast-json-stringify's own validator as before. A branch on its own is the same schema in the
  * same Ajv configuration, so what is written and what is refused do not change, and the serializer's code, its
- * messages included, is fast-json-stringify's own.
+ * messages included, is fast-json-stringify's own. It answers both ways fast-json-stringify's code asks: before 7.3.6,
+ * validate(ref, data) for each value; from 7.3.6, getSchemaValidator(ref) once for the branch's function, which the
+ * code keeps.
  * @param {any} validator fast-json-stringify's validator for one serializer.
  * @param {Map<string, Function>} compiledBranches The branches already compiled, by their JSON.
  */
 function branchValidator(validator, compiledBranches) {
-  const checks = new Map();
-  function check(ref) {
-    const branch = selfContainedBranch(validator.ajv, ref);
-    if (branch === undefined) return (data) => validator.validate(ref, data);
-    const key = JSON.stringify(branch);
-    if (!compiledBranches.has(key)) compiledBranches.set(key, validator.ajv.compile(branch));
-    return compiledBranches.get(key);
+  const ownBranches = new Map();
+  // The branch's own compiled function, or null when fast-json-stringify's validator checks it.
+  function ownBranch(ref) {
+    if (!ownBranches.has(ref)) {
+      const branch = selfContainedBranch(validator.ajv, ref);
+      let compiled = null;
+      if (branch !== undefined) {
+        const key = JSON.stringify(branch);
+        if (!compiledBranches.has(key)) compiledBranches.set(key, validator.ajv.compile(branch));
+        compiled = compiledBranches.get(key);
+      }
+      ownBranches.set(ref, compiled);
+    }
+    return ownBranches.get(ref);
   }
   return {
     validate(ref, data) {
-      if (!checks.has(ref)) checks.set(ref, check(ref));
-      return checks.get(ref)(data);
+      const compiled = ownBranch(ref);
+      return compiled ? compiled(data) : validator.validate(ref, data);
+    },
+    getSchemaValidator(ref) {
+      return ownBranch(ref) ?? validator.getSchemaValidator(ref);
     }
   };
 }
@@ -226,4 +238,4 @@ function createCachedResponseSerializerFactory(buildSerializer) {
   };
 }
 
-export { createCachedResponseSerializerFactory, schemaCacheKey };
+export { branchValidator, createCachedResponseSerializerFactory, schemaCacheKey };
