@@ -218,6 +218,33 @@ test("test/generated-into-src names a Vite config that writes a generated file i
   }, async (root) => assert.deepEqual(await findings(root), []));
 });
 
+// vibe64-control's test script was `jskit test --databases tests/*.test.js`: `npm test -- tests/x.test.js` then ran every
+// file and x again, where the guidance says it runs exactly that file.
+test("test/script-files names a script that gives jskit test its files, so npm test -- <file> would run every file and that one", async () => {
+  await withProject({
+    "package.json": {
+      name: "control",
+      private: true,
+      scripts: {
+        test: "jskit test --databases tests/*.test.js",
+        "test:server": "npx jskit test --test-global-setup tests/helpers/globalSetup.js tests/server && echo done",
+        "test:setup": "jskit test --test-global-setup=tests/helpers/globalSetup.js --databases",
+        "test:named": "jskit test --test-name-pattern smoke --test-reporter dot",
+        "test:client": "vitest run tests/client"
+      }
+    }
+  }, async (root) => {
+    assert.deepEqual(await findings(root), ["package.json:5 test/script-files", "package.json:6 test/script-files"]);
+    const result = await checkTestSources({ projectRoot: root });
+    assert.equal(result.findings[0].message,
+      "package.json's test script names tests/*.test.js: drop it. `jskit test` finds test files by node's default pattern, " +
+      "so `npm test -- <file>` runs exactly that file.");
+    assert.equal(result.findings[1].message,
+      "package.json's test:server script names tests/server: drop it. `jskit test` finds test files by node's default " +
+      "pattern, so `npm run test:server -- <file>` runs exactly that file.");
+  });
+});
+
 test("jskit check fails on a test-source finding and names its rule, line and guide section", async () => {
   const app = {
     "package.json": { name: "sources", private: true, scripts: { test: "jskit test" } },
