@@ -28,6 +28,8 @@
  * The props of a surface-aware menu or tab link.
  * @typedef {object} ShellNavigationLinkProps
  * @property {string | { key: string, fallback?: string }} label A message key, `{ key, fallback }` or plain text.
+ * @property {string | { key: string, fallback?: string }} [shortLabel] The label in the navigation bar, as `label`;
+ *   `label` when empty. A phone's bar gives each destination about 68px, and a label wider than that ends in an ellipsis.
  * @property {string} to
  * @property {string} icon
  * @property {string} surface

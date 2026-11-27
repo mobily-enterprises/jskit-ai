@@ -210,6 +210,85 @@ async function expectContentAwareDrawerFit(drawer, expect) {
   }
 }
 
+// A phone's navigation bar gives each destination about 68px. Lists each label it does not show whole: one that ends in
+// an ellipsis, and one cut by its destination or by anything in it that clips (a centred label wider than its slot loses
+// both ends: mobilynet's "Metal servers" read "etal server"). Badges, icons and visually hidden text are not labels.
+function readNavigationBarLabelProblems(bottomNavigation) {
+  return bottomNavigation.evaluate((bar) => {
+    const problems = [];
+    const fix = "give its destination a shortLabel that fits";
+    const visuallyHidden = (element, destination) => {
+      for (let current = element; current && current !== destination; current = current.parentElement) {
+        const box = current.getBoundingClientRect();
+        const style = window.getComputedStyle(current);
+        if (box.width <= 1 || box.height <= 1 || style.visibility === "hidden" || style.clipPath.startsWith("inset(50%")) {
+          return true;
+        }
+      }
+      return false;
+    };
+    for (const destination of bar.querySelectorAll(".v-btn")) {
+      const texts = document.createTreeWalker(destination, NodeFilter.SHOW_TEXT, {
+        acceptNode: (node) => node.textContent.trim() && !node.parentElement.closest(".v-icon, .v-badge__badge") &&
+          !visuallyHidden(node.parentElement, destination)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_REJECT
+      });
+      for (let node = texts.nextNode(); node; node = texts.nextNode()) {
+        const label = node.textContent.trim();
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const text = range.getBoundingClientRect();
+        range.detach?.();
+        if (text.width === 0) {
+          continue;
+        }
+        // The element that ends the text in an ellipsis, if one does: the text shows to its edges.
+        let shortenedBy = null;
+        for (let element = node.parentElement; element && destination.contains(element); element = element.parentElement) {
+          if (window.getComputedStyle(element).textOverflow === "ellipsis" && element.scrollWidth > element.clientWidth) {
+            shortenedBy = element;
+            break;
+          }
+        }
+        const shown = shortenedBy ? shortenedBy.getBoundingClientRect() : text;
+        let cut = false;
+        for (let element = shortenedBy ? shortenedBy.parentElement : node.parentElement;
+          element && destination.contains(element);
+          element = element.parentElement) {
+          if (element !== destination && window.getComputedStyle(element).overflowX === "visible") {
+            continue;
+          }
+          const box = element.getBoundingClientRect();
+          cut ||= shown.left < box.left - 0.5 || shown.right > box.right + 0.5;
+        }
+        const size = `${Math.round(text.width)}px of text in a ${Math.round(destination.getBoundingClientRect().width)}px destination`;
+        if (cut) {
+          problems.push(`"${label}" is cut in the navigation bar (${size}): ${fix}.`);
+        } else if (shortenedBy) {
+          problems.push(`"${label}" ends in an ellipsis in the navigation bar (${size}): ${fix}.`);
+        }
+      }
+    }
+    return problems;
+  });
+}
+
+// Every navigation bar label shows whole, once the fonts settle; otherwise fails naming each label and the fix.
+async function expectWholeNavigationBarLabels(bottomNavigation, expect) {
+  let problems = [];
+  try {
+    await expect.poll(async () => {
+      problems = await readNavigationBarLabelProblems(bottomNavigation);
+      return problems.length;
+    }).toBe(0);
+  } catch (error) {
+    throw new Error(`The navigation bar must show each destination's label whole:\n- ${problems.join("\n- ")}`, {
+      cause: error
+    });
+  }
+}
+
 async function readNavigationIconCenters(drawer, expect) {
   const icons = drawer.locator("a.shell-menu-link-item[href] .v-icon");
   await icons.first().waitFor({ state: "visible" });
@@ -424,6 +503,7 @@ async function runAdaptiveShellSmokeCase({
     for (const height of navButtonHeights) {
       expect(height).toBeGreaterThanOrEqual(48);
     }
+    await expectWholeNavigationBarLabels(bottomNavigation, expect);
 
     await pullToRefresh(page, expect);
     await expect.poll(() => bootstrapRequests).toBeGreaterThan(bootstrapRequestsBeforePull);
@@ -488,6 +568,7 @@ function runAdaptiveShellSmoke({
 export {
   DEFAULT_VIEWPORTS,
   expectNavigationBesideAppBar,
+  expectWholeNavigationBarLabels,
   isRequestedOrDescendantLocation,
   runAdaptiveShellSmoke,
   runAdaptiveShellSmokeCase

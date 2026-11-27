@@ -6,6 +6,11 @@ const props = defineProps({
     type: String,
     default: ""
   },
+  // The navigation bar's label when `label` is wider than a phone's slot.
+  shortLabel: {
+    type: String,
+    default: ""
+  },
   to: {
     type: String,
     default: ""

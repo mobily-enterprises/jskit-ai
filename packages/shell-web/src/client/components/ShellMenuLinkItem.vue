@@ -12,6 +12,11 @@ const props = defineProps({
     type: [String, Object],
     default: ""
   },
+  // The navigation bar's shorter label for the same destination: a menu shows the whole label.
+  shortLabel: {
+    type: [String, Object],
+    default: ""
+  },
   to: {
     type: String,
     default: ""
