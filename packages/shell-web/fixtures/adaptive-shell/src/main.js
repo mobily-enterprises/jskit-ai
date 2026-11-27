@@ -465,6 +465,11 @@ app.provide(SHELL_WEB_REFRESH_RUNTIME_KEY, {
 });
 useShellLayoutStore(pinia).setDrawerDefaultOpen(true);
 await router.isReady();
+// The fixture boots as an app does. An app makes its Vuetify options (createMaterialVuetifyOptions) before its shell
+// bootstrap, whose bootstrapClientShellApp awaits bootClientModules, onAfterModulesBootstrapped and router.isReady
+// before app.mount (kernel/client/shellBootstrap.js), and the requests the page has started go out while it waits.
+// This one awaited boot request stands for those awaits; any answer will do.
+await fetch("/api/fixture/boot").catch(() => null);
 // The moment the shell mounts, and where the page's Roboto Flex faces stand then, which the late-navigation test
 // compares with the font file's request.
 window.__fixtureMount = {
