@@ -60,7 +60,9 @@ Exports
 - `browserTestWorkers({ env = process.env, argv = process.argv } = {})`
 Local functions
 - `positiveInteger(value)`
+- `withoutTrailingSlash(url)`
 - `managedBaseUrl(env)`
+- `managedWorkerTargets(env)`
 - `commandLineWorkers(argv)`
 - `listen(port)`
 - `freeConsecutivePorts(host, count)`
