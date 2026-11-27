@@ -146,3 +146,66 @@ test("a menu mounted while closed covers nothing, and still opens and closes wit
   assert.equal(seen.at(-1).overlay, "none", "once closed, the menu's overlay is gone again");
   await expect(items).toBeAttached();
 });
+
+// A state layer lies under the label, so a hovered, focused or pressed button's label is read against its container
+// with the layer over it. Material 3's layers (hover 8%, focus and pressed 10%) keep every label at 4.5:1: a filled
+// button's on-colour over its colour, a tonal button's on-container colour over its tint.
+test("every button's label keeps 4.5:1 at rest, hovered, focused and pressed, in each colour, variant and theme", {
+  skip: SKIP,
+  timeout: 180_000
+}, async (t) => {
+  const { vite, browser } = await open(t);
+  const failures = [];
+  let judged = 0;
+  for (const theme of ["light", "dark"]) {
+    const page = await browser.newPage({
+      baseURL: vite.baseURL,
+      colorScheme: theme,
+      viewport: { width: 390, height: 844 },
+      reducedMotion: "reduce"
+    });
+    t.after(() => page.close());
+    await page.goto(`/home/button-contrast?theme=${theme}`);
+    await expect(page.getByTestId("jskit-shell-page-title")).toHaveText("Button contrast");
+    await page.addScriptTag({ path: AXE_PATH });
+    const buttons = await page.locator("[data-testid^=contrast-]").all();
+    assert.equal(buttons.length, 35, "seven colours in five variants");
+    for (const button of buttons) {
+      const name = await button.getAttribute("data-testid");
+      for (const state of ["rest", "hover", "focus", "pressed"]) {
+        if (state === "hover") {
+          await button.hover();
+        } else if (state === "focus") {
+          // A key press first, so the focus shows as keyboard focus.
+          await page.keyboard.press("Shift");
+          await button.focus();
+        } else if (state === "pressed") {
+          await button.hover();
+          await page.mouse.down();
+        }
+        const found = await button.evaluate(async (element) => {
+          const results = await globalThis.axe.run(element, { runOnly: { type: "rule", values: ["color-contrast"] } });
+          const nodes = (outcome) => outcome.flatMap((rule) => rule.nodes);
+          return [
+            ...nodes(results.violations).map((node) => `${node.any.map((check) => check.data?.contrastRatio).join("|")}:1 ` +
+              `(${node.any.map((check) => `${check.data?.fgColor} on ${check.data?.bgColor}`).join("|")})`),
+            ...nodes(results.incomplete).map((node) => `unjudged: ${node.any.map((check) => check.data?.messageKey).join("|")}`)
+          ];
+        });
+        judged += 1;
+        for (const finding of found) {
+          failures.push(`${theme} ${name} ${state}: ${finding}`);
+        }
+        if (state === "pressed") {
+          await page.mouse.up();
+        }
+        await button.blur();
+        await page.mouse.move(1, 300);
+        // A released press leaves its ripple fading out for a moment; the next state starts once it has gone.
+        await expect(page.locator(".v-ripple__container")).toHaveCount(0);
+      }
+    }
+  }
+  assert.equal(judged, 280, "every button judged in four states and two themes");
+  assert.deepEqual(failures, [], "every label at 4.5:1 or more in every state");
+});

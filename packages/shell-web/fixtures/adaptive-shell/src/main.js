@@ -11,6 +11,7 @@ import { shellScrollBehavior } from "@jskit-ai/kernel/client";
 import App from "./App.vue";
 import ActionsFormPage from "./ActionsFormPage.vue";
 import ActionsPage from "./ActionsPage.vue";
+import ButtonContrastPage from "./ButtonContrastPage.vue";
 import ButtonStatesPage from "./ButtonStatesPage.vue";
 import ButtonsPage from "./ButtonsPage.vue";
 import ComponentsPage from "./ComponentsPage.vue";
@@ -350,6 +351,7 @@ const routes = [
   },
   { path: "/home/buttons", component: ButtonsPage, meta: { jskit: { title: "Buttons" } } },
   { path: "/home/button-states", component: ButtonStatesPage, meta: { jskit: { title: "Button states" } } },
+  { path: "/home/button-contrast", component: ButtonContrastPage, meta: { jskit: { title: "Button contrast" } } },
   { path: "/home/components", component: ComponentsPage, meta: { jskit: { title: "Components" } } },
   { path: "/home/actions", component: ActionsPage, meta: { jskit: { title: "Actions" } } },
   { path: "/home/actions/new", component: ActionsFormPage, meta: { jskit: { title: "New entry", parent: "/actions" } } },
