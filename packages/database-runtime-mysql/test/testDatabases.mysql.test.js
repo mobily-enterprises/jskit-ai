@@ -384,25 +384,28 @@ export default createKnexMigrationConfig({ client: "mysql2", environment: proces
 `;
 // Each file waits until the other has started, so both hold a database at once, then records what it was given (the
 // password as a digest), the database a package data test of its gets with the file's own environment, which names
-// the run's database client, and what opening a development database through the app's knexfile settings does.
+// the run's database client, what opening a development database through the app's knexfile settings does, and the
+// database another copy of the snapshot it claims gets, with its books.
 const FIXTURE_TEST = (name, other) => `import { createHash } from "node:crypto";
 import { existsSync, writeFileSync } from "node:fs";
 import test from "node:test";
 import { createKnexMigrationConfig } from "@jskit-ai/database-runtime/server/knexMigrationConfig";
-import { createPackageTestKnex } from "@jskit-ai/database-runtime/server/testDatabases";
+import { claimTestDatabaseCopy, createPackageTestKnex } from "@jskit-ai/database-runtime/server/testDatabases";
 test("${name}", async (t) => {
   writeFileSync("started-${name}", "");
   const deadline = Date.now() + 30000;
   while (!existsSync("started-${other}") && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20));
   const own = await createPackageTestKnex(t, { environment: process.env });
   const [[{ packageDatabase }]] = await own.raw("SELECT DATABASE() AS packageDatabase");
+  const copy = await claimTestDatabaseCopy(t);
+  const copied = { database: copy.database, books: await copy.knex("books").pluck("title") };
   let refused = "";
   try {
     createKnexMigrationConfig({ client: "mysql2", environment: { ...process.env, DB_NAME: "app_development" } });
   } catch (error) {
     refused = error.message;
   }
-  writeFileSync("seen-${name}.json", JSON.stringify({ packageDatabase, refused, client: process.env.DB_CLIENT ?? null,
+  writeFileSync("seen-${name}.json", JSON.stringify({ packageDatabase, copied, refused, client: process.env.DB_CLIENT ?? null,
     db: process.env.DB_NAME, test: process.env.TEST_DB_NAME, settings: process.env.JSKIT_TEST_DATABASES ?? null,
     dotenv: process.env.FIXTURE_ONLY_IN_DOTENV ?? null, other: existsSync("started-${other}"),
     connection: { host: process.env.DB_HOST, port: process.env.DB_PORT, user: process.env.DB_USER,
@@ -490,8 +493,12 @@ test("jskit test --databases gives each test file running at once its own restor
   assert.deepEqual(seen.map(({ db }) => db).sort(), [name, `${name}_1`]);
   const connection = { host: server.host, port: String(server.port), user: server.user,
     password: createHash("sha256").update(server.password ?? "").digest("hex") };
-  for (const { db, test: testDatabase, settings, dotenv, other, connection: given, packageDatabase, client, refused } of seen) {
+  for (const { db, test: testDatabase, settings, dotenv, other, connection: given, packageDatabase, copied, client, refused } of seen) {
     assert.equal(testDatabase, db);
+    // Another copy of the snapshot, rows included, on a lettered copy of its own.
+    assert.match(copied.database, new RegExp(`^${name}_[a-z]$`, "u"));
+    assert.notEqual(copied.database, packageDatabase);
+    assert.deepEqual(copied.books, ["Written by the migration"]);
     // A file opens only the databases the run gave it: its copy and the lettered copies its package data tests claim.
     assert.match(refused, new RegExp("^DB_NAME names app_development, which is not one of the test databases this test file " +
       `was given by \`jskit test --databases\` \\(${db}, ${name}_a and 25 more\\): a test never reaches a development or ` +
