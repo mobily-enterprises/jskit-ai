@@ -5,8 +5,27 @@ import test from "node:test";
 import { createSherpaSpeechEngine } from "../src/sherpaSpeechEngine.js";
 
 const modelsRoot = process.env.JSKIT_VOICE_TEST_MODELS;
+
+// A Piper (VITS) model samples its speech's pitch and timing at random (noise scales 0.667 and 0.8), so each synthesis,
+// and the transcript of it, differs: one run in fourteen heard "the latest diversion". Near-zero scales (sherpa-onnx
+// reads 0 as its default) give the same speech, and so the same transcript, on every run. Without a configured
+// synthesizer, the engine's own default model, written out here.
+const STEADY = { noiseScale: 1e-6, noiseScaleW: 1e-6 };
+const steady = synthesizer => synthesizer.model?.vits
+  ? { ...synthesizer, model: { ...synthesizer.model, vits: { ...synthesizer.model.vits, ...STEADY } } }
+  : synthesizer;
+function steadySpeech(configuration) {
+  if (configuration.synthesizers) {
+    return { ...configuration,
+      synthesizers: Object.fromEntries(Object.entries(configuration.synthesizers).map(([id, synthesizer]) => [id, steady(synthesizer)])) };
+  }
+  return { ...configuration, synthesizer: steady(configuration.synthesizer || { maxNumSentences: 1, model: { numThreads: 1, provider: "cpu",
+    vits: { dataDir: path.join(modelsRoot, "tts", "espeak-ng-data"), model: path.join(modelsRoot, "tts", "model.onnx"),
+      tokens: path.join(modelsRoot, "tts", "tokens.txt") } } }) };
+}
+
 test("real installed models synthesize configured voices, retain the last spoken word and cancel output", { skip: !modelsRoot, timeout: 120000 }, async t => {
-  const configuration = JSON.parse(await readFile(path.join(modelsRoot, "speech.json"), "utf8"));
+  const configuration = steadySpeech(JSON.parse(await readFile(path.join(modelsRoot, "speech.json"), "utf8")));
   const loadStarted = performance.now();
   const engine = await createSherpaSpeechEngine({ modelsRoot, configuration, recognitionWorkers: 1, synthesisWorkers: 1 });
   t.after(() => engine.close());
@@ -26,9 +45,13 @@ test("real installed models synthesize configured voices, retain the last spoken
       const position = i * result.sampleRate / 16000; const left = Math.floor(position); const right = Math.min(left + 1, pcm.length / 2 - 1);
       mono16k.writeInt16LE(Math.round(pcm.readInt16LE(left * 2) * (1 - position + left) + pcm.readInt16LE(right * 2) * (position - left)), i * 2);
     }
+    // The recording ends where its last word does (its trailing silence, under 1% of full scale, cut), as one does
+    // when the person stops it on that word. No extra input silence: finish() must flush the model's last word itself.
+    let end = mono16k.length / 2;
+    while (end > 0 && Math.abs(mono16k.readInt16LE((end - 1) * 2)) < 328) end -= 1;
+    const spoken = mono16k.subarray(0, end * 2);
     const recognition = engine.createListeningSession();
-    for (let i = 0; i < mono16k.length; i += 3200) await recognition.acceptPcm(mono16k.subarray(i, i + 3200));
-    // No extra input silence: finish() must flush the model's last word itself.
+    for (let i = 0; i < spoken.length; i += 3200) await recognition.acceptPcm(spoken.subarray(i, i + 3200));
     const transcript = await recognition.finish();
     assert.match(transcript, /project.*ready/iu); assert.match(transcript, /latest version/iu);
     lastRecording = mono16k;
