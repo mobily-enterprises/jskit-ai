@@ -39,6 +39,8 @@ const TEST_LIKE_PATTERN = "**/tests/**/*[._-]{integration,spec,specs,tests}.{js,
 const OTHER_RUNNER_FOLDER = /(?:^|\/)(?:e2e|browser)\//u;
 const OTHER_RUNNER_IMPORT = /\b(?:from|import|require)\s*\(?\s*["'](?:vitest|@playwright\/test)["']/u;
 const MARKER = /^\s*\/\/\s*jskit-test:(.*)$/u;
+// jskit check's marker for the wait on the line after it (test-sources.mjs), wherever that is: not a file marker.
+const CHECK_MARKER = /^\s*fixed-wait\b/u;
 const MARKED = /^\s*(alone|network)\s+-\s+(\S.*)$/u;
 const MARKER_FORMS = Object.freeze({
   alone: "`// jskit-test: alone - <why this file cannot run beside others>`",
@@ -74,7 +76,7 @@ function missedTestFiles(defaultFiles, cwd) {
 /**
  * The files of a run that must run alone, or reach an outside service, from their first line. A marker that is
  * malformed or not on the first line (after a shebang) is an error, so a file never runs in parallel, or unguarded,
- * because its marker was missed.
+ * because its marker was missed. jskit check's fixed-wait marker is its own, on any line, and left to it.
  * @returns {{ alone: Array<{ file: string, reason: string }>, network: Array<{ file: string, reason: string }>, problems: string[] }}
  */
 function readMarkedFiles(files, cwd) {
@@ -85,7 +87,7 @@ function readMarkedFiles(files, cwd) {
     const top = lines[0]?.startsWith("#!") ? 1 : 0;
     lines.forEach((line, index) => {
       const marker = MARKER.exec(line);
-      if (!marker) return;
+      if (!marker || CHECK_MARKER.test(marker[1])) return;
       const [, kind, reason] = MARKED.exec(marker[1]) || [];
       const meant = /^\s*network\b/u.test(marker[1]) ? MARKER_FORMS.network : MARKER_FORMS.alone;
       if (index !== top) problems.push(`${file}:${index + 1}: a jskit-test marker belongs on the file's first line.`);

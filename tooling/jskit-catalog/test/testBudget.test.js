@@ -159,6 +159,36 @@ test("a file that states why it must run alone runs after the others, and a malf
   });
 });
 
+// jskit check's fixed-wait marker excuses the wait on the line after it, wherever that is (test-sources.mjs); jskit
+// test's own markers, alone and network, are a file's first line. mobilynet's FINAL3 run (mn-final3-sr-1a2, 27 Nov 2026)
+// had four files refused before they ran, each for a fixed-wait marker on a later line.
+test("a file with jskit check's fixed-wait marker runs, and an alone, network or misspelt marker off its first line still fails", async () => {
+  await withProject({
+    "test/a.test.js": "",
+    "test/latency.test.js": "import test from \"node:test\";\n" +
+      "// jskit-test: fixed-wait - the latency of the mail provider this stand-in simulates\nawait sleep(200);\n",
+    "test/window.test.js": "// jskit-test: fixed-wait - the window in which the list must make no second read\n" +
+      "await page.waitForTimeout(2000);\n"
+  }, async (root) => {
+    // No file is marked, so the one parallel run takes node's default files, all three.
+    const plan = planTestRuns([], { cwd: root, concurrency: 4 });
+    assert.deepEqual(plan.alone, []);
+    assert.deepEqual(plan.runs, [["--test", "--test-concurrency=4"]]);
+  });
+  await withProject({
+    "test/a.test.js": `import "node:test";\n${ALONE_LINE}\n`,
+    "test/b.test.js": "import \"node:test\";\n// jskit-test: network - it reads the provider's sandbox\n",
+    "test/c.test.js": "// jskit-test: alnoe - a misspelt marker\n"
+  }, async (root) => {
+    assert.throws(() => planTestRuns([], { cwd: root }), (error) => {
+      assert.match(error.message, /test\/a\.test\.js:2: a jskit-test marker belongs on the file's first line/u);
+      assert.match(error.message, /test\/b\.test\.js:2: a jskit-test marker belongs on the file's first line/u);
+      assert.match(error.message, /test\/c\.test\.js:1: write it as `\/\/ jskit-test: alone - <why/u);
+      return true;
+    });
+  });
+});
+
 test("given no files, jskit test fails rather than leave out a tests/ file named as a test that node's default misses", async () => {
   await withProject({
     "tests/server/smoke.test.js": "",
