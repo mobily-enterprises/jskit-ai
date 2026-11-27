@@ -528,6 +528,19 @@ async function dropPackageTestData(knex, admin, statement, name) {
 }
 
 /**
+ * The settings of the `jskit test --databases` run whose file `environment` is (its databases, snapshot and Knex
+ * settings); outside such a run it fails, saying what `use` needs and naming the command.
+ */
+function runSettings(environment, use) {
+  const file = String(environment[RUN_SETTINGS_VARIABLE] || "").trim();
+  if (!file) {
+    throw new Error(`${use} the snapshot of a \`jskit test --databases\` run, and this file runs outside one: run it ` +
+      "with `jskit test --databases`.");
+  }
+  return JSON.parse(readFileSync(file, "utf8"));
+}
+
+/**
  * Another database holding the run's snapshot, for a file of a `jskit test --databases` run that needs more than its
  * own TEST_DB_NAME copy (a second tenant, a second server): one of the run's designated database's 26 lettered copies,
  * `<name>_a` to `_z`, that no other test holds, claimed under a lock on the database server held for as long as the
@@ -540,12 +553,7 @@ async function dropPackageTestData(knex, admin, statement, name) {
  * @returns {Promise<{ database: string, knex: import("knex").Knex }>}
  */
 async function claimTestDatabaseCopy(context, { environment }) {
-  const file = String(environment[RUN_SETTINGS_VARIABLE] || "").trim();
-  if (!file) {
-    throw new Error("claimTestDatabaseCopy() copies the snapshot of a `jskit test --databases` run, and this file runs " +
-      "outside one: run it with `jskit test --databases`.");
-  }
-  const { databases, snapshot, knexConfig } = JSON.parse(readFileSync(file, "utf8"));
+  const { databases, snapshot, knexConfig } = runSettings(environment, "claimTestDatabaseCopy() copies");
   const knexFactory = loadKnexFactory();
   if (knexConfig.client !== "pg") {
     const knex = await createMysqlPackageTestKnex(context, { knexFactory, environment, testDatabase: databases[0],
@@ -610,6 +618,32 @@ async function claimPostgresCopy(context, { knexFactory, knexConfig, snapshot, b
 }
 
 /**
+ * Restores the file's own copy, its TEST_DB_NAME in a `jskit test --databases` run, to the run's snapshot mid-file, for
+ * a test that needs the snapshot afresh after earlier tests of the file wrote to it, and answers the tables it
+ * replaced, sorted: only those that differ from the snapshot's (restoreTestDatabase()), so a reset after a test that
+ * wrote one table costs one. The file's connections stay open; hold no transaction across it. MySQL and MariaDB only:
+ * on PostgreSQL a restore recreates the database, which the file's own connections hold, so it refuses, naming a file
+ * of its own or claimTestDatabaseCopy(). Outside such a run it fails, naming the command.
+ * @param {{ environment: import("@jskit-ai/kernel/server/types").RuntimeEnv }} options The file's environment, such as
+ *   `process.env`.
+ * @returns {Promise<string[]>}
+ */
+async function resetTestDatabase({ environment }) {
+  const { databases, snapshot, knexConfig } = runSettings(environment, "resetTestDatabase() restores");
+  if (knexConfig.client === "pg") {
+    throw new Error("resetTestDatabase() restores a MySQL or MariaDB copy in place; on PostgreSQL a restore recreates " +
+      "the database, which this file's own connections hold: put tests that each need the snapshot afresh in files of " +
+      "their own, or give such a test another copy with claimTestDatabaseCopy().");
+  }
+  const database = String(environment.TEST_DB_NAME || "").trim();
+  if (!databases.includes(database)) {
+    throw new Error(`resetTestDatabase() restores this file's own copy, and TEST_DB_NAME names ${database || "none"}, ` +
+      "which is not one of the run's: pass the file's environment (process.env).");
+  }
+  return restoreTestDatabase(knexConfig, database, snapshot);
+}
+
+/**
  * The tables of the database `knex` is connected to, sorted: MySQL's and MariaDB's base tables, PostgreSQL's in the
  * current schema, SQLite's own tables (its internal ones aside).
  * @param {import("knex").Knex | import("knex").Knex.Transaction} knex
@@ -642,6 +676,7 @@ export {
   proveMigrationHistory,
   requireDisposableDatabase,
   requireTestDatabase,
+  resetTestDatabase,
   restoreTestDatabase,
   tableNames,
   testDatabaseNames,

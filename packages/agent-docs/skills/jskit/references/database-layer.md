@@ -459,7 +459,12 @@ the application's `knexfile.js`:
   its own in the file's database
   ([data access tests](data-access.md#tests)). A file is the
   unit that starts from the snapshot: tests that each need the snapshot's
-  database afresh go in files of their own.
+  database afresh go in files of their own, or, on MySQL and MariaDB, call
+  `await resetTestDatabase({ environment: process.env })` (from
+  `@jskit-ai/database-runtime/server/testDatabases`) before each, which
+  restores the file's copy in place, replacing only the tables written since.
+  On PostgreSQL it refuses: a restore recreates the database the file's own
+  connections hold.
 - A test file that needs another database holding the snapshot, rows
   included, beside its own copy (a second tenant, a second server), claims
   one with `const { database, knex } = await claimTestDatabaseCopy(t, {

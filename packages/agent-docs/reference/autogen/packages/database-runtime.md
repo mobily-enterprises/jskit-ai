@@ -124,6 +124,7 @@ Exports
 - `proveMigrationHistory({ knexConfig, environment, schema = {}, appRoot = process.cwd() })`
 - `requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {})`
 - `requireTestDatabase(environment)`
+- `resetTestDatabase({ environment })`
 - `restoreTestDatabase(knexConfig, database, snapshot)`
 - `tableNames(knex)`
 - `testDatabaseNames`
@@ -137,6 +138,7 @@ Local functions
 - `refusedPrivilege(error)`
 - `recordStatements(listen, work)`
 - `dropPackageTestData(knex, admin, statement, name)`
+- `runSettings(environment, use)`
 - `claimPostgresCopy(context, { knexFactory, knexConfig, snapshot, base })`
 
 ### `src/server/testDatabaseSnapshots.js`
