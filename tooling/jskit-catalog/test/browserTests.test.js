@@ -119,6 +119,34 @@ test("a managed target starts no server and runs one worker unless the runner se
     "/tmp/state.json");
 });
 
+// What a local run's largest app server peaked at, which the launcher records as its servers stop (Linux).
+const SERVER_MEMORY = path.join("node_modules", ".cache", "jskit-browser-tests", "server-memory.json");
+const GIB = 1024 ** 3;
+
+test("a local run starts no more workers than the memory available holds at its servers' peak in the last run, and says why", async () => {
+  await withProject({ "package.json": { name: "app", type: "module" } }, async (root) => {
+    const env = { V64_TEST_CONCURRENCY: "8" };
+    const workers = (gib, more = {}) => browserTestWorkers({ env: { ...env, ...more }, argv: [], cwd: root,
+      availableMemory: () => gib * GIB });
+    // No run has measured its servers yet: half the budget.
+    assert.equal(workers(5), 4);
+    await mkdir(path.dirname(path.join(root, SERVER_MEMORY)), { recursive: true });
+    await writeFile(path.join(root, SERVER_MEMORY), JSON.stringify({ serverPeakBytes: 2 * GIB }));
+    assert.equal(workers(5), 2);
+    assert.equal(workers(1), 1, "never fewer than one");
+    assert.equal(workers(64), 4, "memory for more than the budget: the budget");
+    assert.equal(workers(5, { PLAYWRIGHT_WORKERS: "4" }), 4, "a count asked for is that count");
+    // The launcher gets the reason, and prints it before it starts its servers.
+    const config = browserTestConfig({ environment: { ...env }, cwd: root, availableMemory: () => 5 * GIB });
+    assert.equal(config.workers, 2);
+    assert.equal(JSON.parse(config.webServer.env[SETTINGS_VARIABLE]).memory, "2 workers, not the 4 the test budget allows: " +
+      "5.0 GiB of memory is available, and the largest app server peaked at 2.0 GiB in the last run (only the app servers are " +
+      "measured, not the browsers or Playwright's own processes)");
+    assert.equal(JSON.parse(browserTestConfig({ environment: { ...env }, cwd: root, availableMemory: () => 64 * GIB })
+      .webServer.env[SETTINGS_VARIABLE]).memory, undefined);
+  });
+});
+
 test("a managed target serving several app servers gives each Playwright worker its own from PLAYWRIGHT_WORKER_TARGETS, and refuses another count", () => {
   const targets = [0, 1, 2].map((index) => ({ baseURL: `http://127.0.0.1:${4100 + index}`, storageState: `/run/state-${index}.json` }));
   // As Vibe64 gives a suite on a target with three servers: worker 0's are also the single-server variables.
@@ -482,13 +510,13 @@ const LAUNCHER_APP = {
   "tests/e2e/databases.mjs": PREPARE
 };
 
-/** The launcher with `workers` servers from `basePort`, in its own process group, with its stderr kept. */
-function launchServers(root, basePort, workers, stdin = "ignore") {
+/** The launcher: `workers` servers from `basePort`, `more` settings, in its own process group, its stderr kept. */
+function launchServers(root, basePort, workers, stdin = "ignore", more = {}) {
   const cache = path.join(root, "node_modules", ".cache", "jskit-browser-tests");
   const settings = {
     workers, host: "127.0.0.1", basePort, server: "node ./server.mjs", build: "node ./build.mjs",
     prepare: "tests/e2e/databases.mjs", env: {}, health: "/api/health",
-    workerEnvironments: path.join(cache, `workers-${basePort}.json`)
+    workerEnvironments: path.join(cache, `workers-${basePort}.json`), ...more
   };
   const child = spawn(process.execPath, [SERVERS], {
     cwd: root,
@@ -549,6 +577,32 @@ test("a local run's servers have stopped when the launcher exits, whether Playwr
       assert.equal(await exitOf(child), exitCode, stop);
       assert.deepEqual(await Promise.all([answers(basePort), answers(basePort + 1)]), [false, false], stop);
     }
+  });
+});
+
+test("the launcher records the peak memory of its largest app server as its servers stop, and prints the reason for fewer workers", {
+  skip: process.platform !== "linux" && "a server's peak memory is read from /proc"
+}, async () => {
+  // Each server holds 96 MiB more than an idle one.
+  const hungry = APP_SERVER.replace("import http from \"node:http\";",
+    "import http from \"node:http\";\nglobalThis.held = Buffer.alloc(96 * 1024 * 1024, 1);");
+  assert.notEqual(hungry, APP_SERVER);
+  await withProject({ ...LAUNCHER_APP, "server.mjs": hungry }, async (root) => {
+    const basePort = await freeConsecutivePorts(2);
+    const memory = "2 workers, not the 4 the test budget allows: 5.0 GiB of memory is available, and the largest app server " +
+      "peaked at 2.0 GiB in the last run (only the app servers are measured, not the browsers or Playwright's own processes)";
+    const { child } = launchServers(root, basePort, 2, "pipe", { memory });
+    try {
+      const output = await waitForReady(child);
+      assert.ok(output.split("\n").includes(`[browser-tests] ${memory}.`), output);
+      child.kill("SIGTERM");
+      assert.equal(await exitOf(child), 143);
+    } finally {
+      // A failed check leaves the launcher and its servers running: they stop with the test.
+      if (child.exitCode === null && child.signalCode === null) process.kill(-child.pid, "SIGKILL");
+    }
+    const { serverPeakBytes } = JSON.parse(await readFile(path.join(root, SERVER_MEMORY), "utf8"));
+    assert.ok(serverPeakBytes >= 96 * 1024 * 1024 && serverPeakBytes < GIB, String(serverPeakBytes));
   });
 });
 
