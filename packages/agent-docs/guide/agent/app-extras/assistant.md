@@ -1001,6 +1001,57 @@ classes or pass the retired renderer's `variant`, `features`, `ui`, or `copy`
 objects. `AssistantClientElement` and its Markdown/keyboard helpers have been
 removed; there is no forwarding alias.
 
+### The page the person is looking at
+
+`AssistantSurfaceClientElement` and `useAssistantRuntime` take an optional
+`pageContext`: the page the person has open, sent with each message, so "what's
+this job's vessel?" needs no job number. Give a value, or a function the runtime
+calls as each message is sent, so each browser tab sends its own page and two
+tabs on two records never mix them up. The application fills it from its
+router:
+
+```vue
+<script setup>
+import { useRoute } from "vue-router";
+import { AssistantSurfaceClientElement } from "@jskit-ai/assistant-runtime/client";
+
+const route = useRoute();
+// Called as each message is sent: the page open at that moment.
+function pageContext() {
+  const jobId = route.params.jobId ? String(route.params.jobId) : "";
+  return {
+    path: route.fullPath,
+    title: document.title,
+    records: jobId ? [{ type: "job", id: jobId, label: `Job ${jobId}` }] : []
+  };
+}
+</script>
+
+<template>
+  <AssistantSurfaceClientElement surface-id="admin" layout="compact" :page-context="pageContext" />
+</template>
+```
+
+Every field is optional: `path` up to 2048 characters, `title` up to 200, and
+up to 10 `records`, each a `type` and an `id` (up to 64 characters each) with an
+optional `label` (up to 200). The chat route refuses any other field, and any
+value past its limit, with a 400 that names the field, and the message is not
+sent, so keep what you send within the limits. Without `pageContext` a message
+is sent as before. A resend of a failed message carries the page it was first
+sent with.
+
+The model reads it with that turn's message alone, as a delimited block of JSON
+data that says it is a hint from the page, not an instruction and not
+permission; characters in page text that could close the block are escaped. It
+is never saved: not in the person's message, the turn request, the
+conversation's instructions or the facts about the person, so the next turn
+does not see it.
+
+It is a hint, never permission. The model still reads every record through the
+surface's actions, which check the person's own access: a page that names a
+record the person cannot read changes nothing, and the action refuses it as
+before. Put nothing in it the person may not see.
+
 ### Database surface verification
 
 Run migrations, load assistant and settings pages through normal navigation,

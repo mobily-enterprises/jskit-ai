@@ -89,7 +89,7 @@ Local functions
 
 ### `src/client/composables/useAssistantRuntime.js`
 Exports
-- `useAssistantRuntime({ api, surfaceId = "", integrationId = "" })`
+- `useAssistantRuntime({ api, surfaceId = "", integrationId = "", pageContext = null })`
 - `type RuntimeScope`
 Local functions
 - `toNonNegativeInteger(value, fallback)`
@@ -164,6 +164,7 @@ Exports
 - `type RealtimeSocket`
 - `type SurfaceRouteContext`
 - `type PlacementRuntime`
+- `type AssistantPageContext`
 - `type WorkspaceScopeSupport`
 - `type ConversationIdentity`
 - `type ConversationReader`
@@ -473,6 +474,12 @@ Exports
 Local functions
 - `buildCatalogOptions(appConfig = {}, surfaceId = "")`
 - `requireContextSurfaceId(context)`
+
+### `src/server/support/pageContext.js`
+Exports
+- `pageContextNote(pageContext)`
+Local functions
+- `escapeCharacter(character)`
 
 ### `src/server/support/personContext.js`
 Exports

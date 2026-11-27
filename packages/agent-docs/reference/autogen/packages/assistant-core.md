@@ -1350,7 +1350,7 @@ Exports
 
 ### `src/server/conversation/conversationTurns.js`
 Exports
-- `createConversationTurns({ storage, streams, events, entries, reads, delivery, turnDelivery, catalog, apiHistory, isClosed, completedEnvelope, maximumToolCalls, maximumFinalReply, maximumCompletedOutput, timeoutMs })`
+- `createConversationTurns({ storage, streams, events, entries, reads, delivery, turnDelivery, catalog, apiHistory, apiTurnNote, isClosed, completedEnvelope, maximumToolCalls, maximumFinalReply, maximumCompletedOutput, timeoutMs })`
 - `saveTools(entry, transaction, request, calls)`
 - `type ConversationEntry`
 - `type ConversationRequest`
@@ -1729,7 +1729,7 @@ Local functions
 
 ### `src/server/conversation/runtime.js`
 Exports
-- `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage: suppliedStorage, authorize, connections, apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments: suppliedAttachments, fetch, host: defaultHost, onDeliveryTiming, hostDeliveryStages, persistCommentary = true, completedEnvelope = false, limits = DEFAULT_LIMITS })`
+- `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage: suppliedStorage, authorize, connections, apiClientFactory, apiHistory, apiTurnNote, actions, toolPolicy, toolCatalog, attachments: suppliedAttachments, fetch, host: defaultHost, onDeliveryTiming, hostDeliveryStages, persistCommentary = true, completedEnvelope = false, limits = DEFAULT_LIMITS })`
 
 ### `src/server/conversation/runtimeStateUpgrade.js`
 Exports
@@ -2159,6 +2159,7 @@ Exports
 - `type ConversationConnections`
 - `type ConversationApiClientFactory`
 - `type ConversationApiHistory`
+- `type ConversationApiTurnNote`
 - `type ConversationDeliveryTimingObserver`
 - `type ConversationLimits`
 

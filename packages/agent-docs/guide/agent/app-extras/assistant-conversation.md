@@ -2489,6 +2489,13 @@ so it is not compacted, and history an application supplies as `apiHistory` is
 used as given. History turns within the newest 20 messages send their files again;
 older turns name their files without their content.
 
+`apiTurnNote({ context })`, a server-owned function `createConversationRuntime`
+takes beside `apiHistory`, adds the application's note to one API turn: the text
+it returns for the turn's context goes before that turn's message, to the model
+alone. It is never saved, so no later turn reads it, and `""` adds nothing. The
+database-backed assistant uses it for the page the person has open (the
+Assistant guide's "The page the person is looking at").
+
 Each reply streams one message per step: `reply-1`, `reply-2` and so on. A step
 that also calls actions ends as commentary, complete before the first of its actions
 runs, and the reply's last step becomes the answer. The answer leaves out words already shown as commentary, unless they are
