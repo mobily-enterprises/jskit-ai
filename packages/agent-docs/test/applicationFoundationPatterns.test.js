@@ -297,32 +297,73 @@ test("the foundations' app name is the sign-in brand's, and renaming the app ren
   }
 });
 
-test("foundation agent instructions point to public framework docs without requiring agent-docs", async () => {
+const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/";
+
+// Every new application copies its foundation's AGENTS.md, and projects kept copying it whole into their own
+// instructions. It holds what an app needs that JSKIT's guides and checks do not already say: when to read which guide,
+// what `npm run verify` runs, and how the browser suite runs on a host. Every other rule lives in its guide.
+test("foundation agent instructions are short: the guide links, what verify runs and the managed browser rule", async () => {
   const [minimalAgents, shellAgents] = await Promise.all(FOUNDATION_NAMES.map((patternName) =>
     readFile(path.join(PATTERNS_ROOT, patternName, "example", "AGENTS.md"), "utf8")
   ));
 
   assert.equal(shellAgents, minimalAgents);
+  const flat = minimalAgents.replace(/\s+/gu, " ");
   assert.match(minimalAgents, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\//u);
   assert.match(minimalAgents, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/patterns\//u);
-  assert.match(
-    minimalAgents,
-    /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/ui-operations#browser-verification/u
-  );
-  assert.match(minimalAgents, /prefer that version-matched package-owned copy/u);
-  assert.match(minimalAgents, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/typed-features`/u);
-  assert.match(minimalAgents, /reads or writes a database table, read\s+the data access guide at\s+`https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/data-access`/u);
-  assert.match(minimalAgents, /read the environments\s+guide at\s+`https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/environments`/u);
-  assert.match(minimalAgents, /`npm run lint` checks its rules/u);
-  assert.match(minimalAgents, /Do not install an unrelated runtime package only to read documentation/u);
-  assert.match(minimalAgents, /Keep `BROWSER_TEST_DB_NAME` distinct from disposable `TEST_DB_NAME`/u);
-  assert.match(minimalAgents, /Keep verification output small/u);
-  assert.match(minimalAgents, /through `jskit test` \(`npm test`\)/u);
-  assert.match(minimalAgents, /typed-features#test-files-run-in-parallel/u);
-  assert.match(minimalAgents, /Do not add generator\s+provenance, receipts/u);
-  assert.doesNotMatch(minimalAgents, /node_modules\/@jskit-ai\/agent-docs|patterns\/ui-testing\.md|in\s+this package/u);
+  for (const page of [
+    "framework/data-access",
+    "framework/typed-features",
+    "framework/client-features",
+    "framework/environments",
+    "framework/material-3",
+    "framework/typed-features#test-files-run-in-parallel",
+    "framework/ui-operations#browser-verification"
+  ]) {
+    assert.ok(minimalAgents.includes(`\`${GUIDE}${page}\``), `AGENTS.md links ${page}`);
+  }
+  // The guide is the website's, for the current release: agent-docs is not an app dependency, so there is no installed
+  // copy of it to read, and an installed runtime package's own patterns/ folder holds its patterns at the app's version.
+  assert.match(flat, /`@jskit-ai\/agent-docs` is not an app dependency, so the guide has no copy under `node_modules`/u);
+  assert.match(flat, /Keep the app on the current release \(`npm run jskit:update`\)/u);
+  assert.match(flat, /that package's `patterns\/` folder, at the app's version/u);
+  assert.match(flat, /Never install a runtime package only to read its documentation/u);
+  assert.doesNotMatch(minimalAgents, /node_modules\/@jskit-ai\/agent-docs|version-matched package-owned copy/u);
+  // What `npm run verify` runs is exactly the foundation's verify script, in its order, and no section it lacks.
+  const { scripts } = JSON.parse(await readFile(path.join(PATTERNS_ROOT, "minimal-foundation", "example", "package.json"), "utf8"));
+  const verified = scripts.verify.split("&&").map((command) => command.trim());
+  assert.deepEqual(verified, ["npm run jskit:check", "npm run lint", "npm run test", "npm run test:client", "npm run test:e2e"]);
+  const verifySentence = flat.slice(flat.indexOf("`npm run verify` runs"), flat.indexOf("frontend it serves"));
+  const named = ["`jskit check`", "`npm run lint`", "`npm test`", "`npm run test:client`", "`npm run test:e2e`"];
+  assert.deepEqual(named.map((name) => verifySentence.indexOf(name) >= 0), named.map(() => true), verifySentence);
+  assert.deepEqual([...named].sort((left, right) => verifySentence.indexOf(left) - verifySentence.indexOf(right)), named);
+  assert.doesNotMatch(flat, /tests and build|adds the package graph/u);
+  assert.match(flat, /`npm run test:e2e`, whose `browserTestConfig\(\)` builds the production frontend it serves/u);
+  assert.match(flat, /excuse one only with the guide's `readable-check: allow` comment and reason prefix/u);
+  // Rules a check enforces or a guide states are links, not copies.
+  assert.doesNotMatch(minimalAgents, /SelectField|BROWSER_TEST_DB_NAME|jskit-test: alone|Keep verification output small|generator\s+provenance/u);
   assert.doesNotMatch(minimalAgents, /local app scaffold|crud-scaffolding\.md|workflow\/app-state\.md/u);
   assert.doesNotMatch(minimalAgents, /workflow\/feature-delivery\.md|Mandatory Start Gate|Mandatory Done Gate/u);
+  // 6,105 characters in 103 lines until it kept only what no guide or check says.
+  assert.ok(minimalAgents.length <= 3500, `AGENTS.md has ${minimalAgents.length} characters`);
+});
+
+test("the rules the foundation AGENTS.md no longer copies are each in their guide", async () => {
+  const guide = (page) => readFile(path.join(PACKAGE_ROOT, "site/guide", page), "utf8");
+  const flat = (source) => source.replace(/\s+/gu, " ");
+  const [operations, material, client, uiOperations, typedFeatures] = await Promise.all([
+    guide("framework/application-operations.md"),
+    guide("framework/material-3.md"),
+    guide("framework/client-features.md"),
+    guide("framework/ui-operations.md"),
+    guide("framework/typed-features.md")
+  ]);
+  assert.match(flat(operations), /Keep verification output small: save each run's complete output to a local file and keep its exit status/u);
+  assert.match(flat(operations), /Do not add pattern receipts, generator provenance, completion ledgers, or hidden operation state/u);
+  assert.match(flat(material), /standalone heading/u);
+  assert.match(flat(client), /`SelectField`/u);
+  assert.match(flat(uiOperations), /Keep `BROWSER_TEST_DB_NAME` distinct from `TEST_DB_NAME`/u);
+  assert.match(flat(typedFeatures), /`\/\/ jskit-test: alone - <reason>`/u);
 });
 
 test("shell foundation reuses the shell-web application shell and the minimal foundation byte for byte", async () => {

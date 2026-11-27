@@ -297,12 +297,18 @@ test("UI testing guidance uses private local exchange support and managed storag
   }
 });
 
-test("a managed browser runner runs every Playwright suite, said before any direct Playwright command", async () => {
-  const managedRunnerRule = new RegExp(
-    "Where the host provides a managed browser runner, every Playwright suite runs through it from the first run, " +
-      "never through `npx playwright test`, `playwright test` or a package script such as `npm run test:e2e`\\.",
-    "u"
-  );
+// A managed browser runner (Vibe64's, for one) runs the app's own package script on a declared test target, so specs
+// that write never reach the person's development target or database: four projects' agents read "never npm run
+// test:e2e" as "run it somewhere else" and wrote fixtures into the person's development database.
+const escaped = (text) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&").replaceAll(" ", "\\s+");
+const MANAGED_RUNNER_RULE = "Where the host provides a managed browser runner, such as Vibe64's, every Playwright suite runs " +
+  "through it from the first run, on a declared test target: give the runner the package script (on Vibe64, " +
+  "`vibe64-helper playwright --target test-app npm-run test:e2e`), and never start `npx playwright test`, " +
+  "`playwright test` or `npm run test:e2e` yourself.";
+const WRITING_SPECS_RULE = "Specs that write run only on a test target with its own database, never on the person's " +
+  "development target or database.";
+
+test("a managed browser runner runs every Playwright suite on a declared test target, said before any direct Playwright command", async () => {
   const relativePaths = [
     "heuristics/ui-testing.md",
     "skills/jskit/references/heuristics/ui-testing.md",
@@ -320,16 +326,41 @@ test("a managed browser runner runs every Playwright suite, said before any dire
   ];
 
   for (const relativePath of relativePaths) {
-    const source = (await readFile(path.join(packageRoot, relativePath), "utf8")).replace(/\s+/gu, " ");
-    const rule = source.match(managedRunnerRule);
-    assert.ok(rule, `${relativePath} must say a managed browser runner runs every Playwright suite.`);
+    const source = await readFile(path.join(packageRoot, relativePath), "utf8");
+    const rule = source.match(new RegExp(escaped(MANAGED_RUNNER_RULE), "u"));
+    assert.ok(rule, `${relativePath} must say a managed browser runner runs every Playwright suite on a declared test target.`);
+    assert.match(source, new RegExp(escaped(WRITING_SPECS_RULE), "u"), `${relativePath} must keep specs that write off the development target.`);
+    assert.doesNotMatch(source, /never through `npx playwright test`, `playwright test` or a package script/u, relativePath);
     // The rule itself names `npx playwright test`, so any earlier match is a direct command shown before it.
-    assert.ok(source.search(/playwright test/u) > rule.index, `${relativePath} shows direct Playwright before the rule.`);
+    assert.ok(source.search(/playwright\s+test/u) > rule.index, `${relativePath} shows direct Playwright before the rule.`);
   }
 
   const heuristic = (await readFile(path.join(packageRoot, "heuristics/ui-testing.md"), "utf8")).replace(/\s+/gu, " ");
   assert.match(heuristic, /Only a machine with no managed browser runner runs Playwright directly/u);
   assert.doesNotMatch(heuristic, /=\S+ \\ (?:npx )?playwright test/u, "No example launches Playwright with a host's variables.");
+});
+
+test("the browser verification guide shows a host's declared test target: the production build through jskit browser-test-server with {workers}", async () => {
+  for (const relativePath of [
+    "site/guide/framework/ui-operations.md",
+    "guide/agent/framework/ui-operations.md",
+    "skills/jskit/references/ui-operations.md",
+  ]) {
+    const source = await readFile(path.join(packageRoot, relativePath), "utf8");
+    const section = source.slice(source.indexOf("## Browser verification"));
+    assert.match(section, /^### Target `test-app`: Test Preview$/mu, relativePath);
+    assert.match(section, /^- Data: `test`$/mu, relativePath);
+    assert.match(
+      section,
+      /^- Run `Serve on the test database`: `node_modules\/\.bin\/jskit` `browser-test-server` `\{host\}` `\{port\}` `\{workers\}`$/mu,
+      relativePath
+    );
+    assert.match(section, /^- Ready when: `GET` `\/api\/health` returns `200`$/mu, relativePath);
+    // Every worker's server is the production build on its own copy of BROWSER_TEST_DB_NAME, with APP_ENV=test.
+    assert.match(section.replace(/\s+/gu, " "), /the production build, the database its `prepare` module gives that worker and `APP_ENV=test`/u, relativePath);
+    // A change to the browser-test setup is proved by a repeated start that reuses the build and the snapshot.
+    assert.match(section.replace(/\s+/gu, " "), /run the suite twice: the second run says `Frontend build unchanged, reused`/u, relativePath);
+  }
 });
 
 test("app-owned baseline tests are customizable but remain verified", async () => {
