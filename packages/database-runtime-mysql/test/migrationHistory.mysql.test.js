@@ -183,7 +183,7 @@ test("a schema build that leaves a migration unapplied fails the migration histo
   assert.deepEqual(await restoreTestDatabase(knexConfig, name, snapshot), []);
 });
 
-test("jskit migration-history proves an application's history from its knexfile.js, and fails, saying why, when it differs", {
+test("jskit migration-history proves an application's history from its knexfile.js as APP_ENV=test, refuses a staging or production shell, and fails, saying why, when it differs", {
   skip: SKIP
 }, async (context) => {
   const { appRoot, name, server, admin } = await application(context, "hist4", { "20200101000000_books.cjs": BOOKS });
@@ -195,12 +195,19 @@ test("jskit migration-history proves an application's history from its knexfile.
   await symlink(path.join(REPO_ROOT, "node_modules", "@jskit-ai"), path.join(appRoot, "node_modules", "@jskit-ai"), "dir");
   await symlink(path.join(REPO_ROOT, "node_modules", "knex"), path.join(appRoot, "node_modules", "knex"), "dir");
   const env = { ...process.env, DB_NAME: `${name}_application`, TEST_DB_NAME: name, DATABASE_URL: "" };
-  for (const variable of ["NODE_TEST_CONTEXT", "DB_CLIENT", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD"]) delete env[variable];
+  // A shell that names no APP_ENV, as CI's, runs the proof as APP_ENV=test, as `jskit test` runs tests.
+  for (const variable of ["NODE_TEST_CONTEXT", "DB_CLIENT", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "APP_ENV"]) delete env[variable];
 
   const { stdout } = await execFileAsync(process.execPath, [JSKIT_CLI, "migration-history"], { cwd: appRoot, env });
   assert.match(stdout, new RegExp(`^jskit migration-history: 1 migrations replayed from empty into ${name} in \\d+ms, ` +
     "nothing left for a second pass, the same tables, definitions and rows as the test snapshot \\(4 tables\\)\\n$", "u"));
   assert.deepEqual(await admin(`${name}.books`).pluck("title"), ["Written by the migration"]);
+  await assert.rejects(execFileAsync(process.execPath, [JSKIT_CLI, "migration-history"], { cwd: appRoot, env: { ...env, APP_ENV: "production" } }),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /^jskit migration-history runs tests with APP_ENV=test, and APP_ENV is production here: /u);
+      return true;
+    });
 
   await writeFile(path.join(appRoot, "migrations", "20200102000000_random_book.cjs"), RANDOM_BOOK);
   await assert.rejects(execFileAsync(process.execPath, [JSKIT_CLI, "migration-history"], { cwd: appRoot, env }), (error) => {
