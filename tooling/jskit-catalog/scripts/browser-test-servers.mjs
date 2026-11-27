@@ -5,10 +5,11 @@
 // (browser-tests.mjs). With the app's `signIn` module, each server is then signed in once, and its storage state left
 // for its worker. Each server's output goes to test-results/browser-test-servers/worker-<n>.log; a server that stops
 // ends the run. A port that already answers is refused before anything is built or started: a server left there by an
-// earlier run would answer for this run's. Stopped by Playwright (SIGTERM), by Ctrl-C, or by the end of the stdin pipe
-// Playwright gives its webServer (a Playwright that ended without stopping it), the launcher stops its servers and
-// waits for them, then drops the numbered database copies the prepare module made, within Playwright's grace, before it
-// exits; it drops them too when its start fails. `jskit browser-test-server` (browser-test-server.mjs) runs it
+// earlier run would answer for this run's. Stopped by Playwright (SIGTERM), by Ctrl-C, by its terminal's hang-up (SIGHUP,
+// which a host such as Vibe64 sends a target's command first) or by the end of the stdin pipe Playwright gives its
+// webServer (a Playwright that ended without stopping it), the launcher stops its servers and waits for them, then
+// drops the numbered database copies the prepare module made, within Playwright's grace, before it exits; it drops
+// them too when its start fails. `jskit browser-test-server` (browser-test-server.mjs) runs it
 // for one server a host starts, with `terminal`: that server's output also reaches the launcher's own. A run takes free
 // ports of its own, so its worker environments and signed-in states have names of their own; the launcher removes them
 // when it stops, so they never pile up in the cache, nor outlive the sessions they hold.
@@ -138,6 +139,7 @@ async function stopAndExit(code) {
 }
 process.once("SIGINT", () => stopAndExit(130));
 process.once("SIGTERM", () => stopAndExit(143));
+process.once("SIGHUP", () => stopAndExit(129));
 // Only a pipe ends when Playwright does; a launcher started without one (stdin ignored, /dev/null) would end at once.
 const input = fstatSync(0);
 if (input.isFIFO() || input.isSocket()) {
