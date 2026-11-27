@@ -3444,12 +3444,27 @@ test("mode-aware application admission retains typed and spoken native and API p
   });
   await expect.poll(() => f.page.evaluate(() => window.modeRuntime.delivery.state.messages.length)).toBe(2);
   assert.equal((await f.sent()).length, 2, "Voice waits for the same real predecessor receipt");
+  // The server takes the spoken message and its answer is held, so the message's transcript turn settles the send
+  // first: an accepted send answers with the route's receipt whichever reply comes first.
+  const voiceAnswer = Promise.withResolvers();
+  await f.page.route("**/messages", async route => {
+    if (route.request().method() !== "POST" || route.request().postDataJSON()?.text !== "Native spoken clarification") {
+      return route.fallback();
+    }
+    const response = await route.fetch();
+    await voiceAnswer.promise;
+    return route.fulfill({ response });
+  });
   await f.input.fill("Retain my draft across backend selection");
   await f.command("mode", { mode: "accepted" });
   await f.command("accept", { holdResponse: true });
   await f.notify("chat:2");
   await expect.poll(async () => (await f.sent()).length).toBe(3);
-  assert.equal((await f.page.evaluate(() => window.nativeVoiceAdmission)).status, "accepted");
+  await f.notify("chat:2");
+  const nativeVoice = await f.page.evaluate(() => window.nativeVoiceAdmission);
+  voiceAnswer.resolve();
+  assert.equal(nativeVoice.status, "accepted", JSON.stringify(nativeVoice));
+  assert.equal(nativeVoice.messageId, (await f.sent())[2].input.messageId);
   assert.equal((await f.state()).states["chat:2"].status, "working");
   await f.command("release-response");
   await f.command("finish", { id: "chat:2" });

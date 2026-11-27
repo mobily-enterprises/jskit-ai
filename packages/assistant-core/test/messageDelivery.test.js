@@ -193,15 +193,27 @@ test("a canonical receipt settles the retained send before its HTTP response", a
   const sending = delivery.send({ message: "Hello" }, {
     messageId: "one", deliver: () => request.promise, receiptTurns: receipts, uncertainOnError: true
   });
-  receipts.value = [{ user: { messageId: "one", text: "Hello" } }];
+  receipts.value = [{ turnId: "turn-one", user: { messageId: "one", text: "Hello" } }];
   await nextTick();
-  assert.deepEqual(await sending, { ok: true });
+  // The transcript's receipt answers as the conversation route's does, so a caller reading `status` sees an accepted
+  // send whichever reply comes first.
+  assert.deepEqual(await sending, { ok: true, status: "accepted", messageId: "one", turnId: "turn-one" });
   assert.equal(delivery.find("one").status, "accepted");
   request.reject(new Error("The old HTTP connection closed."));
   await nextTick();
   assert.equal(delivery.find("one").error, "");
   delivery.reconcile(receipts.value);
   assert.deepEqual(delivery.turns(receipts.value), receipts.value);
+});
+
+test("a send accepted before its HTTP request fails answers with the accepted receipt", async () => {
+  const request = Promise.withResolvers();
+  const delivery = createAssistantMessageDelivery({ deliver: () => request.promise });
+  const sending = delivery.send({ message: "Hello" }, { messageId: "one", uncertainOnError: true });
+  delivery.accept("one");
+  request.reject(new Error("The HTTP connection closed after the conversation took the message."));
+  assert.deepEqual(await sending, { ok: true, status: "accepted", messageId: "one" });
+  assert.equal(delivery.find("one").status, "accepted");
 });
 
 test("provisional authored rows remain visible without settling delivery or restored retries", async () => {
@@ -300,7 +312,7 @@ test("a canonical receipt acknowledges attachments before HTTP completes and lat
   receipts.value = [{ user: { messageId: "one", text: "See the file" } }];
   delivery.reconcile(receipts.value);
   assert.equal(acknowledgements, 1);
-  assert.deepEqual(await sending, { ok: true });
+  assert.deepEqual(await sending, { ok: true, status: "accepted", messageId: "one" });
   request.reject(new Error("Late HTTP failure."));
   await nextTick();
   delivery.accept("one");
