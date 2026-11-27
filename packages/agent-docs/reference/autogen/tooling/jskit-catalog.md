@@ -435,11 +435,12 @@ Local functions
 
 ### `scripts/test-command.mjs`
 Exports
+- `DEFAULT_PATTERN`
+- `findTestFiles(patterns, cwd)`
 - `planTestRuns(args, { cwd = process.cwd(), concurrency = testConcurrency() } = {})`
 - `runTests(args)`
 - `withTimeReporter(run, destination)`
 Local functions
-- `findTestFiles(patterns, cwd)`
 - `missedTestFiles(defaultFiles, cwd)`
 - `readMarkedFiles(files, cwd)`
 - `markedDestination(destination, kind)`
@@ -507,6 +508,20 @@ Local functions
 - `checkLoggerLevel({ root, report })`
 - `checkRunnerConfig({ root, configPath, directory, runner, report })`
 
+### `scripts/test-sources-scan.mjs`
+Exports
+- `excusedWait(text, offset, tokens = scanSource(text))`
+- `scanSource(text)`
+Local functions
+- `tokenize(text, at = 0, inTemplate = false)`
+- `skipQuoted(text, at, quote)`
+- `skipTemplate(text, at)`
+- `precededBy(tokens, index, ...values)`
+- `loopKeyword(tokens, close)`
+- `blockOf(tokens, open)`
+- `rereads(tokens, keyword, body)`
+- `leaves(tokens, index, body, isBreak)`
+
 ### `scripts/test-sources.mjs`
 Exports
 - `checkTestSources({ projectRoot })`
@@ -517,11 +532,12 @@ Local functions
 - `isTestFile(file)`
 - `asNumber(literal)`
 - `fixedWait(line)`
-- `checkFixedWaits(file, lines, report)`
+- `checkFixedWaits(file, text, report)`
 - `checkDatabaseNames(file, lines, { configFile }, report)`
 - `lineOf(contents, needle, after = "")`
 - `jskitTestFiles(script)`
-- `checkScripts(file, contents, report)`
+- `selectsDefaultFiles(directory, files, defaults)`
+- `checkScripts(root, file, contents, report)`
 - `unquoted(value)`
 - `workflowPairs(lines)`
 - `checkWorkflow(file, lines, report)`

@@ -97,6 +97,9 @@ Local functions
 - `publishCommand(options)`
 - `forgetPinnedLockEntries(repoRoot, names)`
 - `installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 10_000) } = {})`
+- `declaresCatalog(repoRoot)`
+- `runPinStep(repoRoot, name, argv, env = process.env)`
+- `writeInstalledAgentsBlock(repoRoot)`
 - `pinCommand({ cwd: repoRoot, from, dryRun, noCommit, noPush, branch })`
 
 ### bin
