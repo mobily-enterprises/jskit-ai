@@ -11,7 +11,9 @@ import { testConcurrency } from "./test-budget.mjs";
 // (browser-test-servers.mjs). With the app's `signIn` module, each worker's server is signed in once and every test of
 // that worker starts from its signed-in state. With PLAYWRIGHT_BASE_URL set, the tests use that managed target instead,
 // as its host serves it and with the login state its host supplies, one worker at a time unless the runner sets
-// PLAYWRIGHT_WORKERS.
+// PLAYWRIGHT_WORKERS. A host serving such a target several app servers (Vibe64's targets whose Run step takes
+// {workers}) lists them in PLAYWRIGHT_WORKER_TARGETS: one Playwright worker per server, each with its own signed-in
+// state.
 
 const SERVERS = fileURLToPath(new URL("./browser-test-servers.mjs", import.meta.url));
 const SLOWEST_TESTS = fileURLToPath(new URL("./browser-test-times.mjs", import.meta.url));
@@ -35,8 +37,41 @@ const WORKER_ENVIRONMENTS = path.join("node_modules", ".cache", "jskit-browser-t
 
 const positiveInteger = (value) => (/^[1-9]\d*$/u.test(String(value ?? "").trim()) ? Number(String(value).trim()) : 0);
 
+const withoutTrailingSlash = (url) => String(url || "").trim().replace(/\/+$/u, "");
+
 function managedBaseUrl(env) {
-  return String(env.PLAYWRIGHT_BASE_URL || "").trim().replace(/\/+$/u, "");
+  return withoutTrailingSlash(env.PLAYWRIGHT_BASE_URL);
+}
+
+const WORKER_TARGETS_FORM = "PLAYWRIGHT_WORKER_TARGETS is a JSON list of { baseURL, storageState? }: each Playwright " +
+  "worker's app server, an HTTP URL, and its signed-in state file";
+
+/**
+ * A host's app servers for a managed run, one per Playwright worker, from PLAYWRIGHT_WORKER_TARGETS, or null without it.
+ * @param {Record<string, string | undefined>} env
+ * @returns {Array<{ baseURL: string, storageState: string }> | null}
+ */
+function managedWorkerTargets(env) {
+  const text = String(env.PLAYWRIGHT_WORKER_TARGETS || "").trim();
+  if (!text) return null;
+  let list;
+  try {
+    list = JSON.parse(text);
+  } catch {
+    throw new Error(`${WORKER_TARGETS_FORM}; it is not JSON.`);
+  }
+  const valid = Array.isArray(list) && list.length > 0 && list.every((entry) => {
+    let protocol = "";
+    try {
+      protocol = new URL(String(entry?.baseURL)).protocol;
+    } catch {
+      return false;
+    }
+    return ["http:", "https:"].includes(protocol) &&
+      (entry.storageState === undefined || (typeof entry.storageState === "string" && entry.storageState.trim() !== ""));
+  });
+  if (!valid) throw new Error(`${WORKER_TARGETS_FORM}.`);
+  return list.map(({ baseURL, storageState = "" }) => ({ baseURL: withoutTrailingSlash(baseURL), storageState }));
 }
 
 /**
@@ -60,12 +95,18 @@ function commandLineWorkers(argv) {
  * How many workers a browser run uses: the command line's `--workers`, else PLAYWRIGHT_WORKERS, else half the machine's
  * test budget for a local run and 1 for a managed target (one server). A local worker drives a browser and its own app
  * server, about two threads' work: with a budget of 4, the shell foundation's 9 tests took 11.5 s on 4 workers and
- * 7.9 s on 2.
+ * 7.9 s on 2. A managed target whose host lists several app servers (PLAYWRIGHT_WORKER_TARGETS) runs one worker per
+ * server, and refuses another count: a worker would have no server, or a server no worker.
  * @param {{ env?: Record<string, string | undefined>, argv?: ReadonlyArray<string> }} [options]
  */
 function browserTestWorkers({ env = process.env, argv = process.argv } = {}) {
-  return commandLineWorkers(argv) || positiveInteger(env.PLAYWRIGHT_WORKERS) ||
-    (managedBaseUrl(env) ? 1 : Math.max(1, Math.floor(testConcurrency({ env }) / 2)));
+  const asked = commandLineWorkers(argv) || positiveInteger(env.PLAYWRIGHT_WORKERS);
+  const targets = managedBaseUrl(env) ? managedWorkerTargets(env) : null;
+  if (targets && asked && asked !== targets.length) {
+    throw new Error(`PLAYWRIGHT_WORKER_TARGETS lists ${targets.length} app servers, one per Playwright worker, so this run ` +
+      `cannot use ${asked} workers. Leave the count to the host that serves them.`);
+  }
+  return targets?.length || asked || (managedBaseUrl(env) ? 1 : Math.max(1, Math.floor(testConcurrency({ env }) / 2)));
 }
 
 // Finds `count` consecutive ports nothing listens on, at a random place below Linux's ephemeral range, and prints the
@@ -163,6 +204,13 @@ function browserTestConfig({
   }
   const managed = managedBaseUrl(environment);
   const workers = browserTestWorkers({ env: environment });
+  // A host serving the managed target several app servers: this worker's own, and its signed-in state.
+  const workerTargets = managed ? managedWorkerTargets(environment) : null;
+  const managedIndex = Number.parseInt(String(environment.TEST_PARALLEL_INDEX || "0"), 10) || 0;
+  const workerTarget = workerTargets ? workerTargets[managedIndex] : null;
+  if (workerTargets && !workerTarget) {
+    throw new Error(`PLAYWRIGHT_WORKER_TARGETS has no app server for Playwright worker ${managedIndex}.`);
+  }
   const runTimeout = globalTimeout ?? Math.max(MIN_GLOBAL_TIMEOUT_MS, Math.ceil(WORKER_MINUTES_MS / workers));
   let basePort = positiveInteger(environment.PLAYWRIGHT_PORT) || port;
   if (!basePort && !managed) {
@@ -188,7 +236,7 @@ function browserTestConfig({
     Object.assign(environment, preparedWorkerEnvironment(workerEnvironments, workerIndex));
     if (signedInStates) environment.PLAYWRIGHT_STORAGE_STATE = `${signedInStates}-${workerIndex}.json`;
   }
-  const storageState = String(environment.PLAYWRIGHT_STORAGE_STATE || "").trim();
+  const storageState = workerTarget ? workerTarget.storageState : String(environment.PLAYWRIGHT_STORAGE_STATE || "").trim();
   const settings = {
     workers, host: HOST, basePort, server, build, prepare, env, health, workerEnvironments,
     ...(signedInStates ? { signIn, signedInStates } : {})
@@ -203,7 +251,7 @@ function browserTestConfig({
     // Every run ends with its 10 slowest tests and their times.
     reporter: [["list"], [SLOWEST_TESTS]],
     use: {
-      baseURL: managed || `http://${HOST}:${basePort + workerIndex}`,
+      baseURL: workerTarget?.baseURL || managed || `http://${HOST}:${basePort + workerIndex}`,
       headless: true,
       actionTimeout,
       navigationTimeout,

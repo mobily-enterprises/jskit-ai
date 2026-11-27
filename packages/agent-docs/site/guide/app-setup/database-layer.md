@@ -486,12 +486,16 @@ disable email, payments or other external effects: configure those test controls
 and verify the actual server identity before destructive requests.
 
 A host's browser test target, such as a Vibe64 Outputs target with
-``- Data: `test` ``, runs `jskit browser-test-server <host> <port>`: one worker's
-server of the app's own `browserTestConfig()`, on the production build, with the
-database its `prepare` module gives that worker (`BROWSER_TEST_DB_NAME` itself in
-the database patterns), its test-only `env` and `APP_ENV=test`, on the host's
+``- Data: `test` ``, runs `jskit browser-test-server <host> <port> <workers>`:
+`<workers>` servers of the app's own `browserTestConfig()` (1 to 64, else one),
+worker *i* on `<port>`+*i*, on the production build, each with the database its
+`prepare` module gives that worker (`BROWSER_TEST_DB_NAME` itself for the first
+in the database patterns), its test-only `env` and `APP_ENV=test`, on the host's
 address. The JSKIT Stack piece declares that target as `test-app`, so
 `vibe64-helper playwright --target test-app npm-run test:e2e` runs the app's
-suite against its own test database from the first commit. The target signs
-nothing in; the host supplies the suite's login state through the target's
-Preview identity, the same command as the normal target's.
+suite against its own test database from the first commit, one Playwright worker
+per server: the host lists them in `PLAYWRIGHT_WORKER_TARGETS`, and
+`browserTestConfig()` gives each worker its own server and signed-in state and
+refuses another worker count. The target signs nothing in; the host supplies
+each worker's login state through the target's Preview identity, the same
+command as the normal target's.

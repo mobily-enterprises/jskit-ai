@@ -1054,13 +1054,17 @@ one-line test.
 
 **A test suite runs its files in parallel, as many at a time as the machine's
 test budget allows: never one file at a time, and never more than the machine
-can take. Node's test runner runs through `jskit test`; Playwright's `workers`
-and Vitest's `maxWorkers` come from `testConcurrency()`.**
+can take. Node's test runner runs through `jskit test`; Vitest's `maxWorkers`
+comes from `testConcurrency()`, and Playwright's `workers` from
+`browserTestWorkers()`, half of it, as each worker drives a browser and often
+its own app server.**
 
 - The budget is `V64_TEST_CONCURRENCY` when it is a positive whole number (a
   test runner that hands out slots exports it for each run), otherwise half of
-  the machine's CPUs, rounded down and at least 1: a 2-vCPU VPS runs one file
-  at a time, an 8-thread machine four.
+  the CPUs the process may use, rounded down and at least 1: a 2-vCPU VPS runs
+  one file at a time, an 8-thread machine four, and a container or slice whose
+  cgroup `cpu.max` quota gives it 3 CPUs of a 16-thread machine one
+  (`availableCpus()`).
 - `jskit test` (from `@jskit-ai/jskit-catalog`) passes its arguments to
   `node --test` and sets `--test-concurrency` to the budget.
   `testConcurrency()` from `@jskit-ai/jskit-catalog/test-budget` returns the
@@ -1070,9 +1074,12 @@ and Vitest's `maxWorkers` come from `testConcurrency()`.**
   default pattern and fails on a `tests/` file it would leave out, such as
   `<name>.integration.js` or `<name>.spec.js`.
 - No script passes a fixed concurrency or worker count. `jskit check` fails a
-  package script that runs `node --test` directly or passes one, and a
-  Playwright or Vitest config those scripts use whose workers do not come from
-  `testConcurrency()` ([test-run rules](#test-run-rules)).
+  package script that runs `node --test` directly or passes one, a Vitest
+  config those scripts use whose `maxWorkers` does not come from
+  `testConcurrency()`, and a Playwright config whose `workers` do not come from
+  `browserTestWorkers()` of `@jskit-ai/jskit-catalog/browser-tests` or
+  `browserTestConfig()`: one worker for each budget thread started twice the
+  browsers and servers the runner gave ([test-run rules](#test-run-rules)).
 - Each file isolates what it shares: a port the system picks (`listen(0)`), a
   directory from `mkdtemp`, its own database or schema with a name no other
   file uses, its own Vite `cacheDir` for each dev server it starts (Vite
@@ -1364,7 +1371,7 @@ that must run alone says so on its own first line instead.
 | --- | --- | --- |
 | `test/node-test` | a script that runs `node --test` directly instead of `jskit test` | [Test files run in parallel](#test-files-run-in-parallel) |
 | `test/fixed-concurrency` | `--test-concurrency` in a script, or a script that pins `V64_TEST_CONCURRENCY` or `PLAYWRIGHT_WORKERS` | [Test files run in parallel](#test-files-run-in-parallel) |
-| `test/playwright-workers` | `--workers` or `-j` passed to `playwright test`, its config without `workers: testConcurrency()` or `browserTestConfig()`, or with `workers` set over `browserTestConfig()`'s | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/playwright-workers` | `--workers` or `-j` passed to `playwright test`, its config without `workers: browserTestWorkers()` or `browserTestConfig()`, or with `workers` set over `browserTestConfig()`'s | [Test files run in parallel](#test-files-run-in-parallel) |
 | `test/playwright-dev-server` | a Playwright webServer command that runs the development server (`npm run develop`, `npm run dev`, `bin/develop.js`, `vite`, `vite dev`) | [Test files run in parallel](#test-files-run-in-parallel) |
 | `test/playwright-isolation` | a Playwright webServer every worker shares, without `browserTestConfig()` | [Test files run in parallel](#test-files-run-in-parallel) |
 | `test/playwright-global-timeout` | a Playwright config without a `globalTimeout` (or `browserTestConfig()`), or with `globalTimeout: 0` | [Test files run in parallel](#test-files-run-in-parallel) |

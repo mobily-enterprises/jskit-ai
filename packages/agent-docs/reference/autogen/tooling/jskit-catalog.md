@@ -60,7 +60,9 @@ Exports
 - `browserTestWorkers({ env = process.env, argv = process.argv } = {})`
 Local functions
 - `positiveInteger(value)`
+- `withoutTrailingSlash(url)`
 - `managedBaseUrl(env)`
+- `managedWorkerTargets(env)`
 - `commandLineWorkers(argv)`
 - `listen(port)`
 - `freeConsecutivePorts(host, count)`
@@ -406,7 +408,10 @@ Local functions
 ### `scripts/test-budget.mjs`
 Exports
 - `BUDGET_VARIABLE`
-- `testConcurrency({ env = process.env, parallelism = os.availableParallelism() } = {})`
+- `availableCpus({ parallelism = os.availableParallelism(), readFile = readFileSync } = {})`
+- `testConcurrency({ env = process.env, parallelism = availableCpus() } = {})`
+Local functions
+- `quotaCpus(text)`
 
 ### `scripts/test-command.mjs`
 Exports
