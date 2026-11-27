@@ -94,13 +94,157 @@ test("test/fixed-sleep names each fixed wait in an app's test files, and a fixed
     assert.equal(message("tests/e2e/list.spec.ts", 4),
       "waits a fixed time (page.waitForTimeout(500)); wait for the condition instead: a web-first assertion " +
       "(await expect(locator).toBeVisible()), expect.poll(), the event itself, or a fake clock (mock.timers, " +
-      "vi.useFakeTimers(), page.clock). A window that proves nothing happens says so on the line before: " +
-      "// jskit-test: fixed-wait - <what the window proves>.");
+      "vi.useFakeTimers(), page.clock). A window that proves nothing happens, or the latency a stand-in simulates, " +
+      "says so on the line before: // jskit-test: fixed-wait - <what the window proves, or the latency the stand-in simulates>.");
     assert.equal(message("tests/e2e/list.spec.ts", 7),
-      "has a jskit-test: fixed-wait marker without a reason; write what the window proves after it " +
-      "(// jskit-test: fixed-wait - <what the window proves>), or wait for the condition instead.");
+      "has a jskit-test: fixed-wait marker without a reason; write after it what the window proves, or the latency " +
+      "the stand-in simulates (// jskit-test: fixed-wait - <what the window proves, or the latency the stand-in " +
+      "simulates>), or wait for the condition instead.");
     assert.match(message("tests/server/jobs.test.js", 4), /^waits a fixed time \(new Promise\(\(resolve\) => setTimeout\(resolve, 100\)\)\);/u);
     assert.match(message("tests/server/jobs.test.js", 6), /^waits a fixed time \(await sleep\(250\)\);/u);
+  });
+});
+
+// The dependents' runs of 0.2.117 (27 Nov 2026) named 308 poll-loop intervals and 4 timers racing another wait as fixed
+// waits: a wait that re-reads its condition each round, or bounds a wait for something else, waits for that condition.
+const POLLS = [
+  "import { setTimeout as sleep } from \"node:timers/promises\";",
+  "// Vibe64 Online's projectActionDispatch: the timer bounds the wait for another start.",
+  "await Promise.race([started, new Promise((resolve) => setTimeout(resolve, 500))]);",
+  "// public Vibe64's serverShutdown: the handler's stop, at most 3.5 s.",
+  "await Promise.race([",
+  "  handler(\"SIGTERM\"),",
+  "  new Promise((resolve) => setTimeout(resolve, 3500))",
+  "]);",
+  "while (processState(pid) !== state && Date.now() < deadline) {",
+  "  await new Promise((resolve) => setTimeout(resolve, 20));",
+  "}",
+  "while (running(run) && Date.now() < deadline) await sleep(50);",
+  "while (!activeQueries.get(\"slow\")?.cancel) await new Promise((resolve) => setTimeout(resolve, 10));",
+  "while (modelRequests < count) await sleep(10);",
+  "for (let attempt = 0; attempt < 100 && log.length < 2; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 10));",
+  "async function rows() {",
+  "  for (;;) {",
+  "    const found = await read();",
+  "    if (found.length > 0) return found;",
+  "    await sleep(20);",
+  "  }",
+  "}",
+  "for (let attempt = 0; attempt < 100; attempt++) {",
+  "  if (delivered.length === 2) break;",
+  "  await sleep(10);",
+  "}",
+  "for (let i = 0; i < 50; i += 1) {",
+  "  try { await fetch(base); break; } catch { await new Promise((r) => setTimeout(r, 100)); }",
+  "}",
+  "do {",
+  "  await sleep(10);",
+  "} while (!(await ready()));",
+  "const program = `while (existsSync(${JSON.stringify(gate)})) await new Promise(resolve => setTimeout(resolve, 10));`;",
+  ""
+].join("\n");
+
+// What stays a fixed wait: a one-shot sleep before an assertion, a fixed-count settle loop, a loop that only counts or
+// watches the clock, a wait in a function of its own inside a poll loop, Promise.all, and a loop that breaks on no
+// condition.
+const KEPT = [
+  "import { setTimeout as sleep } from \"node:timers/promises\";",
+  "await sleep(100);",
+  "assert.equal(list.length, 1);",
+  "for (let i = 0; i < 20; i += 1) {",
+  "  await new Promise((resolve) => setTimeout(resolve, 5));",
+  "  await nextTick();",
+  "}",
+  "for (const name of names) {",
+  "  await new Promise((resolve) => setTimeout(resolve, 50));",
+  "  assert.ok(items.some((item) => { return item.name === name; }));",
+  "}",
+  "while (Date.now() < end) await sleep(10);",
+  "let rounds = 0;",
+  "while (rounds < 3) {",
+  "  rounds += 1;",
+  "  await sleep(5);",
+  "}",
+  "while (!done) {",
+  "  schedule(async () => {",
+  "    await sleep(5);",
+  "  });",
+  "}",
+  "await Promise.all([work(), new Promise((resolve) => setTimeout(resolve, 100))]);",
+  "for (let i = 0; i < 3; i++) {",
+  "  await sleep(10);",
+  "  break;",
+  "}",
+  ""
+].join("\n");
+
+test("test/fixed-sleep leaves out a poll loop's interval and a timer racing another wait, and keeps every other fixed wait", async () => {
+  await withProject({
+    "package.json": { name: "polls", private: true },
+    "tests/server/polls.test.js": POLLS,
+    "tests/server/kept.test.js": KEPT,
+    "tests/e2e/toast.spec.ts": [
+      "import { expect, test } from \"@playwright/test\";",
+      "test(\"the toast\", async ({ page }) => {",
+      "  while (!(await page.getByRole(\"status\").isVisible())) await page.waitForTimeout(100);",
+      "  const rows: Array<{ id: string }> = await page.evaluate(() => []);",
+      "  await page.waitForTimeout(500);",
+      "});",
+      ""
+    ].join("\n")
+  }, async (root) => {
+    assert.deepEqual(await findings(root), [
+      "tests/e2e/toast.spec.ts:5 test/fixed-sleep",
+      ...[2, 5, 9, 12, 16, 20, 23, 25].map((line) => `tests/server/kept.test.js:${line} test/fixed-sleep`)
+    ]);
+  });
+});
+
+// The loops are read from the file's brackets, past what only looks like one: a regular expression, a division,
+// template literals inside template literals, strings and comments. A file whose brackets do not match is read a line
+// at a time, as before.
+test("test/fixed-sleep reads a loop past regular expressions, divisions, templates, strings and comments, and line by line when it cannot", async () => {
+  await withProject({
+    "package.json": { name: "edges", private: true },
+    "tests/server/edges.test.js": [
+      "const closers = (text) => { return /[)\\]}]+/u.test(text); };",
+      "assert.ok(/\\(+\\[/u.test(output));",
+      "const half = ((total / 2) + 1) / 3;",
+      "const nested = `a ${`b ${value} )`} ]`;",
+      "const quoted = \"({[\" + '}' + \"\\\")\";",
+      "// a comment holding ) } ]",
+      "/* and ( { [ */",
+      "while (!done()) await sleep(10);",
+      ""
+    ].join("\n"),
+    "tests/client/notice.test.jsx": [
+      "const view = <p>Don't panic (yet)</p>;",
+      "while (!rendered()) await sleep(10);",
+      ""
+    ].join("\n")
+  }, async (root) => {
+    assert.deepEqual(await findings(root), ["tests/client/notice.test.jsx:2 test/fixed-sleep"]);
+  });
+});
+
+// Mercbot's offlinePage test advances its page's fake clock with `await page.wait(60_000)`: a member call named wait is
+// some object's own method, while node's timers stay timers.
+test("test/fixed-sleep reads a member call named wait as the object's own method, but node's timers and named sleeps as waits", async () => {
+  await withProject({
+    "package.json": { name: "clocks", private: true },
+    "tests/server/clock.test.js": [
+      "await page.wait(60_000);",
+      "await clock.wait(1000);",
+      "await timers.setTimeout(100);",
+      "await scheduler.wait(30);",
+      "await helpers.sleep(50);",
+      "await utils.delay(20);",
+      "await runner.pause(10);",
+      "await wait(100);",
+      ""
+    ].join("\n")
+  }, async (root) => {
+    assert.deepEqual(await findings(root), [3, 4, 5, 6, 7, 8].map((line) => `tests/server/clock.test.js:${line} test/fixed-sleep`));
   });
 });
 
@@ -152,6 +296,26 @@ test("test/fixed-database-name names a test script, Playwright config or test so
       `scripts.test:e2e pins BROWSER_TEST_DB_NAME=shop_e2e; drop it: ${tail}`);
     assert.equal(result.findings.find(({ line, file }) => file === "tests/helpers/database.js" && line === 1).message,
       `names the test database itself (process.env.TEST_DB_NAME || "shop_test"); drop the name and read the variable as the run gives it: ${tail}`);
+  });
+});
+
+// Mercbot's testDatabase.mjs refuses to run on any database but TEST_DB_NAME, and its refusal says what DB_NAME was,
+// "unset" when there is none: a name in a thrown message's text names no database.
+test("test/fixed-database-name leaves out a name in a thrown message's text, and keeps one a log line or a connection uses", async () => {
+  await withProject({
+    "package.json": { name: "refusals", private: true },
+    "tests/support/testDatabase.mjs": [
+      "export function testDatabaseConfig(testDatabase) {",
+      "  if (process.env.DB_NAME !== testDatabase) {",
+      "    throw new Error(`DB_NAME (${process.env.DB_NAME || \"unset\"}) must be TEST_DB_NAME (${testDatabase}), a disposable test database.`);",
+      "  }",
+      "  console.log(`migrating ${process.env.DB_NAME || \"shop\"}`);",
+      "  return connect(process.env.TEST_DB_NAME ?? \"shop_test\");",
+      "}",
+      ""
+    ].join("\n")
+  }, async (root) => {
+    assert.deepEqual(await findings(root), [5, 6].map((line) => `tests/support/testDatabase.mjs:${line} test/fixed-database-name`));
   });
 });
 
@@ -242,6 +406,35 @@ test("test/script-files names a script that gives jskit test its files, so npm t
     assert.equal(result.findings[1].message,
       "package.json's test:server script names tests/server: drop it. `jskit test` finds test files by node's default " +
       "pattern, so `npm run test:server -- <file>` runs exactly that file.");
+  });
+});
+
+// Vibe64 Online's test:full and test:composition each run one folder's files, its test:deploy-smoke two named files,
+// and Mercbot's test:database and bench files node's default pattern leaves out (x.integration.js, x.bench.js): none of
+// those runs is node's default one, so each names its files for a reason.
+test("test/script-files names only a script whose files are the ones node's default pattern selects anyway", async () => {
+  const testFile = "import test from \"node:test\";\ntest(\"runs\", () => {});\n";
+  await withProject({
+    "package.json": {
+      name: "suites",
+      private: true,
+      scripts: {
+        test: "jskit test tests/**/*.test.js",
+        "test:dir": "jskit test --databases tests",
+        "test:server": "jskit test --test-global-setup=tests/helpers/setup.js tests/server/*.test.js",
+        "test:database": "jskit test tests/server/*.integration.js",
+        "test:smoke": "jskit test tests/server/a.test.js",
+        bench: "jskit test tests/bench/*.bench.js"
+      }
+    },
+    "tests/server/a.test.js": testFile,
+    "tests/server/b.test.js": testFile,
+    "tests/composition/c.test.js": testFile,
+    "tests/server/d.integration.js": testFile,
+    "tests/bench/e.bench.js": testFile,
+    "tests/helpers/setup.js": "export async function globalSetup() {}\n"
+  }, async (root) => {
+    assert.deepEqual(await findings(root), ["package.json:5 test/script-files", "package.json:6 test/script-files"]);
   });
 });
 

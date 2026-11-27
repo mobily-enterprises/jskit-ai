@@ -255,7 +255,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "`createPackageTestKnex(t, { environment: process.env })`",
     "`JSKIT_TEST_NETWORK_REFUSED`",
     "`// jskit-test: network - <reason>`",
-    "`// jskit-test: fixed-wait - <reason>`",
+    "`// jskit-test: fixed-wait - <what the window proves, or the latency the stand-in simulates>`",
     "`jskit migration-history`",
     "`SET TIMESTAMP`",
     "`jskit test --test-global-setup=",
@@ -271,6 +271,20 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   }
   // The snapshot stays on the database server, where npm ci cannot empty it; no test database lives in node_modules.
   assert.doesNotMatch(testReference, /node_modules\/\.cache\/jskit-test-databases|vibe64-helper check/u);
+  // The fixed-wait marker covers a window that proves nothing happens and the latency a stand-in simulates, and the
+  // test-source rules say what they leave out: a poll loop's interval and a timer racing another wait.
+  const typedFeatures = passReference("typed-features.md").replace(/\s+/gu, " ");
+  for (const phrase of [
+    "`// jskit-test: fixed-wait - <what the window proves, or the latency the stand-in simulates>`",
+    "// jskit-test: fixed-wait - the latency of the mail provider this stand-in simulates",
+    "`Promise.race([…])`",
+    "a conditional `return` or `break` in its own body",
+    "`scheduler.wait(…)`",
+    "a thrown error's message",
+    "the files node's default pattern selects anyway"
+  ]) {
+    assert.ok(typedFeatures.includes(phrase), phrase);
+  }
   assert.match(skill, /\[test pass\]\(references\/test-pass\.md\)/u);
   assert.match(skill, /\[speed pass\]\(references\/speed-pass\.md\)/u);
   assert.doesNotMatch(operationalSource, /@jskit-ai\/create-app|crud-server-generator|crud-ui-generator|ui-generator/u);

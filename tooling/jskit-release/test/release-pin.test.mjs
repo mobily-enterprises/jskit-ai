@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
-import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { publicationFixture } from "./npm-publication-fixture.mjs";
 import { snapshotFiles } from "../src/npm-publication.mjs";
 import { discoverReleasePackages, validateReleaseState } from "../src/release.mjs";
@@ -355,4 +356,40 @@ test("a failing afterPin command fails the pin before its commit, showing its ou
     assert.equal((await g.calls()).filter(call => call.args[0] === "install").length, 0, "nothing installed");
     assert.equal(other.git("status", "--porcelain").toString(), "", "nothing changed");
   }
+});
+
+// An app that declares @jskit-ai/jskit-catalog carries that catalog's block in AGENTS.md (jskit check's
+// agents/jskit-block). The pin writes the block of the catalog it installed and commits it with the pins, so a release
+// that changes the block never leaves its dependents failing their check until someone runs jskit agents.
+test("pin writes the installed catalog's JSKIT block in AGENTS.md, and it joins the pin commit", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git } = await consumerRepository(f);
+  const catalog = fileURLToPath(new URL("../../jskit-catalog", import.meta.url));
+  const block = await readFile(path.join(catalog, "app-guidance/AGENTS.block.md"), "utf8");
+  const manifest = JSON.parse(await readFile(path.join(consumer, "package.json"), "utf8"));
+  manifest.devDependencies = { "@jskit-ai/jskit-catalog": "0.2.116" };
+  await writeFile(path.join(consumer, "package.json"), JSON.stringify(manifest, null, 2) + "\n");
+  await writeFile(path.join(consumer, "AGENTS.md"), "<!-- jskit:begin app guidance (written by npx jskit agents; edit outside " +
+    "this block) -->\nAn older catalog's guidance.\n<!-- jskit:end app guidance -->\n\n# Consumer\n\nThe app's own rules.\n");
+  await writeFile(path.join(consumer, ".gitignore"), "node_modules/\n");
+  git("add", "."); git("commit", "-m", "Declare the catalog"); git("push", "origin", "main");
+  await mkdir(path.join(consumer, "node_modules/@jskit-ai"), { recursive: true });
+  await symlink(catalog, path.join(consumer, "node_modules/@jskit-ai/jskit-catalog"), "dir");
+
+  const dry = f.run(["pin", "--from", f.repo, "--dry-run"], {}, consumer);
+  assert.equal(dry.status, 0, dry.stderr);
+  const beforePin = await readFile(path.join(consumer, "AGENTS.md"), "utf8");
+
+  const result = f.run(["pin", "--from", f.repo], {}, consumer);
+  assert.equal(result.status, 0, result.stderr);
+  const agents = await readFile(path.join(consumer, "AGENTS.md"), "utf8");
+  assert.ok(agents.includes(`edit outside this block) -->\n${block}<!-- jskit:end app guidance -->`), agents.slice(0, 400));
+  assert.doesNotMatch(agents, /An older catalog's guidance/u);
+  assert.match(agents, /The app's own rules\./u);
+  const committed = git("show", "--name-only", "--format=", "HEAD").toString().trim().split("\n");
+  assert.ok(["AGENTS.md", "package.json"].every(file => committed.includes(file)), committed.join(", "));
+  assert.equal(git("status", "--porcelain").toString(), "");
+  // The dry run says it would write the block, and writes nothing.
+  assert.match(dry.stdout, /^consumer: would write the installed catalog's JSKIT block in AGENTS\.md \(jskit agents\) after the install$/mu);
+  assert.match(beforePin, /An older catalog's guidance/u, "a dry run writes nothing");
 });
