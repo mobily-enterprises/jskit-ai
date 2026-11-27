@@ -1060,7 +1060,8 @@ test budget allows: never one file at a time, and never more than the machine
 can take. Node's test runner runs through `jskit test`; Vitest's `maxWorkers`
 comes from `testConcurrency()`, and Playwright's `workers` from
 `browserTestWorkers()`, half of it, as each worker drives a browser and often
-its own app server.**
+its own app server, and no more than the memory available holds at the peak
+the last run's largest app server reached.**
 
 - The budget is `V64_TEST_CONCURRENCY` when it is a positive whole number (a
   test runner that hands out slots exports it for each run), otherwise half of
@@ -1083,6 +1084,16 @@ its own app server.**
   `browserTestWorkers()` of `@jskit-ai/jskit-catalog/browser-tests` or
   `browserTestConfig()`: one worker for each budget thread started twice the
   browsers and servers the runner gave ([test-run rules](#test-run-rules)).
+- The servers `browserTestConfig()` starts for a local run record, as they
+  stop, the peak resident memory (`VmHWM`, with every process under it) of
+  the largest of them still running, on Linux. The next run takes no more
+  workers than the memory available (its cgroup's limit where one applies)
+  holds at that peak, at least one, and prints why: `[browser-tests] 2
+  workers, not the 4 the test budget allows: 5.0 GiB of memory is available,
+  and the largest app server peaked at 2.0 GiB in the last run (only the app
+  servers are measured, not the browsers or Playwright's own processes).`
+  Only the app servers are measured: a browser, a Playwright worker or a Node
+  test process that grows is not held back by it.
 - Each file isolates what it shares: a port the system picks (`listen(0)`), a
   directory from `mkdtemp`, its own database or schema with a name no other
   file uses, its own Vite `cacheDir` for each dev server it starts (Vite

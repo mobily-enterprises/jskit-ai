@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -34,6 +35,10 @@ const NAVIGATION_TIMEOUT_MS = 30_000;
 const SERVERS_TIMEOUT_MS = 180_000;
 // Where the servers' launcher leaves each worker's server environment, for that worker's own process.
 const WORKER_ENVIRONMENTS = path.join("node_modules", ".cache", "jskit-browser-tests");
+// The peak resident memory of the largest app server of the last local run, which its launcher records as its servers
+// stop (browser-test-servers.mjs).
+const SERVER_MEMORY = "server-memory.json";
+const GIB = 1024 ** 3;
 
 const positiveInteger = (value) => (/^[1-9]\d*$/u.test(String(value ?? "").trim()) ? Number(String(value).trim()) : 0);
 
@@ -91,22 +96,64 @@ function commandLineWorkers(argv) {
   return 0;
 }
 
+/** The memory this process may still take: its cgroup's limit where one applies, else the machine's. */
+function systemAvailableMemory() {
+  return process.availableMemory?.() || os.freemem();
+}
+
 /**
- * How many workers a browser run uses: the command line's `--workers`, else PLAYWRIGHT_WORKERS, else half the machine's
- * test budget for a local run and 1 for a managed target (one server). A local worker drives a browser and its own app
- * server, about two threads' work: with a budget of 4, the shell foundation's 9 tests took 11.5 s on 4 workers and
- * 7.9 s on 2. A managed target whose host lists several app servers (PLAYWRIGHT_WORKER_TARGETS) runs one worker per
- * server, and refuses another count: a worker would have no server, or a server no worker.
- * @param {{ env?: Record<string, string | undefined>, argv?: ReadonlyArray<string> }} [options]
+ * The local workers the available memory holds at the peak the last run's largest app server reached, at most
+ * `budgeted`, with why when fewer; `budgeted` when no run has recorded its servers' peak yet. Only the app servers are
+ * measured, not the browsers or Playwright's own processes, and the reason says so.
  */
-function browserTestWorkers({ env = process.env, argv = process.argv } = {}) {
+function memoryWorkers(budgeted, { cwd, availableMemory }) {
+  const file = path.resolve(cwd, WORKER_ENVIRONMENTS, SERVER_MEMORY);
+  if (!existsSync(file)) return { workers: budgeted, memory: "" };
+  const peak = Number(JSON.parse(readFileSync(file, "utf8")).serverPeakBytes);
+  if (!(peak > 0)) return { workers: budgeted, memory: "" };
+  const available = availableMemory();
+  const held = Math.max(1, Math.floor(available / peak));
+  if (held >= budgeted) return { workers: budgeted, memory: "" };
+  const gib = (bytes) => `${(bytes / GIB).toFixed(1)} GiB`;
+  return {
+    workers: held,
+    memory: `${held} worker${held === 1 ? "" : "s"}, not the ${budgeted} the test budget allows: ${gib(available)} of memory is ` +
+      `available, and the largest app server peaked at ${gib(peak)} in the last run (only the app servers are measured, not ` +
+      "the browsers or Playwright's own processes)"
+  };
+}
+
+/** browserTestWorkers()'s count, and for a local run held back by memory, why. */
+function workersOf({ env, argv, cwd, availableMemory }) {
   const asked = commandLineWorkers(argv) || positiveInteger(env.PLAYWRIGHT_WORKERS);
   const targets = managedBaseUrl(env) ? managedWorkerTargets(env) : null;
   if (targets && asked && asked !== targets.length) {
     throw new Error(`PLAYWRIGHT_WORKER_TARGETS lists ${targets.length} app servers, one per Playwright worker, so this run ` +
       `cannot use ${asked} workers. Leave the count to the host that serves them.`);
   }
-  return targets?.length || asked || (managedBaseUrl(env) ? 1 : Math.max(1, Math.floor(testConcurrency({ env }) / 2)));
+  const chosen = targets?.length || asked || (managedBaseUrl(env) ? 1 : 0);
+  if (chosen) return { workers: chosen, memory: "" };
+  return memoryWorkers(Math.max(1, Math.floor(testConcurrency({ env }) / 2)), { cwd, availableMemory });
+}
+
+/**
+ * How many workers a browser run uses: the command line's `--workers`, else PLAYWRIGHT_WORKERS, else half the machine's
+ * test budget for a local run and 1 for a managed target (one server). A local worker drives a browser and its own app
+ * server, about two threads' work: with a budget of 4, the shell foundation's 9 tests took 11.5 s on 4 workers and
+ * 7.9 s on 2. A local run takes no more workers than the memory available holds at the peak its largest app server
+ * reached in the last run (the launcher records it, on Linux), never fewer than one. A managed target whose host lists
+ * several app servers (PLAYWRIGHT_WORKER_TARGETS) runs one worker per server, and refuses another count: a worker would
+ * have no server, or a server no worker.
+ * @param {{ env?: Record<string, string | undefined>, argv?: ReadonlyArray<string>, cwd?: string,
+ *   availableMemory?: () => number }} [options]
+ */
+function browserTestWorkers({
+  env = process.env,
+  argv = process.argv,
+  cwd = process.cwd(),
+  availableMemory = systemAvailableMemory
+} = {}) {
+  return workersOf({ env, argv, cwd, availableMemory }).workers;
 }
 
 // Finds `count` consecutive ports nothing listens on, at a random place below Linux's ephemeral range, and prints the
@@ -192,7 +239,8 @@ function browserTestConfig({
   actionTimeout = ACTION_TIMEOUT_MS,
   navigationTimeout = NAVIGATION_TIMEOUT_MS,
   environment = process.env,
-  cwd = process.cwd()
+  cwd = process.cwd(),
+  availableMemory = systemAvailableMemory
 } = {}) {
   if (globalTimeout !== undefined && (!Number.isInteger(globalTimeout) || globalTimeout < 1)) {
     throw new Error("browserTestConfig() needs a globalTimeout of at least 1 ms; a run is always bounded.");
@@ -203,7 +251,7 @@ function browserTestConfig({
     }
   }
   const managed = managedBaseUrl(environment);
-  const workers = browserTestWorkers({ env: environment });
+  const { workers, memory } = workersOf({ env: environment, argv: process.argv, cwd, availableMemory });
   // A host serving the managed target several app servers: this worker's own, and its signed-in state.
   const workerTargets = managed ? managedWorkerTargets(environment) : null;
   const managedIndex = Number.parseInt(String(environment.TEST_PARALLEL_INDEX || "0"), 10) || 0;
@@ -239,7 +287,8 @@ function browserTestConfig({
   const storageState = workerTarget ? workerTarget.storageState : String(environment.PLAYWRIGHT_STORAGE_STATE || "").trim();
   const settings = {
     workers, host: HOST, basePort, server, build, prepare, env, health, workerEnvironments,
-    ...(signedInStates ? { signIn, signedInStates } : {})
+    ...(signedInStates ? { signIn, signedInStates } : {}),
+    ...(memory ? { memory } : {})
   };
 
   return {

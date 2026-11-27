@@ -45,6 +45,8 @@ Local functions
 - `waitUntilReady(url, server, name)`
 - `running(server)`
 - `delay(ms)`
+- `treePeakBytes(pid)`
+- `recordServerMemory()`
 - `stopServers()`
 - `dropPreparedCopies(exited)`
 - `stopAndExit(code)`
@@ -56,14 +58,17 @@ Exports
 ### `scripts/browser-tests.mjs`
 Exports
 - `SETTINGS_VARIABLE`
-- `browserTestConfig({ testDir = "./tests/e2e", port = 0, server = "node ./bin/server.js", build = "npm run build", prepare = "", signIn = "", env = {}, health = "/api/health", globalTimeout, actionTimeout = ACTION_TIMEOUT_MS, navigationTimeout = NAVIGATION_TIMEOUT_MS, environment = process.env, cwd = process.cwd() } = {})`
-- `browserTestWorkers({ env = process.env, argv = process.argv } = {})`
+- `browserTestConfig({ testDir = "./tests/e2e", port = 0, server = "node ./bin/server.js", build = "npm run build", prepare = "", signIn = "", env = {}, health = "/api/health", globalTimeout, actionTimeout = ACTION_TIMEOUT_MS, navigationTimeout = NAVIGATION_TIMEOUT_MS, environment = process.env, cwd = process.cwd(), availableMemory = systemAvailableMemory } = {})`
+- `browserTestWorkers({ env = process.env, argv = process.argv, cwd = process.cwd(), availableMemory = systemAvailableMemory } = {})`
 Local functions
 - `positiveInteger(value)`
 - `withoutTrailingSlash(url)`
 - `managedBaseUrl(env)`
 - `managedWorkerTargets(env)`
 - `commandLineWorkers(argv)`
+- `systemAvailableMemory()`
+- `memoryWorkers(budgeted, { cwd, availableMemory })`
+- `workersOf({ env, argv, cwd, availableMemory })`
 - `listen(port)`
 - `freeConsecutivePorts(host, count)`
 - `preparedWorkerEnvironment(file, index)`

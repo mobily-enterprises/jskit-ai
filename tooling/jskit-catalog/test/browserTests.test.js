@@ -494,9 +494,10 @@ test("a local run starts one server per worker, each on its own port and with it
       assert.equal(browserTestConfig({ signIn: settings.signIn, environment: signedInWorker, cwd: root }).use.storageState,
         `${settings.signedInStates}-2.json`);
       // Stopped, the run removes the files it left for its workers: each run's ports, and so its file names, are its own.
+      // It keeps only its servers' peak memory, which the next run's worker count reads (on Linux).
       child.kill("SIGTERM");
       assert.equal(await exitOf(child), 143);
-      assert.deepEqual(await readdir(cache), []);
+      assert.deepEqual(await readdir(cache), process.platform === "linux" ? ["server-memory.json"] : []);
     } finally {
       child.kill("SIGTERM");
     }

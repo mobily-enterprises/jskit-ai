@@ -16,7 +16,7 @@
 // when it stops, so they never pile up in the cache, nor outlive the sessions they hold.
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { createWriteStream, fstatSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { createWriteStream, fstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import net from "node:net";
 import path from "node:path";
@@ -35,6 +35,10 @@ const DROP_WAIT_MS = 5_000;
 // Where database-runtime's prepareTestDatabases() keeps, in this process, each set of numbered copies it made with its
 // drop: the app's prepare module loads the app's own copy of that package, so the launcher reads them here.
 const PREPARED_COPIES = Symbol.for("@jskit-ai/database-runtime/preparedTestDatabaseCopies");
+
+// The peak resident memory of the largest app server of a run, beside its worker environments, for the next run's
+// worker count (browserTestWorkers()).
+const SERVER_MEMORY = "server-memory.json";
 
 const seconds = (since) => `${((performance.now() - since) / 1000).toFixed(1)}s`;
 const words = (command) => String(command).trim().split(/\s+/u).filter(Boolean);
@@ -108,11 +112,54 @@ const servers = [];
 let stopping = false;
 // The files this run leaves for its workers, which it removes when it stops.
 let runFiles = [];
+// Where this run records its servers' peak memory as they stop.
+let serverMemoryFile = "";
 // The prepare module's work, which a stop waits for (within DROP_WAIT_MS) so the copies it is making are dropped too.
 let preparing = Promise.resolve();
 const running = (server) => server.exitCode === null && server.signalCode === null;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms, false));
+/** The peak resident memory (VmHWM) of process `pid` and each process under it, added up, in bytes (Linux's /proc). */
+function treePeakBytes(pid) {
+  const children = new Map();
+  for (const entry of readdirSync("/proc").filter((name) => /^\d+$/u.test(name))) {
+    let stat;
+    try {
+      stat = readFileSync(`/proc/${entry}/stat`, "utf8");
+    } catch {
+      continue; // It ended while the others were read.
+    }
+    // "pid (name) state ppid ...", where the name may hold spaces and parentheses.
+    const parent = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]);
+    children.set(parent, [...(children.get(parent) ?? []), Number(entry)]);
+  }
+  let total = 0;
+  for (const queue = [pid]; queue.length > 0;) {
+    const current = queue.pop();
+    try {
+      total += Number(readFileSync(`/proc/${current}/status`, "utf8").match(/^VmHWM:\s+(\d+) kB$/mu)?.[1] ?? 0) * 1024;
+    } catch {
+      // It ended while the others were read.
+    }
+    queue.push(...(children.get(current) ?? []));
+  }
+  return total;
+}
+/** Records the peak memory of the largest of the run's app servers as they stop, for the next run's worker count. */
+function recordServerMemory() {
+  if (process.platform !== "linux" || !serverMemoryFile) return;
+  try {
+    const peak = Math.max(0, ...servers.filter(running).map((server) => treePeakBytes(server.pid)));
+    if (peak < 1) return;
+    // Written whole, then renamed, so a run starting beside this one never reads half of it.
+    writeFileSync(`${serverMemoryFile}.${process.pid}`, JSON.stringify({ serverPeakBytes: peak }));
+    renameSync(`${serverMemoryFile}.${process.pid}`, serverMemoryFile);
+  } catch (error) {
+    console.error(`[browser-tests] The servers' peak memory was not recorded (${error.message}); the next run goes by the ` +
+      "peak an earlier run recorded, if any.");
+  }
+}
 function stopServers() {
+  if (!stopping) recordServerMemory();
   stopping = true;
   for (const server of servers) if (running(server)) server.kill("SIGTERM");
 }
@@ -158,8 +205,11 @@ const started = performance.now();
 const appRoot = process.cwd();
 const {
   workers, host, basePort, server, build, prepare, env, health, workerEnvironments: workerEnvironmentsFile, signIn,
-  signedInStates, terminal
+  signedInStates, terminal, memory
 } = JSON.parse(process.env[SETTINGS_VARIABLE] || "{}");
+serverMemoryFile = workerEnvironmentsFile ? path.join(path.dirname(workerEnvironmentsFile), SERVER_MEMORY) : "";
+// Fewer workers than the test budget allows, for the memory available: said before anything starts.
+if (memory) console.log(`[browser-tests] ${memory}.`);
 // The servers, and the databases prepared for them, are APP_ENV=test.
 useTestAppEnvironment(process.env, "jskit browser tests");
 const baseEnvironment = { ...process.env };
