@@ -2,6 +2,7 @@ import { computed, ref } from "vue";
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { AUTH_EMAIL_REGEX } from "@jskit-ai/auth-core/shared/authConstraints";
 import {
+  readPlacementSurfaceConfig,
   resolveAllowedOriginsFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceRootPathFromPlacementContext
@@ -41,14 +42,28 @@ function resolveInitialMode() {
 }
 
 /**
+ * Where a sign-in lands without a usable returnTo (none, or one refused as foreign or as a sign-in loop, as after a
+ * sign-out): the app's `fallbackReturnTo`, else the root of its default surface (`config.surfaceDefaultId`), its own
+ * screens even where its web root `/` is a website; `/` when it places no surface, or when that root names a parameter.
+ * @param {Record<string, any> | null} placementContext
+ * @param {string} fallbackReturnTo
+ */
+function landingPath(placementContext, fallbackReturnTo) {
+  const named = String(fallbackReturnTo || "").trim();
+  if (named) return named;
+  const root = resolveSurfaceRootPathFromPlacementContext(placementContext, readPlacementSurfaceConfig(placementContext).defaultSurfaceId);
+  return root.includes("/:") ? "/" : root;
+}
+
+/**
  * @param {{
  *   placementContext: import("vue").Ref<Record<string, any> | null>,
  *   fallbackReturnTo?: string,
  *   signedIn?: boolean
- * }} options `fallbackReturnTo` is where a sign-in lands without a usable returnTo; `signedIn` is the session the
- * shell read at boot.
+ * }} options `fallbackReturnTo` is where a sign-in lands without a usable returnTo, by default the root of the app's
+ * default surface (landingPath()); `signedIn` is the session the shell read at boot.
  */
-export function useLoginViewState({ placementContext, fallbackReturnTo = "/", signedIn = false }) {
+export function useLoginViewState({ placementContext, fallbackReturnTo = "", signedIn = false }) {
   const { t } = useJskitText();
   const mode = ref(resolveInitialMode());
   const linkEmail = normalizeEmailAddress(readWindowSearchParam("email"));
@@ -151,18 +166,19 @@ export function useLoginViewState({ placementContext, fallbackReturnTo = "/", si
   const allowedReturnToOrigins = computed(() =>
     resolveAllowedOriginsFromPlacementContext(placementContext.value)
   );
+  const landing = landingPath(placementContext.value, fallbackReturnTo);
   const requestedReturnTo = ref(
-    normalizeAuthReturnToPath(readWindowSearchParam("returnTo"), fallbackReturnTo, {
+    normalizeAuthReturnToPath(readWindowSearchParam("returnTo"), landing, {
       allowedOrigins: allowedReturnToOrigins.value
     })
   );
   const mainScreenPath = computed(() => {
-    const normalizedReturnTo = normalizeAuthReturnToPath(requestedReturnTo.value, fallbackReturnTo, {
+    const normalizedReturnTo = normalizeAuthReturnToPath(requestedReturnTo.value, landing, {
       allowedOrigins: allowedReturnToOrigins.value
     });
     const surfaceId = resolveSurfaceIdFromPlacementPathname(placementContext.value, normalizedReturnTo);
     const rootPath = resolveSurfaceRootPathFromPlacementContext(placementContext.value, surfaceId || "");
-    return normalizeAuthReturnToPath(rootPath, fallbackReturnTo, {
+    return normalizeAuthReturnToPath(rootPath, landing, {
       allowedOrigins: allowedReturnToOrigins.value
     });
   });

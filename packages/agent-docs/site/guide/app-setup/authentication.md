@@ -1050,14 +1050,16 @@ too, keeping the name.
 
 A sign-in lands on the page its `returnTo` names. Without one, or with one
 refused as on another origin or as a sign-in or sign-out page, it lands on
-`DefaultLoginView`'s `fallbackReturnTo` prop, `/` by default. An app whose `/`
-is not its app, such as a static website its server serves, names its landing
-there (`<DefaultLoginView fallbackReturnTo="/account">`, in its `LoginView.vue`
-wrapper). Sign-out passes its own `returnTo` on to sign-in, and without one
-opens sign-in without one, so that landing applies after it too. A browser the
-shell found signed in at boot is shown no form: the page checks the session
-again and sends it on, and shows the form only if the session has ended. A
-confirmation link or a provider's callback still shows its own state.
+`DefaultLoginView`'s `fallbackReturnTo` prop, by default the root of the app's
+default surface (`config.surfaceDefaultId`: `/home` in the foundations), so an
+app whose `/` is a website, such as a static one its server serves, lands on
+its own screens. An app names another landing there (`<DefaultLoginView
+fallbackReturnTo="/account">`, in its `LoginView.vue` wrapper); an app without
+surfaces lands on `/`. Sign-out passes its own `returnTo` on to sign-in, and
+without one opens sign-in without one, so that landing applies after it too. A
+browser the shell found signed in at boot is shown no form: the page checks the
+session again and sends it on, and shows the form only if the session has
+ended. A confirmation link or a provider's callback still shows its own state.
 
 A sign-in link may name the address to sign in with (`/auth/login?email=...`,
 as an invitation's link names the invited one). That address fills the form

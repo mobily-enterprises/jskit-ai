@@ -79,10 +79,11 @@ Exports
 
 ### `src/client/composables/loginView/useLoginViewState.js`
 Exports
-- `useLoginViewState({ placementContext, fallbackReturnTo = "/", signedIn = false })`
+- `useLoginViewState({ placementContext, fallbackReturnTo = "", signedIn = false })`
 Local functions
 - `readWindowSearchParam(name = "")`
 - `resolveInitialMode()`
+- `landingPath(placementContext, fallbackReturnTo)`
 
 ### `src/client/composables/loginView/useLoginViewValidation.js`
 Exports
@@ -107,7 +108,7 @@ Exports
 
 ### `src/client/composables/useLoginView.js`
 Exports
-- `useLoginView({ fallbackReturnTo = "/" } = {})`
+- `useLoginView({ fallbackReturnTo = "" } = {})`
 
 ### `src/client/composables/useResetPasswordView.js`
 Exports

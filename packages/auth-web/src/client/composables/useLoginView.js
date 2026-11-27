@@ -14,9 +14,10 @@ import { useSessionRecheckOnShow } from "./loginView/useSessionRecheckOnShow.js"
  * returnTo landing and the session check on mount and on return to the page. `DefaultLoginView` renders it in
  * Material 3; an app with its own design system renders it in its own (`@jskit-ai/auth-web/client/composables/useLoginView`).
  * Call it in a component's setup. A refusal sets `errorMessage` and is also reported to the shell's error runtime.
- * @param {{ fallbackReturnTo?: string }} [options] where a sign-in lands without a usable returnTo
+ * @param {{ fallbackReturnTo?: string }} [options] where a sign-in lands without a usable returnTo; by default the root
+ *   of the app's default surface
  */
-function useLoginView({ fallbackReturnTo = "/" } = {}) {
+function useLoginView({ fallbackReturnTo = "" } = {}) {
   const { context: placementContext } = useWebPlacementContext();
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();

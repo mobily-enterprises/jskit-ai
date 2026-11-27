@@ -366,8 +366,9 @@ import { useLoginView } from "../composables/useLoginView.js";
 import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
-  // Where a sign-in lands when the address names no returnTo, or one refused as foreign or as a sign-in loop.
-  fallbackReturnTo: { type: String, default: "/" }
+  // Where a sign-in lands when the address names no returnTo, or one refused as foreign or as a sign-in loop; by
+  // default the root of the app's default surface (config.surfaceDefaultId), not a website at "/".
+  fallbackReturnTo: { type: String, default: "" }
 });
 
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
