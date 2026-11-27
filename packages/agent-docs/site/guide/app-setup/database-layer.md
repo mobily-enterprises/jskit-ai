@@ -342,6 +342,9 @@ and 4 and [Transactions](/guide/framework/data-access#transactions).
 - For every schema change, run the normal preparation entrypoint against a
   fresh disposable database on the selected engine with the complete package
   graph. An existing development database can hide ordering failures.
+- Run `jskit migration-history` as its own check, beside the test suite: test
+  runs restore a snapshot and never replay the migrations, so it is what proves
+  the whole history still builds, from empty, the schema the tests run on.
 - In a separate disposable fixture at the previous schema and ledger, apply
   the upgrade and prove representative existing rows survive.
 - For multi-step MySQL or MariaDB DDL, reproduce partial completion (for
@@ -461,8 +464,18 @@ the application's `knexfile.js`:
   that database, instead of running `migrate.latest()` over the whole history.
 - A browser run's seed is not part of the snapshot: it runs in each restored
   database, in one transaction ([Browser test preparation](#browser-test-preparation)).
-- Only the fresh-schema check in [Verification](#verification) replays the
-  whole history, as its own step.
+- Only `jskit migration-history`, the full-history check in
+  [Verification](#verification), replays the whole history, as its own step:
+  the migrations, or the knexfile's `testDatabaseSchema` build, from empty
+  into `TEST_DB_NAME`; a second pass that must find nothing left; then the
+  tables, definitions and rows it built compared with the snapshot the tests
+  run on, all but when each migration ran. It fails, naming what differs, when
+  a migration builds something else on each replay (from the clock, a random
+  value or what the server holds), and it leaves `TEST_DB_NAME` as the
+  snapshot, so it needs no database a test run does not
+  (`jskit migration-history: 42 migrations replayed from empty into shop_test
+  in 3104ms, nothing left for a second pass, the same tables, definitions and
+  rows as the test snapshot (37 tables)`).
 - The harness reports each phase (digest, restore or rebuild, seed) with its
   duration, and those durations are read, so slow preparation is visible
   instead of hiding inside the next test that waits for it. A slow phase is

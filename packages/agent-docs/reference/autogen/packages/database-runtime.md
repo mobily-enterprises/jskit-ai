@@ -111,6 +111,7 @@ Exports
 - `countRuntimeQueries(work)`
 - `matchesSnapshot(knexConfig, database, snapshot)`
 - `prepareTestDatabases({ knexConfig, environment, variable = "TEST_DB_NAME", count = 1, seed, schema = {}, appRoot = process.cwd() })`
+- `proveMigrationHistory({ knexConfig, environment, schema = {}, appRoot = process.cwd() })`
 - `requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {})`
 - `requireTestDatabase(environment)`
 - `restoreTestDatabase(knexConfig, database, snapshot)`

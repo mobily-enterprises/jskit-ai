@@ -60,7 +60,8 @@ database time, apply that page to the path.
 - `jskit test --databases` restores each file's database from a snapshot
   rebuilt only when the migrations' digest changes. A file that runs
   `knex.migrate.latest()` itself replays the whole history for every file:
-  remove it, and let the full history run once in its own check.
+  remove it, and let the full history run once in its own check,
+  `jskit migration-history`.
 - A fixture every file only reads (a built app, a composed project, a
   generated tree) is made once, before any file starts, by a global setup
   module: `jskit test --test-global-setup=tests/helpers/globalSetup.js`

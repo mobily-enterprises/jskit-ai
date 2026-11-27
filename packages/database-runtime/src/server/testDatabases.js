@@ -257,6 +257,56 @@ async function restoreTestDatabase(knexConfig, database, snapshot) {
   return replaced;
 }
 
+/**
+ * The full-history migration proof (`jskit migration-history`). Test runs restore their databases from the stored
+ * snapshot and never replay the migrations, so this replays them all, or the application's `schema.build`, from empty
+ * into TEST_DB_NAME; requires a second pass of the migrations to find none left; and compares what was built with the
+ * snapshot the tests run on: on MySQL and MariaDB as a restore compares, on PostgreSQL each table's columns,
+ * constraints, indexes and rows, each view and each sequence; all but the migration ledger's rows, which hold when each
+ * migration ran. Passing or failing, it leaves TEST_DB_NAME as the snapshot. It uses no database a test run does not.
+ * @param {object} options
+ * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig The application's Knex
+ *   migration configuration (its knexfile.js).
+ * @param {Record<string, string | undefined>} options.environment The application's environment, such as `process.env`.
+ * @param {TestDatabaseSchema} [options.schema] How the schema is built, when not by the migrations alone.
+ * @param {string} [options.appRoot]
+ * @returns {Promise<{ summary: string }>}
+ */
+async function proveMigrationHistory({ knexConfig, environment, schema = {}, appRoot = process.cwd() }) {
+  const dialect = dialectOf(knexConfig);
+  const name = requireDisposableDatabase(environment, "TEST_DB_NAME", 1, { connected: knexConfig.connection.database });
+  const root = path.resolve(appRoot);
+  const { key, migrations } = await testDatabaseSnapshotKey(knexConfig, { appRoot: root, schemaFiles: schema.files });
+  const build = schema.build ?? ((knex) => knex.migrate.latest());
+  const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, root, build);
+  const failure = (reason) => new Error(`The migration history proof: ${reason}`);
+  try {
+    await dialect.clear(knexConfig, name);
+    const started = performance.now();
+    const left = await withKnex(knexConfig, name, async (knex) => {
+      await build(knex);
+      return (await knex.migrate.latest())[1];
+    });
+    const replayMs = milliseconds(started);
+    if (left.length > 0) {
+      throw failure(`a second pass over ${name} applied ${left.length} migration(s) the ${schema.build ? "schema build" : "first"} ` +
+        `left: ${left.join(", ")}. The tests run on what the first pass built, without them: build the whole schema in one.`);
+    }
+    const differing = await dialect.differences(knexConfig, name, snapshot);
+    if (differing.length > 0) {
+      throw failure(`${name}, built from empty, differs from the test snapshot in ${differing.join(", ")}: a migration builds ` +
+        "something else on each replay (from the clock, a random value or what the server holds), so the tests run on a schema " +
+        "the history does not build. Make each migration build the same definitions and rows every time.");
+    }
+    return {
+      summary: `${schema.build ? "schema built" : `${migrations.length} migrations replayed`} from empty into ${name} in ${replayMs}ms, ` +
+        `nothing left for a second pass, the same tables, definitions and rows as the test snapshot (${snapshot.tables.length} tables)`
+    };
+  } finally {
+    await restoreTestDatabase(knexConfig, name, snapshot);
+  }
+}
+
 /** The server refused the database user a database or table it needs, rather than failing in some other way. */
 function refusedPrivilege(error) {
   return MYSQL_REFUSED_PRIVILEGE.has(error?.code) || error?.code === POSTGRES_INSUFFICIENT_PRIVILEGE;
@@ -498,6 +548,7 @@ export {
   countRuntimeQueries,
   matchesSnapshot,
   prepareTestDatabases,
+  proveMigrationHistory,
   requireDisposableDatabase,
   requireTestDatabase,
   restoreTestDatabase,

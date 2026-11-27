@@ -102,6 +102,26 @@ function foreignKeyCheckFor(cwd) {
 }
 
 /**
+ * The application's database setup as `command` reads it: its knexfile.js (whose loaded environment is returned, and
+ * then undone), the schema build it may export, and its installed @jskit-ai/database-runtime's test databases module.
+ * @param {string} cwd
+ * @param {string} command
+ */
+async function applicationTestDatabases(cwd, command) {
+  const knexfile = KNEXFILES.map((name) => path.join(cwd, name)).find((file) => existsSync(file));
+  if (!knexfile) throw new Error(`${command} reads the application's knexfile.js, and ${cwd} has none.`);
+  let testDatabases;
+  try {
+    testDatabases = createRequire(path.join(cwd, "package.json")).resolve(TEST_DATABASES);
+  } catch {
+    throw new Error(`${command} needs ${TEST_DATABASES}; install the application's JSKIT database driver.`);
+  }
+  const { result: { default: knexConfig, testDatabaseSchema: schema }, environment } = await withOwnEnvironment(async () =>
+    import(pathToFileURL(knexfile).href));
+  return { knexConfig, schema, environment, runtime: await import(pathToFileURL(testDatabases).href) };
+}
+
+/**
  * The run's databases for `count` files at once, or one file at a time on the connected database. Its `cleanup()` ends
  * the run: it removes the run's settings and drops its numbered copies of TEST_DB_NAME, answering what it dropped (an
  * installed @jskit-ai/database-runtime from before that answers nothing and leaves the copies).
@@ -111,18 +131,30 @@ function foreignKeyCheckFor(cwd) {
  *   cleanup(): Promise<string> | void }>}
  */
 async function testDatabaseRunFor(count, cwd = process.cwd()) {
-  const knexfile = KNEXFILES.map((name) => path.join(cwd, name)).find((file) => existsSync(file));
-  if (!knexfile) throw new Error(`jskit test ${OPTION} reads the application's knexfile.js, and ${cwd} has none.`);
-  let testDatabases;
-  try {
-    testDatabases = createRequire(path.join(cwd, "package.json")).resolve(TEST_DATABASES);
-  } catch {
-    throw new Error(`jskit test ${OPTION} needs ${TEST_DATABASES}; install the application's JSKIT database driver.`);
-  }
-  const { result: { default: knexConfig, testDatabaseSchema: schema }, environment } = await withOwnEnvironment(async () =>
-    import(pathToFileURL(knexfile).href));
-  const { testDatabaseRun } = await import(pathToFileURL(testDatabases).href);
-  return testDatabaseRun({ knexConfig, environment, count, schema, appRoot: cwd, checkDatabase: foreignKeyCheckFor(cwd) });
+  const { knexConfig, schema, environment, runtime } = await applicationTestDatabases(cwd, `jskit test ${OPTION}`);
+  return runtime.testDatabaseRun({ knexConfig, environment, count, schema, appRoot: cwd, checkDatabase: foreignKeyCheckFor(cwd) });
 }
 
-export { OPTION as DATABASES_OPTION, foreignKeyCheckFor, testDatabaseRunFor };
+/**
+ * `jskit migration-history`: the full-history migration proof of the application in `cwd` (proveMigrationHistory() in
+ * @jskit-ai/database-runtime), written to stdout, or why it failed to stderr. Answers the exit code.
+ * @param {string} [cwd]
+ * @returns {Promise<number>}
+ */
+async function runMigrationHistory(cwd = process.cwd()) {
+  const command = "jskit migration-history";
+  try {
+    const { knexConfig, schema, environment, runtime } = await applicationTestDatabases(cwd, command);
+    if (!runtime.proveMigrationHistory) {
+      throw new Error(`${command} needs a newer ${TEST_DATABASES}: update the application's JSKIT packages.`);
+    }
+    const { summary } = await runtime.proveMigrationHistory({ knexConfig, environment, schema, appRoot: cwd });
+    process.stdout.write(`${command}: ${summary}\n`);
+    return 0;
+  } catch (error) {
+    process.stderr.write(`${command}: ${error instanceof Error ? error.message : String(error)}\n`);
+    return 1;
+  }
+}
+
+export { OPTION as DATABASES_OPTION, foreignKeyCheckFor, runMigrationHistory, testDatabaseRunFor };

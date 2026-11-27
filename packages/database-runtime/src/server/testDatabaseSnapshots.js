@@ -28,6 +28,22 @@ const MYSQL_SNAPSHOT_CONNECTION = Object.freeze({
 });
 const MYSQL_GENERATED_COLUMN = /\b(?:VIRTUAL|STORED|PERSISTENT) GENERATED\b/iu;
 const INSERT_BATCH = 500;
+// Each table, view and sequence of the current schema, by name, with its definition: a table's columns in order (type,
+// NOT NULL, default), its constraints and its indexes; a view's query; a sequence's type, bounds and last value.
+const POSTGRES_DEFINITIONS = `
+  SELECT c.relname AS name, c.relkind::text AS kind, concat_ws(E'\\n',
+    (SELECT string_agg(format('%s %s%s%s', a.attname, format_type(a.atttypid, a.atttypmod),
+        CASE WHEN a.attnotnull THEN ' NOT NULL' ELSE '' END, ' DEFAULT ' || pg_get_expr(d.adbin, d.adrelid)), ', ' ORDER BY a.attnum)
+      FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+      WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped),
+    (SELECT string_agg(pg_get_constraintdef(o.oid), '; ' ORDER BY pg_get_constraintdef(o.oid)) FROM pg_constraint o WHERE o.conrelid = c.oid),
+    (SELECT string_agg(pg_get_indexdef(i.indexrelid), '; ' ORDER BY pg_get_indexdef(i.indexrelid)) FROM pg_index i WHERE i.indrelid = c.oid),
+    CASE WHEN c.relkind IN ('v', 'm') THEN pg_get_viewdef(c.oid) END) AS definition
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p', 'v', 'm')
+  UNION ALL
+  SELECT sequencename, 'S', concat_ws(' ', data_type, start_value, min_value, max_value, increment_by, cycle, last_value)
+  FROM pg_sequences WHERE schemaname = current_schema()`;
 
 const ledgerOf = (knexConfig) => knexConfig.migrations?.tableName || "knex_migrations";
 
@@ -206,6 +222,23 @@ const mysql = {
     });
   },
 
+  /** Empties `database`, every table of it dropped, and creates it when missing. */
+  async clear(knexConfig, database) {
+    await mysql.createDatabase(knexConfig, database);
+    await withKnex(knexConfig, database, async (knex) => mysql.replaceTables(knex, database, await mysql.tables(knex, database), []));
+  },
+
+  /**
+   * The tables of `database` that differ from the snapshot's, found as a restore finds them (changedTables()), except
+   * the migration ledger, whose rows hold when each migration ran.
+   */
+  async differences(knexConfig, database, snapshot) {
+    const { tables } = JSON.parse(readFileSync(snapshot.file, "utf8"));
+    const changed = await withKnex(knexConfig, database, (knex) => mysql.changedTables(knex, database, tables),
+      MYSQL_SNAPSHOT_CONNECTION);
+    return changed.filter((name) => name !== ledgerOf(knexConfig));
+  },
+
   /** Replaces the tables of `database` that differ from the snapshot's (changedTables()), and answers their names. */
   async restore(knexConfig, database, snapshot) {
     const { tables } = JSON.parse(readFileSync(snapshot.file, "utf8"));
@@ -271,6 +304,37 @@ const postgres = {
     // Read, then closed: a template database is copied only while nothing is connected to it.
     const { tables, migrations } = await postgres.outline(knexConfig, snapshotDatabase);
     return { key, database: snapshotDatabase, migrations, tables, replayed };
+  },
+
+  /** Creates `database` anew, empty. */
+  async clear(knexConfig, database) {
+    await postgres.maintenance(knexConfig, async (knex) => {
+      await knex.raw("DROP DATABASE IF EXISTS ??", [database]);
+      await knex.raw("CREATE DATABASE ??", [database]);
+    });
+  },
+
+  /**
+   * Each table, view and sequence of `database` by name, with its definition (POSTGRES_DEFINITIONS) and, for a table or
+   * view, a digest of its rows in any order, the migration ledger's aside: they hold when each migration ran.
+   */
+  async definitions(knexConfig, database) {
+    return withKnex(knexConfig, database, async (knex) => {
+      const definitions = new Map();
+      for (const { name, kind, definition } of (await knex.raw(POSTGRES_DEFINITIONS)).rows) {
+        const rows = kind === "S" || name === ledgerOf(knexConfig) ? "" : (await knex.raw(
+          "SELECT md5(COALESCE(string_agg(t::text, E'\\n' ORDER BY t::text), '')) AS digest FROM ?? AS t", [name])).rows[0].digest;
+        definitions.set(name, `${definition}\n${rows}`);
+      }
+      return definitions;
+    });
+  },
+
+  /** The tables, views and sequences of `database` whose definition or rows differ from the snapshot database's. */
+  async differences(knexConfig, database, snapshot) {
+    const built = await postgres.definitions(knexConfig, database);
+    const captured = await postgres.definitions(knexConfig, snapshot.database);
+    return [...new Set([...built.keys(), ...captured.keys()])].filter((name) => built.get(name) !== captured.get(name)).sort();
   },
 
   /**

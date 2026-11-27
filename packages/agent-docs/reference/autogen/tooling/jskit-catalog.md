@@ -432,11 +432,13 @@ Local functions
 Exports
 - `DATABASES_OPTION`
 - `foreignKeyCheckFor(cwd)`
+- `runMigrationHistory(cwd = process.cwd())`
 - `testDatabaseRunFor(count, cwd = process.cwd())`
 Local functions
 - `withOwnEnvironment(load)`
 - `exportedTableResources(namespace, isTableResource)`
 - `keyText({ tableName, columns, referencedTableName, referencedColumns })`
+- `applicationTestDatabases(cwd, command)`
 
 ### `scripts/test-environment.mjs`
 Exports

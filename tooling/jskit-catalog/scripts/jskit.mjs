@@ -18,6 +18,7 @@ import { checkMaterial3, formatMaterial3Report } from "./material3.mjs";
 import { checkPackageNix, formatPackageNixReport, packageNix } from "./package-nix.mjs";
 import { checkProject, updateProject } from "./project-packages.mjs";
 import { runTests } from "./test-command.mjs";
+import { runMigrationHistory } from "./test-databases.mjs";
 import { checkTestRuns, formatTestRunsReport } from "./test-runs.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
@@ -35,6 +36,7 @@ function usage() {
     "  jskit i18n check <locale> [--root <path>]",
     "  jskit package nix [--root <path>]",
     "  jskit test [node options] [files or globs]",
+    "  jskit migration-history",
     "  jskit browser-test-server [host] [port] [workers]",
     "",
     "Commands:",
@@ -91,6 +93,13 @@ function usage() {
     "               and end, and fails, unless V64_TEST_CONCURRENCY is set to what the databases allow. Given no",
     "               files, it fails when a file under tests/ is named as a test (x.integration.js, x.spec.js) that",
     "               node's default pattern would leave out; a database test is named x.integration.test.js.",
+    "  migration-history",
+    "               Prove the full migration history, which test runs never replay (they restore TEST_DB_NAME and its",
+    "               copies from a stored snapshot): replay every migration of the app and its packages, or the knexfile's",
+    "               testDatabaseSchema build, from empty into TEST_DB_NAME, require a second pass to find nothing left,",
+    "               compare the tables, definitions and rows built with the test snapshot (all but when each migration",
+    "               ran), and leave TEST_DB_NAME as the snapshot. It fails, saying what differs, when a migration builds",
+    "               something else on each replay. Run it as its own check, beside the test suite.",
     "  browser-test-server",
     "               Serve the app for a host's browser test run, such as a Vibe64 Outputs target with Data test, on",
     "               [host] [port] (else HOST and PORT): [workers] servers (1 to 64, else 1) of the app's",
@@ -109,7 +118,7 @@ function parseArgs(argv = []) {
   const command = commandArgument === "--help" || commandArgument === "-h"
     ? "help"
     : commandArgument;
-  if (command === "test" || command === "browser-test-server") {
+  if (command === "test" || command === "browser-test-server" || command === "migration-history") {
     return { command, args };
   }
   const options = {
@@ -300,6 +309,10 @@ async function main(argv = process.argv.slice(2)) {
   }
   if (options.command === "test") {
     process.exitCode = await runTests(options.args);
+    return;
+  }
+  if (options.command === "migration-history") {
+    process.exitCode = await runMigrationHistory();
     return;
   }
   if (options.command === "browser-test-server") {
