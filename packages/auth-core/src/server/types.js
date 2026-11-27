@@ -208,6 +208,10 @@
  *   which decides whose and when: for a caller with no session of that account, such as a command signed in with an
  *   API key that asks for its creator's code. It counts the same attempts and waits as verifySecondFactor, uses a code
  *   up the same way, and marks no session. A refusal throws.
+ * @property {(input: { userId: string }) => Promise<"active" | "disabled" | "missing">} accountStateOf Whether an
+ *   account the application names (a provider user id) is active, disabled or missing, as verifySecondFactorOf would
+ *   find it, so the application can refuse before it asks for a code: one read, which checks nothing, spends no attempt
+ *   and writes nothing.
  * @property {(request: object, input: AuthSecondFactorProof) => Promise<AuthSecondFactorRecoveryCodes>}
  *   replaceSecondFactorRecoveryCodes
  * @property {(request: object, input: AuthSecondFactorProof) => Promise<{ ok: true }>} removeSecondFactor

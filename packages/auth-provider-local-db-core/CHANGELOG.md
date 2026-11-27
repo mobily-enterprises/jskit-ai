@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Local auth's `accountStateOf({ userId })` runs on the database backend as one select of the users table (SQLite, MariaDB/MySQL and PostgreSQL), changing no row.
 - The users repository answers `findAllByEmail(email)`, every account with the email: one or none, since the users table's email is unique. Local auth's service keys act as a user by email through it.
 - The migration `auth_local_db_sign_in_facts` adds nullable `sign_in_ip` and `sign_in_user_agent` columns to `auth_local_sessions` (where a session was signed in from, written once at its creation) and nullable `password_changed_at` and `email_changed_at` timestamps to `auth_local_users` (set by `updatePassword`, a reset or a change, and by a used email-change link). Run `npm run db:migrate`. Rows from before it keep null: their sessions answer no sign-in address or browser, so an action that asks for them makes their people sign in again. The owner APIs carry them: `auth.local.sessions.create` takes `signInIp` and `signInUserAgent`, sessions answer them, accounts answer `passwordChangedAt` and `emailChangedAt`, and `auth.local.accounts.updatePassword` sets `passwordChangedAt`.
 - The migration `auth_local_db_oauth_invitation` adds a nullable `invitation_token` text column to `auth_local_oauth_attempts`, where a provider sign-in started from an invitation keeps its token until the sign-in ends. Run `npm run db:migrate`.

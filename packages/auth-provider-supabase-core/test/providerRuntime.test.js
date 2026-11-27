@@ -71,6 +71,7 @@ test("AuthSupabaseProvider exposes a configured provider-owned auth service", as
     status: 501,
     code: "AUTH_OPERATION_UNSUPPORTED"
   });
+  assert.throws(() => authService.accountStateOf({ userId: "usr_1" }), { status: 501, code: "AUTH_OPERATION_UNSUPPORTED" });
   assert.equal(authService.getCapabilities().features.emailChange, false);
   assert.throws(() => authService.requestEmailChangeForUser({ userId: "usr_1", email: "new@example.com" }), {
     status: 501,

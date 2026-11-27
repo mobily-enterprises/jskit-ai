@@ -132,6 +132,7 @@ test("capabilities: one OIDC button, no password features, preview identity unch
     status: 501,
     code: "AUTH_OPERATION_UNSUPPORTED"
   });
+  assert.throws(() => authService.accountStateOf({ userId: "usr_1" }), { status: 501, code: "AUTH_OPERATION_UNSUPPORTED" });
   // The identity provider owns the email; JSKIT does not change it.
   assert.equal(features.emailChange, false);
   assert.throws(() => authService.confirmEmailChange({ token: "link" }), { status: 501, code: "AUTH_OPERATION_UNSUPPORTED" });
