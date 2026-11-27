@@ -87,6 +87,9 @@ test("only loopback, localhost names and the database hosts the environment name
   assert.equal(isAllowedTestHost("db.internal", env), true);
   assert.equal(isAllowedTestHost("pg.example.test", env), true);
   assert.equal(isAllowedTestHost("other.example.test", env), false);
+  // A database host given as an address is the database's, whatever its range.
+  assert.equal(isAllowedTestHost("10.0.0.5", { DB_HOST: "10.0.0.5" }), true);
+  assert.equal(isAllowedTestHost("fd00::5", { DATABASE_URL: "mysql://app@[fd00::5]:3306/app" }), true);
   assert.equal(isAllowedTestHost("pg.example.test", { DATABASE_URL: "not a url" }), false);
 });
 
@@ -189,7 +192,8 @@ test("a file that states why it must reach the network runs unguarded beside the
     "test/shared.test.js": "// jskit-test: alone - it rewrites the shared fixture directory\n"
   }, async (root) => {
     const plan = planTestRuns(["--test-reporter=dot"], { cwd: root, concurrency: 4 });
-    assert.deepEqual(plan.network?.map(({ file, reason }) => [file, reason]), [["test/mirror.test.js", "it checks the release mirror's answer"]]);
+    assert.deepEqual(plan.network?.map(({ file, reason }) => [file, reason]),
+      [["test/mirror.test.js", "it checks the release mirror's answer"]]);
     assert.deepEqual(plan.runs, [
       ["--test", "--test-concurrency=4", "--test-reporter=dot", "test/a.test.js"],
       ["--test", "--test-concurrency=4", "--test-reporter=dot", "test/mirror.test.js"],

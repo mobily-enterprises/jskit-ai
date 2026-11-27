@@ -8,6 +8,7 @@ import { toPosixPath } from "./files.mjs";
 import { BUDGET_VARIABLE, testConcurrency } from "./test-budget.mjs";
 import { DATABASES_OPTION, testDatabaseRunFor } from "./test-databases.mjs";
 import { useTestAppEnvironment } from "./test-environment.mjs";
+import { networkGuardEnvironment, withoutNetworkGuard } from "./test-network-guard.mjs";
 import { STOPS_VARIABLE } from "./test-file-stop.mjs";
 import { reportTestTimes, writeFileStops } from "./test-time-report.mjs";
 
@@ -24,7 +25,10 @@ import { reportTestTimes, writeFileStops } from "./test-time-report.mjs";
 // should run files in parallel never silently runs them one at a time. A budget set to what the databases allow
 // (V64_TEST_CONCURRENCY) runs that way on purpose. With --list it prints the files that run would take, one per line,
 // then `Total: <n> file(s)` (the closing line Playwright's --list prints), and runs nothing: a host checks that a run
-// of named files takes exactly those before it sends them anywhere.
+// of named files takes exactly those before it sends them anywhere. Every test file, and every process it starts with
+// its environment, reaches only this machine and the test database (test-network-guard.mjs); a file that must reach
+// an outside service says why on its first line, `// jskit-test: network - <reason>`, and runs without that guard, in
+// a parallel run of its own after the others.
 
 // node --test's own default (Node 26) when it is given no files.
 const DEFAULT_PATTERN = "**/{test,test/**/*,test-*,*[._-]test}.{js,mjs,cjs,ts,mts,cts}";
@@ -35,7 +39,11 @@ const TEST_LIKE_PATTERN = "**/tests/**/*[._-]{integration,spec,specs,tests}.{js,
 const OTHER_RUNNER_FOLDER = /(?:^|\/)(?:e2e|browser)\//u;
 const OTHER_RUNNER_IMPORT = /\b(?:from|import|require)\s*\(?\s*["'](?:vitest|@playwright\/test)["']/u;
 const MARKER = /^\s*\/\/\s*jskit-test:(.*)$/u;
-const ALONE = /^\s*alone\s+-\s+(\S.*)$/u;
+const MARKED = /^\s*(alone|network)\s+-\s+(\S.*)$/u;
+const MARKER_FORMS = Object.freeze({
+  alone: "`// jskit-test: alone - <why this file cannot run beside others>`",
+  network: "`// jskit-test: network - <why this file must reach an outside service>`"
+});
 const SHARD = "--test-shard";
 // A run of only some of its files' tests, by name or `only`, says nothing about how long a whole file takes.
 const TEST_FILTER = /^--test-(?:name-pattern|skip-pattern|only)(?:=|$)/u;
@@ -64,12 +72,13 @@ function missedTestFiles(defaultFiles, cwd) {
 }
 
 /**
- * The files of a run that must run alone, from their first line. A marker that is malformed or not on the first line
- * (after a shebang) is an error, so a file never runs in parallel because its marker was missed.
- * @returns {{ alone: Array<{ file: string, reason: string }>, problems: string[] }}
+ * The files of a run that must run alone, or reach an outside service, from their first line. A marker that is
+ * malformed or not on the first line (after a shebang) is an error, so a file never runs in parallel, or unguarded,
+ * because its marker was missed.
+ * @returns {{ alone: Array<{ file: string, reason: string }>, network: Array<{ file: string, reason: string }>, problems: string[] }}
  */
-function readAloneFiles(files, cwd) {
-  const alone = [];
+function readMarkedFiles(files, cwd) {
+  const marked = { alone: [], network: [] };
   const problems = [];
   for (const file of files) {
     const lines = readFileSync(path.resolve(cwd, file), "utf8").split("\n");
@@ -77,44 +86,49 @@ function readAloneFiles(files, cwd) {
     lines.forEach((line, index) => {
       const marker = MARKER.exec(line);
       if (!marker) return;
-      const reason = ALONE.exec(marker[1])?.[1]?.trim();
+      const [, kind, reason] = MARKED.exec(marker[1]) || [];
+      const meant = /^\s*network\b/u.test(marker[1]) ? MARKER_FORMS.network : MARKER_FORMS.alone;
       if (index !== top) problems.push(`${file}:${index + 1}: a jskit-test marker belongs on the file's first line.`);
-      else if (!reason) problems.push(`${file}:${index + 1}: write it as \`// jskit-test: alone - <why this file cannot run beside others>\`.`);
-      else alone.push({ file, reason });
+      else if (!reason?.trim()) problems.push(`${file}:${index + 1}: write it as ${meant}.`);
+      else marked[kind].push({ file, reason: reason.trim() });
     });
   }
-  return { alone, problems };
+  return { ...marked, problems };
 }
 
-/** A reporter's file destination for the alone run, beside the parallel run's: `<name>.alone<ext>`; streams stay. */
-function aloneDestination(destination) {
+/** A reporter's file destination for a run of marked files, beside the parallel run's (`<name>.<kind><ext>`); streams stay. */
+function markedDestination(destination, kind) {
   if (STREAM_DESTINATIONS.has(destination)) return destination;
   const { dir, name, ext } = path.parse(destination);
-  return path.join(dir, `${name}.alone${ext}`);
+  return path.join(dir, `${name}.${kind}${ext}`);
 }
 
 /**
- * The alone run's options: the parallel run's, with each file destination moved beside it and without the shard, which
- * `aloneShard` has already applied to the alone files.
+ * A run of marked files' options: the parallel run's, with each file destination moved beside it and without the
+ * shard, which `markedShard` has already applied to those files.
  * @param {string[]} options
+ * @param {"alone" | "network"} kind
  */
-function aloneRunOptions(options) {
+function markedRunOptions(options, kind) {
   const result = [];
   for (let index = 0; index < options.length; index += 1) {
     const option = options[index];
     if (option === SHARD) index += 1;
     else if (option.startsWith(`${SHARD}=`)) continue;
     else if (option === DESTINATION && index + 1 < options.length) {
-      result.push(option, aloneDestination(options[index + 1]));
+      result.push(option, markedDestination(options[index + 1], kind));
       index += 1;
-    } else if (option.startsWith(`${DESTINATION}=`)) result.push(`${DESTINATION}=${aloneDestination(option.slice(DESTINATION.length + 1))}`);
+    } else if (option.startsWith(`${DESTINATION}=`)) result.push(`${DESTINATION}=${markedDestination(option.slice(DESTINATION.length + 1), kind)}`);
     else result.push(option);
   }
   return result;
 }
 
-/** The alone files of this run's shard (`--test-shard=<index>/<total>`), as node --test picks a shard's files. */
-function aloneShard(files, options) {
+/**
+ * The marked files (alone or network) of this run's shard (`--test-shard=<index>/<total>`), as node --test picks a
+ * shard's files.
+ */
+function markedShard(files, options) {
   const at = options.findIndex((option) => option === SHARD || option.startsWith(`${SHARD}=`));
   if (at < 0) return files;
   const [index, total] = (options[at] === SHARD ? options[at + 1] : options[at].slice(SHARD.length + 1)).split("/").map(Number);
@@ -122,7 +136,9 @@ function aloneShard(files, options) {
 }
 
 /**
- * The node --test runs for these arguments: one in parallel within the budget, then the files that must run alone.
+ * The node --test runs for these arguments: one in parallel within the budget, then the files that must reach an
+ * outside service, in parallel too, then the files that must run alone. `guarded` says, for each run, whether its
+ * processes get the network guard: all but the run of network files.
  * @param {string[]} args the arguments after `jskit test`
  * @param {{ cwd?: string, concurrency?: number }} [options]
  */
@@ -144,24 +160,34 @@ function planTestRuns(args, { cwd = process.cwd(), concurrency = testConcurrency
       `- ${missed.join("\n- ")}\nRename each to end in .test.js (a database test: <name>.integration.test.js), or ` +
       "name the files to run.");
   }
-  const { alone, problems } = readAloneFiles(files, cwd);
+  const { alone, network, problems } = readMarkedFiles(files, cwd);
   if (problems.length > 0) throw new Error(`jskit test:\n- ${problems.join("\n- ")}`);
   const parallel = ["--test", `--test-concurrency=${concurrency}`];
-  if (alone.length < 1) return { concurrency, files: files.length, paths: files, alone, runs: [[...parallel, ...args]] };
+  if (alone.length < 1 && network.length < 1) {
+    return { concurrency, files: files.length, paths: files, alone, network, runs: [[...parallel, ...args]], guarded: [true] };
+  }
 
   const options = args.filter((argument) => !(matched.get(argument)?.length > 0));
-  const aloneFiles = new Set(alone.map((entry) => entry.file));
-  const others = files.filter((file) => !aloneFiles.has(file));
-  const shardAlone = aloneShard([...aloneFiles], options);
+  const marked = new Set([...alone, ...network].map((entry) => entry.file));
+  const others = files.filter((file) => !marked.has(file));
+  const shardNetwork = markedShard(network.map((entry) => entry.file), options);
+  const shardAlone = markedShard(alone.map((entry) => entry.file), options);
+  const runs = [
+    ...(others.length > 0 ? [{ run: [...parallel, ...options, ...others], guarded: true }] : []),
+    ...(shardNetwork.length > 0 ? [{ run: [...parallel, ...markedRunOptions(options, "network"), ...shardNetwork], guarded: false }] : []),
+    ...(shardAlone.length > 0
+      ? [{ run: ["--test", "--test-concurrency=1", ...markedRunOptions(options, "alone"), ...shardAlone], guarded: true }]
+      : [])
+  ];
   return {
     concurrency,
-    files: others.length,
+    // The most files running at once: the guarded ones, then the network ones, each run in parallel.
+    files: Math.max(others.length, network.length),
     paths: files,
     alone,
-    runs: [
-      ...(others.length > 0 ? [[...parallel, ...options, ...others]] : []),
-      ...(shardAlone.length > 0 ? [["--test", "--test-concurrency=1", ...aloneRunOptions(options), ...shardAlone]] : [])
-    ]
+    network,
+    runs: runs.map(({ run }) => run),
+    guarded: runs.map(({ guarded }) => guarded)
   };
 }
 
@@ -247,6 +273,7 @@ async function runTests(args) {
   }
   process.stderr.write(`jskit test: ${plan.concurrency} test file(s) at a time (${databases ? "test databases" : source}).\n`);
   for (const { file, reason } of plan.alone) process.stderr.write(`jskit test: ${file} runs alone: ${reason}\n`);
+  for (const { file, reason } of plan.network) process.stderr.write(`jskit test: ${file} reaches the network: ${reason}\n`);
   const preload = [...(databases?.preload ? ["--import", pathToFileURL(databases.preload).href] : []), "--import", FILE_STOP];
   const timesDirectory = mkdtempSync(path.join(os.tmpdir(), "jskit-test-times-"));
   const stops = writeFileStops({ cwd: process.cwd(), files: plan.paths, directory: timesDirectory });
@@ -259,7 +286,11 @@ async function runTests(args) {
       const env = {
         NODE_COMPILE_CACHE: process.env.NODE_COMPILE_CACHE || path.resolve(COMPILE_CACHE),
         [STOPS_VARIABLE]: stops,
-        ...databases?.env
+        ...databases?.env,
+        // Its test files, and what they start, reach only this machine and the test database; network files, anywhere.
+        ...(plan.guarded[index]
+          ? networkGuardEnvironment(process.env, "jskit test")
+          : { NODE_OPTIONS: withoutNetworkGuard(process.env.NODE_OPTIONS) })
       };
       const { code, signal } = await runNode([...preload, ...withTimeReporter(run, collected[index])], env);
       if (exitCode === 0) exitCode = code;
