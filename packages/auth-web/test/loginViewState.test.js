@@ -14,7 +14,7 @@ function stateAt(t, search, options = {}) {
   return useLoginViewState({ placementContext: ref(null), ...options });
 }
 
-test("a sign-in with no usable returnTo lands where the app names, and on / when it names nothing", (t) => {
+test("a sign-in with no usable returnTo lands where the app names, and on / when it names nothing and places no surface", (t) => {
   assert.equal(stateAt(t, "").requestedReturnTo.value, "/");
   for (const search of ["", "?returnTo=https://elsewhere.example/steal", "?returnTo=/auth/login", "?returnTo=/auth/signout"]) {
     assert.equal(stateAt(t, search, { fallbackReturnTo: "/account" }).requestedReturnTo.value, "/account", search);
@@ -23,6 +23,29 @@ test("a sign-in with no usable returnTo lands where the app names, and on / when
     stateAt(t, "?returnTo=/console/projects", { fallbackReturnTo: "/account" }).requestedReturnTo.value,
     "/console/projects"
   );
+});
+
+// An app whose web root is its public website, served beside it, and whose own screens start at its default surface.
+const WEBSITE_AT_ROOT = Object.freeze({
+  surfaceConfig: {
+    defaultSurfaceId: "home",
+    enabledSurfaceIds: ["home", "auth"],
+    surfacesById: {
+      home: { id: "home", enabled: true, pagesRoot: "home", routeBase: "/home" },
+      auth: { id: "auth", enabled: true, pagesRoot: "auth", routeBase: "/auth" }
+    }
+  }
+});
+
+test("a sign-in with no usable returnTo, as after a sign-out, lands on the app's default surface, not on a website at /", (t) => {
+  for (const search of ["", "?returnTo=https://elsewhere.example/steal", "?returnTo=/auth/login", "?returnTo=/auth/signout"]) {
+    const state = stateAt(t, search, { placementContext: ref(WEBSITE_AT_ROOT) });
+    assert.equal(state.requestedReturnTo.value, "/home", search);
+    assert.equal(state.mainScreenPath.value, "/home", search);
+  }
+  assert.equal(stateAt(t, "?returnTo=/home/orders", { placementContext: ref(WEBSITE_AT_ROOT) }).requestedReturnTo.value, "/home/orders");
+  assert.equal(stateAt(t, "", { placementContext: ref(WEBSITE_AT_ROOT), fallbackReturnTo: "/account" }).requestedReturnTo.value,
+    "/account");
 });
 
 test("a browser the shell found signed in is shown no form, unless it opened a confirmation link or a callback", (t) => {
