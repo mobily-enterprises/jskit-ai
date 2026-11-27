@@ -279,8 +279,8 @@ dialog, chip or FAB.
   the other actions, and the top-right items that don't fit beside the title,
   in its "More actions" menu, where `overflow` actions always are; medium and
   wider bars show the actions that fit beside the whole title and put the
-  rest in that menu, the last first, so the menu button and the top-right
-  items stay on screen. Put a screen's most used actions first.
+  rest there, the last first, so the menu button and the top-right items
+  stay on screen. Put the most used actions first.
 - **Window size classes:** compact under 600 (navigation bar), medium 600–839
   (navigation rail), expanded 840–1199 and large from 1200 (drawer), read from
   `useShellWindowSizeClass()`
