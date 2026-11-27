@@ -101,6 +101,38 @@ test("a hidden tooltip leaves no tooltip without a name and still describes its 
   await expect(button).toHaveAccessibleDescription("Delete this report");
 });
 
+// A tooltip opened by focus closes when its button loses focus, wherever focus goes. Vuetify 4.3 keeps it open when
+// focus goes nowhere (a click on an empty part of the page, blur()), counting it as a click inside an open menu, so the
+// tooltip stayed over the page, and neither hovering nor leaving the button closed it.
+test("a tooltip opened by focus closes when its button loses focus to nothing", {
+  skip: SKIP,
+  timeout: 120_000
+}, async (t) => {
+  const { vite, browser } = await open(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, reducedMotion: "reduce" });
+  t.after(() => page.close());
+  await page.goto("/");
+  const button = page.getByTestId("tooltip-activator");
+  const tooltip = page.getByRole("tooltip", { name: "Delete this report" });
+  const focusByKeyboard = async () => {
+    await page.keyboard.press("Tab");
+    await expect(button).toBeFocused();
+    await expect(tooltip).toBeVisible();
+  };
+
+  await expect(button).toBeVisible();
+  await focusByKeyboard();
+  // A click on the page around it, which takes focus nowhere.
+  await page.mouse.click(4, 4);
+  await expect(button).not.toBeFocused();
+  await expect(tooltip, "closed after a click on an empty part of the page").toBeHidden();
+
+  // Tab from where the click left the focus start: the button again.
+  await focusByKeyboard();
+  await button.evaluate((element) => element.blur());
+  await expect(tooltip, "closed after the button's blur()").toBeHidden();
+});
+
 // A card's subtitle is its supporting text, at full strength: on-surface-variant on a surface card or one without a
 // colour, the card's own text colour on a coloured card, and its own class's colour when it has one. At Vuetify's
 // medium-emphasis opacity it measured 4.35:1 on JSKIT's default surface-container-low card, under WCAG's 4.5:1.
