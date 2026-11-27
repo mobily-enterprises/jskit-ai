@@ -397,7 +397,7 @@ test("${name}", async (t) => {
   while (!existsSync("started-${other}") && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20));
   const own = await createPackageTestKnex(t, { environment: process.env });
   const [[{ packageDatabase }]] = await own.raw("SELECT DATABASE() AS packageDatabase");
-  const copy = await claimTestDatabaseCopy(t);
+  const copy = await claimTestDatabaseCopy(t, { environment: process.env });
   const copied = { database: copy.database, books: await copy.knex("books").pluck("title") };
   let refused = "";
   try {
