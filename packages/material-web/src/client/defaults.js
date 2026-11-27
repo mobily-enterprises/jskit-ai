@@ -7,6 +7,28 @@
 // props cannot set, are in material.css. No VMenu sub-component defaults: under them, in Vuetify 4.2.1 to 4.3.2, an
 // ancestor's re-render makes the menu's virtual list lose its item heights, so a v-select's typeahead never scrolls to
 // its match (https://github.com/vuetifyjs/vuetify/issues/23366; README, Upstream workarounds).
+// A tooltip opened by focus closes when its activator loses focus to nothing, as blur() takes it. Vuetify 4.3.2's
+// activator ignores a blur with no relatedTarget, which it keeps for a click on an empty area inside an open menu, so
+// the tooltip stayed over the page, and neither hovering nor leaving its activator closed it. On the focusout that
+// follows (an event Vuetify's activator does not use, so this adds a listener rather than replacing or merging with
+// Vuetify's own), Vuetify's handler gets the blur it acts on, with the page as where focus went, unless the pointer is
+// on the tooltip itself (an interactive tooltip being clicked). The tooltip's overlay first records the focus as gone,
+// as its click-outside record does after a click elsewhere, so closing leaves the focus where blur() put it: an overlay
+// opened from its focused activator otherwise hands the focus back to the activator when it closes with the focus on
+// the page.
+function closeTooltipOnFocusLoss(event) {
+  if (event.relatedTarget || !event.isTrusted) return;
+  const activator = event.currentTarget;
+  const tooltips = String(activator.getAttribute("aria-describedby") || "").split(/\s+/u)
+    .filter(Boolean).map((id) => document.getElementById(id)).filter((element) => element?.classList.contains("v-tooltip"));
+  if (tooltips.some((tooltip) => tooltip.matches(":hover"))) return;
+  for (const tooltip of tooltips) {
+    const clickOutside = tooltip.querySelector(":scope > .v-overlay__content")?._clickOutside;
+    if (clickOutside) clickOutside.lastMousedownWasOutside = true;
+  }
+  activator.dispatchEvent(new FocusEvent("blur", { relatedTarget: document.body }));
+}
+
 const materialDefaults = Object.freeze({
   VAppBar: {
     color: "surface",
@@ -135,6 +157,7 @@ const materialDefaults = Object.freeze({
     color: "surface"
   },
   VTooltip: {
+    activatorProps: { onFocusout: closeTooltipOnFocusLoss },
     location: "bottom"
   }
 });

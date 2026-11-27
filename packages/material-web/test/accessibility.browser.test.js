@@ -101,9 +101,10 @@ test("a hidden tooltip leaves no tooltip without a name and still describes its 
   await expect(button).toHaveAccessibleDescription("Delete this report");
 });
 
-// A tooltip opened by focus closes when its button loses focus, wherever focus goes. Vuetify 4.3 keeps it open when
-// focus goes nowhere (a click on an empty part of the page, blur()), counting it as a click inside an open menu, so the
-// tooltip stayed over the page, and neither hovering nor leaving the button closed it.
+// A tooltip opened by focus closes when its button loses focus, wherever focus goes, and leaves the focus there.
+// Vuetify 4.3.2 kept it open when blur() took the focus nowhere, as it keeps a menu open for a click on an empty area
+// inside it, so the tooltip stayed over the page, and neither hovering nor leaving the button closed it. A click on an
+// empty part of the page closes it as a click outside.
 test("a tooltip opened by focus closes when its button loses focus to nothing", {
   skip: SKIP,
   timeout: 120_000
@@ -111,26 +112,24 @@ test("a tooltip opened by focus closes when its button loses focus to nothing", 
   const { vite, browser } = await open(t);
   const page = await browser.newPage({ baseURL: vite.baseURL, reducedMotion: "reduce" });
   t.after(() => page.close());
-  await page.goto("/");
   const button = page.getByTestId("tooltip-activator");
   const tooltip = page.getByRole("tooltip", { name: "Delete this report" });
-  const focusByKeyboard = async () => {
+  // Each way of losing focus on a fresh page: Vuetify ignores focus for 50ms after a tooltip closes.
+  const losses = [
+    ["a click on an empty part of the page", () => page.mouse.click(4, 4)],
+    ["the button's blur()", () => button.evaluate((element) => element.blur())]
+  ];
+  for (const [loss, loseFocus] of losses) {
+    await page.goto("/");
+    await expect(button).toBeVisible();
     await page.keyboard.press("Tab");
     await expect(button).toBeFocused();
     await expect(tooltip).toBeVisible();
-  };
-
-  await expect(button).toBeVisible();
-  await focusByKeyboard();
-  // A click on the page around it, which takes focus nowhere.
-  await page.mouse.click(4, 4);
-  await expect(button).not.toBeFocused();
-  await expect(tooltip, "closed after a click on an empty part of the page").toBeHidden();
-
-  // Tab from where the click left the focus start: the button again.
-  await focusByKeyboard();
-  await button.evaluate((element) => element.blur());
-  await expect(tooltip, "closed after the button's blur()").toBeHidden();
+    await loseFocus();
+    await expect(tooltip, `closed after ${loss}`).toBeHidden();
+    // Closing leaves the focus where it went, rather than handing it back to the button.
+    await expect(button, `not focused again once closed after ${loss}`).not.toBeFocused();
+  }
 });
 
 // A card's subtitle is its supporting text, at full strength: on-surface-variant on a surface card or one without a
