@@ -307,8 +307,9 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   // signed-in user on every route and keeps its default visibility; 68 and 44 KiB since a control's own loading line
   // stays, apart from ad-hoc spinners, and spinners are counted by what renders; 70 and 46 KiB since a managed
   // browser run names its declared test target, with the target's declaration, keeps specs that write off the
-  // development target, and Application operations keeps verification output small).
-  assert.ok(Buffer.byteLength(operationalSource) <= 70 * 1024);
+  // development target, and Application operations keeps verification output small; 71 KiB since a medium or wider
+  // top app bar puts the page actions that don't fit beside the whole title in More actions, the last first).
+  assert.ok(Buffer.byteLength(operationalSource) <= 71 * 1024);
   assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 46 * 1024);
 });
 
