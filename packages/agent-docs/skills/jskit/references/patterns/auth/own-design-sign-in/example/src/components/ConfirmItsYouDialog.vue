@@ -15,9 +15,18 @@ const { t } = useJskitText();
 const id = useId();
 const dialog = ref(null);
 const field = ref(null);
-const { usingRecoveryCode, code, recoveryCode, fieldError, canSubmit, toggleRecoveryCode, submitProof } = useSecondFactorProof({
-  submit: verifySecondFactor,
-  onDone: (result) => emit("verified", result)
+const { usingRecoveryCode, code, recoveryCode, fieldError, canSubmit, toggleRecoveryCode, reset, submitProof } =
+  useSecondFactorProof({
+    submit: verifySecondFactor,
+    onDone: (result) => emit("verified", result)
+  });
+
+// The dialog stays mounted between step-ups, so each opening starts its form afresh (the authenticator's code, nothing
+// typed, no refusal) before it renders; the dialog then shows, focusing that field.
+watch(() => props.open, (open) => {
+  if (open) {
+    reset();
+  }
 });
 
 watch(() => props.open, (open) => {

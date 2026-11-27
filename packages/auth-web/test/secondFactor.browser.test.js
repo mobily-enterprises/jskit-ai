@@ -243,3 +243,51 @@ test("a route that asks for a fresh code opens the step-up dialog over an inert 
   assert.deepEqual(await reports(page), []);
   await finish(api);
 });
+
+test("every step-up opens afresh, on an empty authenticator code with no refusal, after a recovery code as after a cancelled attempt", options, async () => {
+  const WRONG = "That code is not right. Enter the code your authenticator app shows now.";
+  const api = await openApp({
+    "POST /api/console/refund": [REQUIRED, { json: { refunded: true } }, REQUIRED],
+    "POST /api/second-factor/verify": [
+      { json: { verifiedAt: "2026-11-13T10:00:00.000Z", method: "recoveryCode", recoveryCodesLeft: 9 } },
+      refused(400, "auth.local.secondFactor.codeInvalid", WRONG)
+    ]
+  });
+  const { page } = api;
+  await page.goto("/console");
+  const refund = page.getByRole("button", { name: "Refund" });
+  const dialog = page.getByRole("dialog", { name: "Confirm it's you" });
+
+  await refund.click();
+  await dialog.getByRole("button", { name: "Use a recovery code" }).click();
+  await expect(dialog.getByLabel("Recovery code")).toBeFocused();
+  await page.keyboard.type("abcd0-efgh0");
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("console-outcome")).toHaveText("Refunded");
+  await expect(dialog).toBeHidden();
+
+  // The next step-up on the page asks for the authenticator's code again, as the first did.
+  await refund.click();
+  await expect(dialog.getByLabel("6-digit code")).toBeFocused();
+  await expect(dialog.getByLabel("6-digit code")).toHaveValue("");
+  await expect(dialog.getByRole("button", { name: "Use a recovery code" })).toBeVisible();
+  await page.keyboard.type("000000");
+  await page.keyboard.press("Enter");
+  await expect(dialog.getByText(WRONG)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("console-outcome")).toHaveText("Refund failed: Confirm it's you with a code from your authenticator app.");
+
+  // A cancelled attempt leaves nothing behind: neither its code nor its refusal.
+  await refund.click();
+  await expect(dialog.getByLabel("6-digit code")).toBeFocused();
+  await expect(dialog.getByLabel("6-digit code")).toHaveValue("");
+  await expect(dialog.getByText(WRONG)).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  assert.equal(bodiesOf(api, "POST /api/console/refund").length, 4);
+  assert.deepEqual(bodiesOf(api, "POST /api/second-factor/verify"), [{ recoveryCode: "abcd0-efgh0" }, { code: "000000" }]);
+  assert.deepEqual(await reports(page), []);
+  await finish(api);
+});

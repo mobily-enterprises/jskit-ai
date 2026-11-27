@@ -62,8 +62,10 @@ uses, and none of them reads Vuetify:
   `verified` and `cancel` to the app's own prompt.
 - `useSecondFactorProof({ submit, onDone })` from
   `@jskit-ai/auth-web/client/composables/useSecondFactorProof`: the code or
-  recovery code form, its refusal beside the field and its submission. The
-  prompt submits `verifySecondFactor` from
+  recovery code form, its refusal beside the field and its submission. A
+  prompt that stays mounted between step-ups calls its `reset()` each time it
+  opens, so every opening asks for the authenticator's code with nothing typed
+  and no refusal. The prompt submits `verifySecondFactor` from
   `@jskit-ai/auth-web/client/runtime/secondFactorRequests`;
   `useSecondFactorSettings()` and that module's other requests build an
   account's authenticator settings the same way.

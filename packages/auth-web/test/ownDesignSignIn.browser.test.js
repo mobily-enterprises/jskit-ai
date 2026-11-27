@@ -89,8 +89,14 @@ test("an app's own sign-in screen without Vuetify signs in with a password, show
       api.session = SIGNED_IN;
       return { json: { ok: true, username: "Ada Lovelace" } };
     },
-    "POST /api/console/refund": [SECOND_FACTOR_REQUIRED, { json: { refunded: true } }],
-    "POST /api/second-factor/verify": [WRONG_CODE, { json: { verifiedAt: "2026-11-26T10:00:00.000Z", method: "code", recoveryCodesLeft: 10 } }]
+    "POST /api/console/refund": [
+      SECOND_FACTOR_REQUIRED, { json: { refunded: true } }, SECOND_FACTOR_REQUIRED, SECOND_FACTOR_REQUIRED, { json: { refunded: true } },
+      SECOND_FACTOR_REQUIRED
+    ],
+    "POST /api/second-factor/verify": [
+      WRONG_CODE, { json: { verifiedAt: "2026-11-26T10:00:00.000Z", method: "code", recoveryCodesLeft: 10 } }, WRONG_CODE,
+      { json: { verifiedAt: "2026-11-26T10:01:00.000Z", method: "recoveryCode", recoveryCodesLeft: 9 } }
+    ]
   });
   const { page } = api;
   await page.goto("/auth/login?returnTo=%2Fconsole");
@@ -144,8 +150,38 @@ test("an app's own sign-in screen without Vuetify signs in with a password, show
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("console-outcome")).toHaveText("Refunded");
   await expect(dialog).toBeHidden();
-  assert.equal(bodiesOf(api, "POST /api/console/refund").length, 2);
-  assert.deepEqual(bodiesOf(api, "POST /api/second-factor/verify"), [{ code: "000000" }, { code: "123456" }]);
+
+  // Every opening starts afresh: a cancelled attempt leaves neither its code nor its refusal, and a recovery code
+  // leaves the next prompt on the authenticator's code.
+  const wrong = dialog.getByText("That code is not right. Enter the code your authenticator app shows now.");
+  await page.getByRole("button", { name: "Refund" }).click();
+  await expect(dialog.getByLabel("6-digit code")).toBeFocused();
+  await page.keyboard.type("000000");
+  await page.keyboard.press("Enter");
+  await expect(wrong).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("console-outcome")).toHaveText("Refund failed: Confirm it's you with a code from your authenticator app.");
+  await page.getByRole("button", { name: "Refund" }).click();
+  await expect(dialog.getByLabel("6-digit code")).toBeFocused();
+  await expect(dialog.getByLabel("6-digit code")).toHaveValue("");
+  await expect(wrong).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Use a recovery code" }).click();
+  await expect(dialog.getByLabel("Recovery code")).toBeFocused();
+  await page.keyboard.type("abcd0-efgh0");
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("console-outcome")).toHaveText("Refunded");
+  await expect(dialog).toBeHidden();
+  await page.getByRole("button", { name: "Refund" }).click();
+  await expect(dialog.getByLabel("6-digit code")).toBeFocused();
+  await expect(dialog.getByRole("button", { name: "Use a recovery code" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  assert.equal(bodiesOf(api, "POST /api/console/refund").length, 6);
+  assert.deepEqual(bodiesOf(api, "POST /api/second-factor/verify"), [
+    { code: "000000" }, { code: "123456" }, { code: "000000" }, { recoveryCode: "abcd0-efgh0" }
+  ]);
 
   assert.deepEqual(api.unexpected, []);
   assert.deepEqual(api.errors, []);
