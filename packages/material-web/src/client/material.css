@@ -194,6 +194,32 @@
     isolation: isolate;
   }
 
+  /* The same for the other components Vuetify draws a layer of their own over their text in: a tonal alert's tint
+     and an alert's border box, an editable stepper step's state layer and underlay, a tonal snackbar's tint, and a
+     circular progress's ring (an svg at z-index 0) over its reading. axe found each over its component's text and
+     judged none of it (color-contrast incomplete, bgOverlap). Each tint is the text's own colour, so drawing it
+     under the text changes no pixel; a border and a ring do not reach the text. An icon button's text is judged as
+     Vuetify draws it. An expansion panel's title is left as Vuetify draws it: its text is the title's own, with no
+     part of its own to lift above the state layer, which shows only on hover, on focus and on an open `focusable`
+     panel. */
+  :is(.v-alert, .v-stepper-item, .v-snackbar__wrapper, .v-progress-circular) {
+    isolation: isolate;
+  }
+
+  .v-alert > :is(.v-alert__underlay, .v-alert__border),
+  .v-stepper-item > :is(.v-stepper-item__overlay, .v-stepper-item__underlay),
+  .v-snackbar__wrapper > .v-snackbar__underlay,
+  .v-progress-circular > svg {
+    z-index: -1;
+  }
+
+  .v-alert > :is(.v-alert__prepend, .v-alert__content, .v-alert__append, .v-alert__close),
+  .v-stepper-item > .v-stepper-item__content,
+  .v-snackbar__wrapper > :is(.v-snackbar__prepend, .v-snackbar__content, .v-snackbar__actions),
+  .v-progress-circular > .v-progress-circular__content {
+    isolation: isolate;
+  }
+
   /* A filled or elevated button has no activated state layer: Material 3 gives these buttons none (a selected
      segment is secondary-container), and Vuetify's, the label's colour at 10% over the container, took a primary
      button's white label under WCAG's 4.5:1 (4.11:1 in JSKIT's fixture theme) for as long as the button stayed
