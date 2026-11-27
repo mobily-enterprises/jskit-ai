@@ -15,7 +15,7 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.360`
+- Owner: `@jskit-ai/agent-docs@0.1.361`
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
 
 ## [Adaptive-shell JSKIT application foundation](/patterns/app/shell-foundation)
@@ -24,7 +24,7 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.360`
+- Owner: `@jskit-ai/agent-docs@0.1.361`
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
 
 ## [Assistant surface and settings](/patterns/assistant/assistant-surface)
@@ -33,7 +33,7 @@ Configure an assistant runtime for one application surface and expose its chat a
 
 - Id: `assistant/assistant-surface`
 - Keywords: `ai`, `assistant`, `chat`, `config`, `environment`, `page`, `placement`, `settings`, `surface`
-- Owner: `@jskit-ai/assistant-runtime@0.2.95`
+- Owner: `@jskit-ai/assistant-runtime@0.2.96`
 - Requires: `@jskit-ai/assistant-runtime`, `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`, `@jskit-ai/shell-web`
 
 ## [Accounts hub](/patterns/auth/accounts-hub)
@@ -42,7 +42,7 @@ Run one OpenID Connect sign-in for all of an owner's apps as its own JSKIT proje
 
 - Id: `auth/accounts-hub`
 - Keywords: `accounts hub`, `auth`, `authentication`, `issuer`, `master login`, `oidc`, `openid connect`, `single sign-on`, `sso`
-- Owner: `@jskit-ai/oidc-issuer-core@0.1.57`
+- Owner: `@jskit-ai/oidc-issuer-core@0.1.58`
 - Requires: `@jskit-ai/oidc-issuer-core`
 
 ## [Authentication surface](/patterns/auth/auth-surface)
@@ -60,7 +60,7 @@ Let people sign in with the accounts they already have in an accounts hub or ano
 
 - Id: `auth/oidc-sign-in`
 - Keywords: `accounts hub`, `auth`, `authentication`, `back-channel logout`, `dynamic client registration`, `issuer`, `master login`, `oidc`, `openid connect`, `single sign-on`, `sso`
-- Owner: `@jskit-ai/auth-provider-oidc-core@0.2.68`
+- Owner: `@jskit-ai/auth-provider-oidc-core@0.2.69`
 - Requires: `@jskit-ai/auth-provider-oidc-core`, `@jskit-ai/auth-web`
 
 ## [Sign-in screens in an app's own design](/patterns/auth/own-design-sign-in)
@@ -87,7 +87,7 @@ Resolve an administrator environment key or an individual user's grant, then use
 
 - Id: `connectors/ai-connections`
 - Keywords: `ai`, `api-key`, `cli`, `environment`, `free`, `models`, `ownership`, `zai`, `zen`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [API-key connections with portable JSON configuration](/patterns/connectors/api-key-connection)
@@ -96,7 +96,7 @@ Compose provider operations, authorization and encrypted file storage from a CLI
 
 - Id: `connectors/api-key-connection`
 - Keywords: `api-key`, `clay`, `cli`, `clickhouse`, `connectors`, `dbt`, `files`, `firecrawl`, `granola`, `integrations`, `metrics`, `prestashop`, `resend`, `semantic-layer`, `semrush`, `x-twitter`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [Assistant MCP connections with portable files](/patterns/connectors/assistant-mcp)
@@ -105,7 +105,7 @@ Compose token-based MCP discovery and explicitly authorized tool calls using the
 
 - Id: `connectors/assistant-mcp`
 - Keywords: `assistant`, `cli`, `connectors`, `files`, `integrations`, `mcp`, `n8n`, `sanity`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [Assistant MCP OAuth with portable files](/patterns/connectors/assistant-mcp-oauth)
@@ -114,7 +114,7 @@ Configure assistant OAuth clients, then compose existing state, encrypted file g
 
 - Id: `connectors/assistant-mcp-oauth`
 - Keywords: `amplitude`, `assistant`, `atlassian`, `canva`, `cli`, `client metadata`, `confidence`, `connectors`, `figma`, `files`, `granola`, `hex`, `mcp`, `miro`, `oauth`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [AWS object storage and Athena queries with explicit credentials](/patterns/connectors/aws-storage-queries)
@@ -123,7 +123,7 @@ Compose signed AWS operations, file configuration and application authorization 
 
 - Id: `connectors/aws-storage-queries`
 - Keywords: `athena`, `aws`, `cli`, `connectors`, `files`, `iam`, `queries`, `s3`, `storage`, `sts`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [Google Calendar from an application-owned CLI](/patterns/connectors/calendar-cli)
@@ -132,7 +132,7 @@ Compose reusable connection libraries with portable configuration, application o
 
 - Id: `connectors/calendar-cli`
 - Keywords: `calendar`, `cli`, `connectors`, `google`, `integrations`, `oauth`, `permissions`
-- Owner: `@jskit-ai/connector-google-calendar@0.2.56`
+- Owner: `@jskit-ai/connector-google-calendar@0.2.57`
 - Requires: `@jskit-ai/connector-google-calendar`, `@jskit-ai/connectors-core`, `@jskit-ai/database-runtime-mysql`
 
 ## [Authorized Inngest event delivery with portable files](/patterns/connectors/event-delivery)
@@ -141,7 +141,7 @@ Compose the shared connector runtime for event delivery while leaving workflow c
 
 - Id: `connectors/event-delivery`
 - Keywords: `cli`, `connectors`, `events`, `files`, `inngest`, `integrations`, `workflows`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [Firebase messaging from a CLI or application backend](/patterns/connectors/firebase-messaging)
@@ -150,7 +150,7 @@ Wire service-account grants, file storage, explicit message actions and public b
 
 - Id: `connectors/firebase-messaging`
 - Keywords: `cli`, `connectors`, `fcm`, `files`, `firebase`, `integrations`, `jwt`, `notifications`, `push`, `service-account`, `vapid`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [Existing-account Google Ads Search](/patterns/connectors/google-ads-search)
@@ -159,7 +159,7 @@ Compose reviewed Search campaigns with project-owned Google OAuth and portable s
 
 - Id: `connectors/google-ads-search`
 - Keywords: `ads`, `campaigns`, `cli`, `connectors`, `conversion`, `google`, `search`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [OAuth connections with portable files](/patterns/connectors/oauth-connection)
@@ -168,7 +168,7 @@ Compose provider consent, verification and encrypted file persistence from an ap
 
 - Id: `connectors/oauth-connection`
 - Keywords: `accounting`, `assistant permissions`, `books`, `cli`, `client credentials`, `connectors`, `consent`, `crm`, `databricks`, `developer token`, `fabric`, `files`, `gaql`, `google ads`, `graphql`, `integrations`, `linkedin`, `microsoft`, `oauth`, `powerpoint`, `salesforce`, `service principal`, `shopify`, `soql`, `staffing`, `tiktok`, `twitch`, `wave`, `word`, `wordpress`, `workday`, `xero`, `zoho`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [Create Paddle products with prices](/patterns/connectors/paddle-catalogue)
@@ -177,7 +177,7 @@ Compose a sequential catalogue batch and preserve partial success for applicatio
 
 - Id: `connectors/paddle-catalogue`
 - Keywords: `batch`, `paddle`, `payments`, `prices`, `products`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [Public logo images from portable integration configuration](/patterns/connectors/public-image)
@@ -186,7 +186,7 @@ Resolve a publishable image key deliberately and use the shared URL library in a
 
 - Id: `connectors/public-image`
 - Keywords: `cli`, `connectors`, `files`, `images`, `integrations`, `logo-dev`, `public-key`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [Redshift queries with shared AWS credentials](/patterns/connectors/redshift-queries)
@@ -195,7 +195,7 @@ Compose file configuration, Redshift Data API operations and application query o
 
 - Id: `connectors/redshift-queries`
 - Keywords: `aws`, `cli`, `connectors`, `files`, `iam`, `provisioned`, `redshift`, `serverless`, `sql`, `warehouse`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [Authorised project source scans with Wiz](/patterns/connectors/source-scanning)
@@ -204,7 +204,7 @@ Use the shared scanner runtime from a CLI or a host worker with portable configu
 
 - Id: `connectors/source-scanning`
 - Keywords: `cancellation`, `cli`, `connectors`, `integrations`, `scanning`, `security`, `source`, `wiz`, `worker`
-- Owner: `@jskit-ai/connectors-catalog@0.2.59`
+- Owner: `@jskit-ai/connectors-catalog@0.2.60`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 
 ## [Owner console surface](/patterns/console/console-surface)
@@ -213,7 +213,7 @@ Add a protected administration surface, settings shell, and semantic navigation 
 
 - Id: `console/console-surface`
 - Keywords: `admin`, `console`, `navigation`, `owner`, `placement`, `settings`, `surface`
-- Owner: `@jskit-ai/console-web@0.1.301`
+- Owner: `@jskit-ai/console-web@0.1.302`
 - Requires: `@jskit-ai/console-core`, `@jskit-ai/console-web`, `@jskit-ai/shell-web`
 
 ## [Owner-scoped CRUD contract](/patterns/crud/crud-contract)
@@ -231,7 +231,7 @@ Build a complete application-owned CRUD server package from a migration, a table
 
 - Id: `crud/crud-feature-package`
 - Keywords: `actions`, `crud`, `database`, `defineCrudFeature`, `json-api`, `migration`, `owns`, `permissions`, `repository`, `routes`, `service`, `table resource`
-- Owner: `@jskit-ai/crud-core@0.2.57`
+- Owner: `@jskit-ai/crud-core@0.2.58`
 - Requires: `@jskit-ai/crud-core`, `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
 
 ## [CRUD list, view, create, and edit screens](/patterns/crud/crud-screen-set)
@@ -249,7 +249,7 @@ Configure a JSKIT application for MySQL with a fixed driver, ordinary environmen
 
 - Id: `database/mysql-application`
 - Keywords: `database`, `knex`, `mariadb`, `migrations`, `mysql`, `mysql2`
-- Owner: `@jskit-ai/database-runtime-mysql@0.1.286`
+- Owner: `@jskit-ai/database-runtime-mysql@0.1.287`
 - Requires: `@jskit-ai/database-runtime-mysql`
 
 ## [PostgreSQL application database](/patterns/database/postgres-application)
@@ -258,7 +258,7 @@ Configure a JSKIT application for PostgreSQL with a fixed driver, ordinary envir
 
 - Id: `database/postgres-application`
 - Keywords: `database`, `knex`, `migrations`, `pg`, `postgres`, `postgresql`
-- Owner: `@jskit-ai/database-runtime-postgres@0.1.285`
+- Owner: `@jskit-ai/database-runtime-postgres@0.1.286`
 - Requires: `@jskit-ai/database-runtime-postgres`
 
 ## [Table resource](/patterns/database/table-resource)
@@ -294,7 +294,7 @@ Compose application-owned Google Publisher Tag delivery with the generic rewarde
 
 - Id: `rewards/google-rewarded`
 - Keywords: `ads`, `google`, `publisher tag`, `rewarded`, `unlock`
-- Owner: `@jskit-ai/rewarded-web@0.2.77`
+- Owner: `@jskit-ai/rewarded-web@0.2.78`
 - Requires: `@jskit-ai/rewarded-web`
 
 ## [App-local server feature package](/patterns/server/feature-package)
@@ -303,7 +303,7 @@ Define a server feature through explicit capabilities and first-class actions, a
 
 - Id: `server/feature-package`
 - Keywords: `actions`, `aggregate`, `feature`, `handle`, `orchestration`, `owns`, `package`, `provider`, `repository`, `routes`, `server`, `table resource`
-- Owner: `@jskit-ai/agent-docs@0.1.360`
+- Owner: `@jskit-ai/agent-docs@0.1.361`
 - Requires: `@jskit-ai/kernel`
 
 ## [Responsive application shell](/patterns/shell/application-shell)
@@ -330,7 +330,7 @@ Compose an account settings route and profile, preference, notification, and sig
 
 - Id: `users/account-settings`
 - Keywords: `account`, `link provider`, `notifications`, `oauth`, `preferences`, `profile`, `settings`, `sign-in methods`, `user`, `vue`
-- Owner: `@jskit-ai/users-web@0.2.85`
+- Owner: `@jskit-ai/users-web@0.2.86`
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
 
 ## [User administration server package](/patterns/users/user-administration-server)
@@ -339,7 +339,7 @@ Expose user administration and workspace-scoped member operations through app-ow
 
 - Id: `users/user-administration-server`
 - Keywords: `account`, `admin`, `member`, `repository`, `resource`, `routes`, `service`, `user`, `workspace`
-- Owner: `@jskit-ai/users-core@0.2.68`
+- Owner: `@jskit-ai/users-core@0.2.69`
 - Requires: `@jskit-ai/crud-core`, `@jskit-ai/users-core`
 
 ## [Workspace tenancy server composition](/patterns/workspaces/workspace-server)
@@ -348,7 +348,7 @@ Configure roles, workspace access policy, invitations, and app-owned invitation 
 
 - Id: `workspaces/workspace-server`
 - Keywords: `access`, `invite`, `membership`, `multitenancy`, `policy`, `role`, `tenancy`, `workspace`
-- Owner: `@jskit-ai/workspaces-core@0.2.68`
+- Owner: `@jskit-ai/workspaces-core@0.2.69`
 - Requires: `@jskit-ai/users-core`, `@jskit-ai/workspaces-core`
 
 ## [Workspace application and administration surfaces](/patterns/workspaces/workspace-surfaces)
@@ -357,5 +357,5 @@ Compose workspace selection, invitation, member administration, settings, and re
 
 - Id: `workspaces/workspace-surfaces`
 - Keywords: `admin`, `invite`, `member`, `navigation`, `settings`, `surface`, `switcher`, `workspace`
-- Owner: `@jskit-ai/workspaces-web@0.2.85`
+- Owner: `@jskit-ai/workspaces-web@0.2.86`
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/workspaces-core`, `@jskit-ai/workspaces-web`
