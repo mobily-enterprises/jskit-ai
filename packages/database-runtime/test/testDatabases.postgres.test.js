@@ -150,9 +150,12 @@ test("a jskit test --databases run on PostgreSQL keeps its copies for the next r
   const on = (database) => knexFactory({ client: "pg", connection: { ...knexConfig.connection, database } });
   const candidates = [name, `${name}_1`, `${name}_2`, `${name}_snapshot`];
   const admin = on(TEST_DB_NAME);
+  // Every database the runs left under this name, whatever it is called.
+  const left = async () => (await admin("pg_database").where("datname", "like", `${name.replaceAll("_", "\\_")}%`)
+    .pluck("datname")).sort();
   context.after(async () => {
     try {
-      for (const database of candidates) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+      for (const database of new Set([...candidates, ...await left()])) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
     } finally {
       await admin.destroy();
     }
@@ -193,7 +196,26 @@ test("a jskit test --databases run on PostgreSQL keeps its copies for the next r
     throw new Error("a declared foreign key is missing");
   };
   await assert.rejects(testDatabaseRun({ knexConfig, environment, count: 3, appRoot, checkDatabase }), /declared foreign key is missing/u);
-  assert.deepEqual(await present(), candidates);
+
+  // A changed migration takes a new snapshot in the same `_snapshot`, and a run of two files makes the two databases it
+  // takes from it; `_2`, which it does not take, keeps the old schema until a run takes it.
+  await writeFile(path.join(appRoot, "migrations", "20200102000000_shelves.cjs"),
+    "exports.up = (knex) => knex.schema.createTable(\"shelves\", (table) => table.increments(\"id\"));\nexports.down = () => {};\n");
+  const changed = await testDatabaseRun({ knexConfig, environment, count: 2, appRoot });
+  assert.match(changed.summary, /2 migrations replayed once for a new snapshot, restore \d+ms of 8 table\(s\)$/u);
+  await changed.cleanup();
+  // Whatever the runs' counts and schemas, one database per slot a run took, and the snapshot: never one per run.
+  assert.deepEqual(await left(), candidates);
+  const whole = await testDatabaseRun({ knexConfig, environment, count: 3, appRoot });
+  assert.match(whole.summary, /: stored snapshot, restore \d+ms of 12 table\(s\)$/u);
+  await whole.cleanup();
+  const third = on(`${name}_2`);
+  try {
+    assert.deepEqual(await third("pg_tables").where({ schemaname: "public", tablename: "shelves" }).pluck("tablename"), ["shelves"]);
+  } finally {
+    await third.destroy();
+  }
+  assert.deepEqual(await left(), candidates);
 });
 
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));

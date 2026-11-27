@@ -263,8 +263,11 @@ test("a jskit test --databases run on MySQL or MariaDB keeps its copies for the 
   const server = { ...knexConfig.connection, database: undefined };
   const admin = knex({ client: "mysql2", connection: server });
   const candidates = [name, `${name}_0`, `${name}_1`, `${name}_2`];
+  // Every database the runs left under this name, whatever it is called.
+  const left = async () => (await admin("information_schema.schemata")
+    .where("schema_name", "like", `${name.replaceAll("_", "\\_")}%`).pluck("schema_name")).sort();
   context.after(async () => {
-    for (const database of candidates) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    for (const database of new Set([...candidates, ...await left()])) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
     await admin.destroy();
     await rm(appRoot, { recursive: true, force: true });
   });
@@ -294,7 +297,22 @@ test("a jskit test --databases run on MySQL or MariaDB keeps its copies for the 
     throw new Error("a declared foreign key is missing");
   };
   await assert.rejects(testDatabaseRun({ knexConfig, environment, count: 3, appRoot, checkDatabase }), /declared foreign key is missing/u);
-  assert.deepEqual(await present(), candidates);
+
+  // A changed migration takes a new snapshot in the same `_0`, and a run of two files restores the two databases it
+  // takes to it; `_2`, which it does not take, keeps the old schema until a run takes it.
+  await writeFile(path.join(appRoot, "migrations", "20200102000000_shelves.cjs"), SHELVES);
+  const changed = await testDatabaseRun({ knexConfig, environment, count: 2, appRoot });
+  await changed.cleanup();
+  // Whatever the runs' counts and schemas, one database per slot a run took, and the snapshot: never one per run.
+  assert.deepEqual(await left(), candidates);
+  // Each takes the new table and the ledger's new row.
+  assert.match(changed.summary, /2 migrations replayed once for a new snapshot, restore \d+ms of 4 table\(s\)$/u);
+  const whole = await testDatabaseRun({ knexConfig, environment, count: 3, appRoot });
+  assert.match(whole.summary, /: stored snapshot, restore \d+ms of 2 table\(s\)$/u);
+  await whole.cleanup();
+  assert.deepEqual(await admin("information_schema.tables").where("table_schema", `${name}_2`).where("table_name", "shelves")
+    .pluck("table_name"), ["shelves"]);
+  assert.deepEqual(await left(), candidates);
 });
 
 const SHELF_COLOUR = "exports.up = (knex) => knex.schema.alterTable(\"shelves\", (table) => table.string(\"colour\"));\n" +
