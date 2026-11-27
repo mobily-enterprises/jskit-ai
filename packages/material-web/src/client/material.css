@@ -414,18 +414,19 @@
     display: none;
   }
 
-  /* An open menu lies over the page only where it draws. Vuetify places a menu's content in an overlay that spans the
-     whole window (or the container it is attached to), transparent and taking no clicks, and axe found that box over
-     every text beside an open menu and judged the contrast of none of them (color-contrast incomplete, bgOverlap): 36
-     texts on mobilynet's page with a menu open. The overlay is hidden and what it holds (the content, and the scrim
-     when the menu has one) is shown, so nothing changes on screen and the content is the only box the menu lays over
-     the page. Select, autocomplete and combobox lists are menus too. A tooltip keeps its overlay: Vuetify puts its
-     role="tooltip" there, which a hidden overlay would take from assistive technology. */
-  .v-overlay.v-menu {
+  /* An open menu or a snackbar lies over the page only where it draws. Vuetify places a menu's content and a
+     snackbar's message in an overlay that spans the whole window (or the container it is attached to), transparent
+     and taking no clicks, and axe found that box over every text beside it and judged the contrast of none of them
+     (color-contrast incomplete, bgOverlap): 36 texts on mobilynet's page with a menu open. The overlay is hidden and
+     what it holds (the content, and the scrim when a menu has one) is shown, so nothing changes on screen and the
+     content is the only box it lays over the page; a snackbar's role="status" is on its content. Select,
+     autocomplete and combobox lists are menus too. A tooltip keeps its overlay: Vuetify puts its role="tooltip"
+     there, which a hidden overlay would take from assistive technology. */
+  .v-overlay:is(.v-menu, .v-snackbar) {
     visibility: hidden;
   }
 
-  .v-overlay.v-menu > * {
+  .v-overlay:is(.v-menu, .v-snackbar) > * {
     visibility: visible;
   }
 
