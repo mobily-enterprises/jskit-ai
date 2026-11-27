@@ -325,6 +325,8 @@ test("a managed browser runner runs every Playwright suite on a declared test ta
     "patterns/shell-foundation/example/AGENTS.md",
     "skills/jskit/references/patterns/app/minimal-foundation/example/AGENTS.md",
     "skills/jskit/references/patterns/app/shell-foundation/example/AGENTS.md",
+    // The block `npx jskit agents` writes in every app's AGENTS.md.
+    "../../tooling/jskit-catalog/app-guidance/AGENTS.block.md",
   ];
 
   for (const relativePath of relativePaths) {

@@ -302,15 +302,34 @@ const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/";
 // Every new application copies its foundation's AGENTS.md, and projects kept copying it whole into their own
 // instructions. It holds what an app needs that JSKIT's guides and checks do not already say: when to read which guide,
 // what `npm run verify` runs, and how the browser suite runs on a host. Every other rule lives in its guide.
-test("foundation agent instructions are short: the guide links, what verify runs and the managed browser rule", async () => {
-  const [minimalAgents, shellAgents] = await Promise.all(FOUNDATION_NAMES.map((patternName) =>
-    readFile(path.join(PATTERNS_ROOT, patternName, "example", "AGENTS.md"), "utf8")
-  ));
+const CATALOG_BLOCK = path.join(REPOSITORY_ROOT, "tooling/jskit-catalog/app-guidance/AGENTS.block.md");
+const BLOCK_BEGIN = "<!-- jskit:begin app guidance (written by npx jskit agents; edit outside this block) -->";
+const BLOCK_END = "<!-- jskit:end app guidance -->";
+
+// `npx jskit agents` writes the catalog's block in every app's AGENTS.md, so a foundation's copy is that block, byte for
+// byte, between its markers, and the example's own text around it says nothing JSKIT's block says.
+test("foundation agent instructions are the catalog's JSKIT block, byte for byte, and the example's own heading", async () => {
+  const [minimalAgents, shellAgents, block] = await Promise.all([
+    ...FOUNDATION_NAMES.map((patternName) => readFile(path.join(PATTERNS_ROOT, patternName, "example", "AGENTS.md"), "utf8")),
+    readFile(CATALOG_BLOCK, "utf8")
+  ]);
 
   assert.equal(shellAgents, minimalAgents);
-  const flat = minimalAgents.replace(/\s+/gu, " ");
-  assert.match(minimalAgents, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\//u);
-  assert.match(minimalAgents, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/patterns\//u);
+  assert.equal(minimalAgents.split(BLOCK_BEGIN).length, 2, "one begin marker");
+  assert.equal(minimalAgents.split(BLOCK_END).length, 2, "one end marker");
+  const start = minimalAgents.indexOf(`${BLOCK_BEGIN}\n`) + BLOCK_BEGIN.length + 1;
+  assert.equal(minimalAgents.slice(start, minimalAgents.indexOf(BLOCK_END)), block);
+  const own = minimalAgents.slice(0, minimalAgents.indexOf(BLOCK_BEGIN)) +
+    minimalAgents.slice(minimalAgents.indexOf(BLOCK_END) + BLOCK_END.length);
+  assert.doesNotMatch(own, /mobily-enterprises|playwright|jskit check|npm test|verify/iu, own);
+  assert.ok(own.length <= 300, `the example's own text has ${own.length} characters`);
+});
+
+test("JSKIT's app guidance block links the guide and keeps only the rules no check enforces", async () => {
+  const block = await readFile(CATALOG_BLOCK, "utf8");
+  const flat = block.replace(/\s+/gu, " ");
+  assert.match(block, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\//u);
+  assert.match(block, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/patterns\//u);
   for (const page of [
     "framework/data-access",
     "framework/typed-features",
@@ -318,9 +337,10 @@ test("foundation agent instructions are short: the guide links, what verify runs
     "framework/environments",
     "framework/material-3",
     "framework/typed-features#test-files-run-in-parallel",
-    "framework/ui-operations#browser-verification"
+    "framework/ui-operations#browser-verification",
+    "framework/typed-features#running-the-checks"
   ]) {
-    assert.ok(minimalAgents.includes(`\`${GUIDE}${page}\``), `AGENTS.md links ${page}`);
+    assert.ok(block.includes(`\`${GUIDE}${page}\``), `the block links ${page}`);
   }
   // The guide is the website's, for the current release: agent-docs is not an app dependency, so there is no installed
   // copy of it to read, and an installed runtime package's own patterns/ folder holds its patterns at the app's version.
@@ -328,24 +348,37 @@ test("foundation agent instructions are short: the guide links, what verify runs
   assert.match(flat, /Keep the app on the current release \(`npm run jskit:update`\)/u);
   assert.match(flat, /that package's `patterns\/` folder, at the app's version/u);
   assert.match(flat, /Never install a runtime package only to read its documentation/u);
-  assert.doesNotMatch(minimalAgents, /node_modules\/@jskit-ai\/agent-docs|version-matched package-owned copy/u);
-  // What `npm run verify` runs is exactly the foundation's verify script, in its order, and no section it lacks.
-  const { scripts } = JSON.parse(await readFile(path.join(PATTERNS_ROOT, "minimal-foundation", "example", "package.json"), "utf8"));
-  const verified = scripts.verify.split("&&").map((command) => command.trim());
-  assert.deepEqual(verified, ["npm run jskit:check", "npm run lint", "npm run test", "npm run test:client", "npm run test:e2e"]);
-  const verifySentence = flat.slice(flat.indexOf("`npm run verify` runs"), flat.indexOf("frontend it serves"));
-  const named = ["`jskit check`", "`npm run lint`", "`npm test`", "`npm run test:client`", "`npm run test:e2e`"];
-  assert.deepEqual(named.map((name) => verifySentence.indexOf(name) >= 0), named.map(() => true), verifySentence);
-  assert.deepEqual([...named].sort((left, right) => verifySentence.indexOf(left) - verifySentence.indexOf(right)), named);
-  assert.doesNotMatch(flat, /tests and build|adds the package graph/u);
-  assert.match(flat, /`npm run test:e2e`, whose `browserTestConfig\(\)` builds the production frontend it serves/u);
+  assert.doesNotMatch(block, /node_modules\/@jskit-ai\/agent-docs|version-matched package-owned copy/u);
+  // What `npm run verify` runs is the guide's Running the checks, linked, not restated.
+  assert.match(flat, /`npm run verify` runs the checks listed in `[^`]+typed-features#running-the-checks`/u);
+  assert.doesNotMatch(flat, /`jskit check`|`npm run lint`|`npm run test:client`|tests and build|adds the package graph/u);
+  assert.equal(flat.split("`npm test` runs every Node test file; `npm test -- <file>` runs exactly that file").length, 2);
   assert.match(flat, /excuse one only with the guide's `readable-check: allow` comment and reason prefix/u);
   // Rules a check enforces or a guide states are links, not copies.
-  assert.doesNotMatch(minimalAgents, /SelectField|BROWSER_TEST_DB_NAME|jskit-test: alone|Keep verification output small|generator\s+provenance/u);
-  assert.doesNotMatch(minimalAgents, /local app scaffold|crud-scaffolding\.md|workflow\/app-state\.md/u);
-  assert.doesNotMatch(minimalAgents, /workflow\/feature-delivery\.md|Mandatory Start Gate|Mandatory Done Gate/u);
-  // 6,105 characters in 103 lines until it kept only what no guide or check says.
-  assert.ok(minimalAgents.length <= 3500, `AGENTS.md has ${minimalAgents.length} characters`);
+  assert.doesNotMatch(block, /SelectField|BROWSER_TEST_DB_NAME|jskit-test: alone|Keep verification output small|generator\s+provenance/u);
+  assert.doesNotMatch(block, /local app scaffold|crud-scaffolding\.md|workflow\/app-state\.md/u);
+  assert.doesNotMatch(block, /workflow\/feature-delivery\.md|Mandatory Start Gate|Mandatory Done Gate/u);
+  // The foundations' AGENTS.md had 6,105 characters in 103 lines until it kept only what no guide or check says.
+  assert.ok(block.length <= 3000, `the block has ${block.length} characters`);
+});
+
+test("the typed features guide's Running the checks names exactly what the foundations' verify runs, in its order", async () => {
+  const verifies = await Promise.all(FOUNDATION_NAMES.map(async (patternName) =>
+    JSON.parse(await readFile(path.join(PATTERNS_ROOT, patternName, "example", "package.json"), "utf8")).scripts.verify
+  ));
+  assert.equal(verifies[1], verifies[0]);
+  const steps = verifies[0].split("&&").map((command) => command.trim());
+  assert.deepEqual(steps, ["npm run jskit:check", "npm run lint", "npm run test", "npm run test:client", "npm run test:e2e"]);
+  const guide = (await readFile(path.join(PACKAGE_ROOT, "site/guide/framework/typed-features.md"), "utf8")).replace(/\s+/gu, " ");
+  const section = guide.slice(guide.indexOf("### Running the checks"), guide.indexOf("### Lint rules"));
+  const sentence = section.slice(section.indexOf("`npm run verify` is the whole suite"), section.indexOf("so no separate build runs."));
+  assert.ok(sentence.length > 0, section);
+  const named = { "npm run jskit:check": "`jskit check`", "npm run lint": " lint,", "npm run test": "`npm test`",
+    "npm run test:client": "`npm run test:client`", "npm run test:e2e": "`npm run test:e2e`" };
+  const positions = steps.map((step) => sentence.indexOf(named[step]));
+  assert.ok(positions.every((position) => position >= 0), sentence);
+  assert.deepEqual([...positions].sort((left, right) => left - right), positions, sentence);
+  assert.deepEqual(sentence.match(/`npm run [^`]+`|`npm test`/gu), ["`npm run verify`", "`npm test`", "`npm run test:client`", "`npm run test:e2e`"]);
 });
 
 test("the rules the foundation AGENTS.md no longer copies are each in their guide", async () => {
