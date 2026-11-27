@@ -181,6 +181,26 @@ test("an open menu leaves every text beside it judged: only the menu's content l
   await expectJudged(page, "components at 1280 with a filled button's menu open", []);
 });
 
+// A snackbar's message lies over the page only where it draws: Vuetify holds it in an overlay the size of the window,
+// as it holds a menu. The form's Save reports one, as a saved form does.
+test("a snackbar leaves every text beside it judged: only its message lies over the page", {
+  skip: SKIP,
+  timeout: 60_000
+}, async (t) => {
+  const { vite, browser } = await open(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+  t.after(() => page.close());
+  await page.goto("/home/feedback");
+  await expect(page.getByTestId("fixture-feedback")).toBeVisible();
+  await expectJudged(page, "feedback at 1280", []);
+
+  // The page's own count is an <output>, a status too; the snackbar's message is the other one.
+  await page.getByTestId("fixture-form-save").click();
+  await expect(page.getByRole("status").filter({ hasText: "Integration configuration saved." })).toBeVisible();
+  await expect(page.locator(".v-ripple__container")).toHaveCount(0);
+  await expectJudged(page, "feedback at 1280 with a snackbar shown", []);
+});
+
 // A state layer lies under the label, so a hovered, focused or pressed button's label is read against its container
 // with the layer over it. Material 3's layers (hover 8%, focus and pressed 10%) keep every label at 4.5:1: a filled
 // button's on-colour over its colour, a tonal button's on-container colour over its tint. An active button shows one
