@@ -365,6 +365,7 @@ const routes = [
   { path: "/home/notes", component: NotesPage, meta: { jskit: { title: "Notes" } } },
   { path: "/home/studio", component: StudioPage, meta: { ownBar: true, jskit: { title: "Studio" } } },
   { path: "/home/studio/:id", component: StudioPage, meta: { ownBar: true, jskit: { parent: "/studio" } } },
+  { path: "/home/studio-actions", component: LongActionsPage, meta: { ownBar: true, jskit: { title: "Hosted service" } } },
   { path: "/home/:section?", component: ScreenPage, meta: { title: "Home surface" } },
   { path: "/w/:workspaceSlug/admin/:section?", component: ScreenPage, meta: { title: "Admin surface" } },
   { path: "/help", component: ScreenPage, meta: { title: "Help and support" } },

@@ -1440,40 +1440,41 @@ const LONG_MENU_ONLY = Object.freeze(["fixture-long-action-delete", "fixture-lon
 // A title as wide as two of the long actions page's actions at 1280 px: an expanded bar folds some of them, not all.
 const LONG_TITLE = "Nightly backups for the billing database";
 
-// The top app bar of ShellLayout as drawn: whether its row overflows, which long actions it shows, each item a person
-// must reach (More actions and the bar's own items, by their accessible names) that lies outside the window or under
-// something else at its centre, whether the title is clipped, the room the title leaves in its box, and each shown
-// action's width with its margins.
+// The top app bar as drawn, ShellLayout's or a layout's own: whether the row that holds the page actions overflows,
+// which long actions it shows, each item a person must reach (More actions and the bar's own items, by their names)
+// that lies outside the window or under something else at its centre, whether the title is clipped, the room left
+// beside the title's text in its box, and each shown action's width with its margins.
 function readLongActionsBar(page) {
   return page.evaluate(() => {
-    const bar = document.querySelector("[data-testid=jskit-shell-app-bar]");
-    const row = bar.querySelector(".shell-layout__app-bar-row");
-    const headline = row.querySelector(".shell-layout__headline");
-    const title = headline.querySelector("[data-testid=jskit-shell-page-title]");
-    const more = bar.querySelector("[data-testid=jskit-shell-page-actions-overflow]");
+    const row = document.querySelector(".shell-page-actions-target").parentElement;
+    const title = document.getElementById("jskit-shell-page-title");
+    const titleBox = [...row.children].find((child) => child.contains(title));
+    const more = row.querySelector("[data-testid=jskit-shell-page-actions-overflow]");
     const reachable = (element) => {
       const box = element.getBoundingClientRect();
       const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
       return box.left >= 0 && box.right <= window.innerWidth && Boolean(hit && element.contains(hit));
     };
-    const style = window.getComputedStyle(headline);
-    const actions = [...bar.querySelectorAll("[data-testid^=fixture-long-action]")];
+    const style = window.getComputedStyle(titleBox);
+    const text = document.createRange();
+    text.selectNodeContents(title);
+    const actions = [...row.querySelectorAll("[data-testid^=fixture-long-action]")];
     return {
       overflows: row.scrollWidth > row.clientWidth,
       inBar: actions.map((element) => element.dataset.testid),
       unreachable: [
         more ? null : "More actions (not drawn)",
-        ...[more, ...bar.querySelectorAll("[data-testid=fixture-status]")]
+        ...[more, ...row.querySelectorAll("[data-testid=fixture-status], [data-testid=fixture-workspace-control]")]
           .filter((element) => element && !reachable(element))
-          .map((element) => element.getAttribute("aria-label"))
+          .map((element) => element.getAttribute("aria-label") || element.textContent.trim())
       ].filter(Boolean),
       titleClipped: title.scrollWidth > title.clientWidth + 1,
-      slack: Math.floor(headline.clientWidth - Number.parseFloat(style.paddingInlineStart) -
-        Number.parseFloat(style.paddingInlineEnd) - title.getBoundingClientRect().width),
+      slack: titleBox.clientWidth - Number.parseFloat(style.paddingInlineStart) -
+        Number.parseFloat(style.paddingInlineEnd) - text.getBoundingClientRect().width,
       widths: Object.fromEntries(actions.map((element) => {
         const margins = window.getComputedStyle(element);
-        return [element.dataset.testid, Math.ceil(element.getBoundingClientRect().width +
-          Number.parseFloat(margins.marginInlineStart) + Number.parseFloat(margins.marginInlineEnd))];
+        return [element.dataset.testid, element.getBoundingClientRect().width +
+          Number.parseFloat(margins.marginInlineStart) + Number.parseFloat(margins.marginInlineEnd)];
       }))
     };
   });
@@ -1493,7 +1494,7 @@ async function readLongActionsMenu(page) {
 // What a bar that folds its actions by width shows: nothing past the bar, every item a person must reach on screen and
 // on top, the title whole; the first actions in bar order inline and the rest in More actions before the menu's own,
 // as few folded as leave the title whole, so the room left beside the title is less than the first folded action
-// needs. Returns the folded actions.
+// needs, give or take the pixel the bar rounds the title up to. Returns the folded actions.
 async function foldedByWidth(page, { bar, widths, at }) {
   assert.deepEqual({ overflows: bar.overflows, unreachable: bar.unreachable, titleClipped: bar.titleClipped }, {
     overflows: false,
@@ -1504,9 +1505,41 @@ async function foldedByWidth(page, { bar, widths, at }) {
   assert.deepEqual(bar.inBar, LONG_ACTIONS.slice(0, bar.inBar.length), `${at}: the bar keeps the first actions`);
   assert.deepEqual(await readLongActionsMenu(page), [...folded, ...LONG_MENU_ONLY], `${at}: More actions holds the rest, in bar order`);
   if (folded.length > 0) {
-    assert.ok(bar.slack < widths[folded[0]], `${at}: ${folded[0]} (${widths[folded[0]]}px) folded with ${bar.slack}px left`);
+    assert.ok(bar.slack < widths[folded[0]] + 1, `${at}: ${folded[0]} (${widths[folded[0]]}px) folded with ${bar.slack}px left`);
   }
   return folded;
+}
+
+// The long actions page at `path`, opened at 1280 px for each action's width in a bar that shows them all, then the
+// same page at 768 px: it folds some actions and keeps others, and a folded one runs from the menu; at 1280 px again
+// every action is back in the bar, and at 768 px the same ones fold again.
+async function checkMediumFold(browser, t, { baseURL, path }) {
+  const wide = await browser.newPage({ baseURL, viewport: { width: 1280, height: 900 } });
+  t.after(() => wide.close());
+  await wide.goto(path);
+  await expect(wide.getByTestId("fixture-long-action-tags")).toBeVisible();
+  const { widths, inBar } = await readLongActionsBar(wide);
+  assert.deepEqual(inBar, LONG_ACTIONS, `${path} at 1280px shows every action`);
+
+  const page = await browser.newPage({ baseURL, viewport: { width: 768, height: 1024 } });
+  t.after(() => page.close());
+  await page.goto(path);
+  await expect(page.getByTestId("jskit-shell-page-title")).toHaveText("Hosted service");
+  await expect(page.getByTestId("fixture-long-action-size")).toBeVisible();
+  const bar = await readLongActionsBar(page);
+  const folded = await foldedByWidth(page, { bar, widths, at: `${path} at 768px` });
+  assert.ok(folded.length > 0 && bar.inBar.length > 0, `${path} at 768px: some actions fold and some stay (${bar.inBar.join(", ")})`);
+
+  await page.getByTestId("jskit-shell-page-actions-overflow").click();
+  await page.getByRole("menu").getByTestId(folded[0]).click();
+  await expect(page.getByTestId("fixture-action-log")).toHaveText(folded[0].replace("fixture-long-action-", ""));
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.getByTestId("fixture-long-action-tags")).toBeVisible();
+  assert.deepEqual(await foldedByWidth(page, { bar: await readLongActionsBar(page), widths, at: `${path} widened to 1280px` }), []);
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await expect(page.getByTestId(folded[0])).toHaveCount(0);
+  assert.deepEqual(await foldedByWidth(page, { bar: await readLongActionsBar(page), widths, at: `${path} at 768px again` }), folded);
 }
 
 test("a medium window's bar folds the page actions it has no room for into More actions, and More actions and the bar's own items stay on screen and reachable", {
@@ -1514,26 +1547,15 @@ test("a medium window's bar folds the page actions it has no room for into More 
   timeout: 90_000
 }, async (t) => {
   const { vite, browser } = await startFixture(t);
-  // Each action's width, from an expanded bar that shows them all.
-  const wide = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
-  t.after(() => wide.close());
-  await wide.goto("/home/long-actions?topRight=3");
-  await expect(wide.getByTestId("fixture-long-action-tags")).toBeVisible();
-  const { widths } = await readLongActionsBar(wide);
+  await checkMediumFold(browser, t, { baseURL: vite.baseURL, path: "/home/long-actions?topRight=3" });
+});
 
-  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 768, height: 1024 } });
-  t.after(() => page.close());
-  await page.goto("/home/long-actions?topRight=3");
-  await expect(page.getByTestId("jskit-shell-page-title")).toHaveText("Hosted service");
-  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
-  const bar = await readLongActionsBar(page);
-  const folded = await foldedByWidth(page, { bar, widths, at: "768px" });
-  assert.ok(folded.length > 0 && bar.inBar.length > 0, `768px: some actions fold and some stay (${bar.inBar.join(", ")})`);
-
-  // A folded action runs from the menu.
-  await page.getByTestId("jskit-shell-page-actions-overflow").click();
-  await page.getByRole("menu").getByTestId(folded[0]).click();
-  await expect(page.getByTestId("fixture-action-log")).toHaveText(folded[0].replace("fixture-long-action-", ""));
+test("a layout's own top app bar folds the page actions it has no room for the same way, and keeps its own controls on screen", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  await checkMediumFold(browser, t, { baseURL: vite.baseURL, path: "/home/studio-actions" });
 });
 
 test("an expanded window's bar keeps every page action that fits beside the title, and a long title folds only those that don't", {
