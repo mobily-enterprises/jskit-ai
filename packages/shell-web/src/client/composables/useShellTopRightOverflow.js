@@ -1,18 +1,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { PAGE_TITLE_ID } from "../navigation/shellNavigationRuntime.js";
+import { ICON_BUTTON_WIDTH, contentWidth, wholeTitleWidth } from "../support/appBarWidths.js";
 import { resolveTopRightItemsInMenu } from "../support/topRightOverflow.js";
-
-// Material 3's icon button: the width of an item, or of the overflow button, that the bar has not drawn yet.
-const ICON_BUTTON_WIDTH = 48;
-
-/**
- * The title's whole width: its box when the text fits (ShellLayout sizes the h1 to its text), else the text it clips,
- * a pixel more, since scrollWidth is a whole number and a rounding must never make a clipped title fit.
- * @param {HTMLElement} title
- */
-function wholeTitleWidth(title) {
-  return title.scrollWidth > title.clientWidth ? title.scrollWidth + 1 : title.getBoundingClientRect().width;
-}
 
 /**
  * How many of a compact top app bar's top-right items (from the first, the farthest from the corner) ShellLayout
@@ -65,10 +54,7 @@ function useShellTopRightOverflow({ enabled, placements, pageActions, row, headl
     if (menuButton) {
       menuButtonWidth = menuButton.getBoundingClientRect().width;
     }
-    const style = window.getComputedStyle(headlineElement);
-    const titleRoom = headlineElement.clientWidth -
-      Number.parseFloat(style.paddingInlineStart) -
-      Number.parseFloat(style.paddingInlineEnd);
+    const titleRoom = contentWidth(headlineElement);
     measured.value = resolveTopRightItemsInMenu({
       room: titleRoom + inBar + (menuButton ? menuButtonWidth : 0),
       title: wholeTitleWidth(title),

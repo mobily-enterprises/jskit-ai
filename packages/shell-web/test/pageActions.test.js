@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { compileScript, compileTemplate, parse } from "@vue/compiler-sfc";
 import { computed, ref } from "vue";
-import { createShellPageActionsRegistry } from "../src/client/support/pageActions.js";
+import { createShellPageActionsRegistry, resolveFoldedPageActions } from "../src/client/support/pageActions.js";
 
 function action(label, { primary = false, overflow = false } = {}) {
   return { id: label, state: computed(() => ({ label, primary, overflow })), attrs: {}, activate() {}, anchor: null };
@@ -50,6 +50,48 @@ test("overflow actions go to the menu at every width, in bar order, and an overf
   assert.equal(registry.hasPrimary.value, false);
   isCompact.value = true;
   assert.deepEqual(menuLabels(registry), ["Edit", "Duplicate", "Delete", "Publish"]);
+});
+
+test("a wider bar folds its last actions that don't fit into the menu, in bar order, and never the primary one", () => {
+  const isCompact = ref(false);
+  const registry = createShellPageActionsRegistry({ isCompact });
+  const [edit, share, duplicate, save, archive] = [
+    action("Edit"),
+    action("Share"),
+    action("Duplicate", { overflow: true }),
+    action("Save", { primary: true }),
+    action("Archive")
+  ];
+  [edit, share, duplicate, save, archive].forEach((entry) => registry.register(entry));
+  assert.deepEqual(registry.foldable.value.map((entry) => entry.state.value.label), ["Edit", "Share", "Archive"]);
+
+  registry.fold(1);
+  assert.deepEqual(menuLabels(registry), ["Duplicate", "Archive"]);
+  assert.equal(registry.inMenu(archive), true);
+  assert.equal(registry.inMenu(share), false);
+  registry.fold(2);
+  assert.deepEqual(menuLabels(registry), ["Share", "Duplicate", "Archive"], "the menu keeps bar order");
+  registry.fold(5);
+  assert.deepEqual(menuLabels(registry), ["Edit", "Share", "Duplicate", "Archive"], "the primary action stays in the bar");
+  assert.equal(registry.inMenu(save), false);
+
+  registry.fold(0);
+  isCompact.value = true;
+  assert.deepEqual(menuLabels(registry), ["Edit", "Share", "Duplicate", "Archive"], "a compact bar keeps its own rule");
+});
+
+test("a wider bar folds as few of its last actions as leave the rest and the overflow button beside the whole title", () => {
+  // 400px beside the title for four 100px actions; the overflow button is 48px.
+  const bar = { room: 400, fixed: 0, actions: [100, 100, 100, 100], menuButton: 48, menuShown: false };
+  assert.equal(resolveFoldedPageActions(bar), 0, "four actions that fit to the pixel, with no menu");
+  assert.equal(resolveFoldedPageActions({ ...bar, room: 399 }), 1, "one pixel short: the last action and the button");
+  assert.equal(resolveFoldedPageActions({ ...bar, room: 348 }), 1, "three actions and the button, to the pixel");
+  assert.equal(resolveFoldedPageActions({ ...bar, room: 347 }), 2);
+  assert.equal(resolveFoldedPageActions({ ...bar, menuShown: true }), 1, "the menu's own actions need the button too");
+  assert.equal(resolveFoldedPageActions({ ...bar, room: 400, fixed: 120 }), 2, "the primary action takes its width first");
+  assert.equal(resolveFoldedPageActions({ ...bar, room: 20 }), 4, "too little room: every one folds");
+  assert.equal(resolveFoldedPageActions({ ...bar, room: -50 }), 4, "a title wider than the bar");
+  assert.equal(resolveFoldedPageActions({ ...bar, actions: [] }), 0);
 });
 
 test("ShellPageAction forwards its attributes to the button in each form and registers with the bar", async () => {

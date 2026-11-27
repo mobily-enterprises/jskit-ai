@@ -19,6 +19,7 @@ import { adminTheme, theme } from "./theme/index.js";
 import RecordListPage from "./RecordListPage.vue";
 import RecordPage from "./RecordPage.vue";
 import FeedbackPage from "./FeedbackPage.vue";
+import LongActionsPage from "./LongActionsPage.vue";
 import NotesPage from "./NotesPage.vue";
 import PendingActionsPage from "./PendingActionsPage.vue";
 import DialogFeedbackPage from "./DialogFeedbackPage.vue";
@@ -355,6 +356,8 @@ const routes = [
   { path: "/home/components", component: ComponentsPage, meta: { jskit: { title: "Components" } } },
   { path: "/home/actions", component: ActionsPage, meta: { jskit: { title: "Actions" } } },
   { path: "/home/actions/new", component: ActionsFormPage, meta: { jskit: { title: "New entry", parent: "/actions" } } },
+  // Labelled actions wider than a medium window's bar holds beside the title.
+  { path: "/home/long-actions", component: LongActionsPage, meta: { jskit: { title: "Hosted service" } } },
   // Actions whose work the test holds, to check they keep keyboard focus while it runs.
   { path: "/home/pending", component: PendingActionsPage, meta: { jskit: { title: "Pending actions" } } },
   { path: "/home/pending-dialog", component: () => import("./PendingDialogPage.vue"), meta: { jskit: { title: "Invites" } } },
@@ -362,6 +365,7 @@ const routes = [
   { path: "/home/notes", component: NotesPage, meta: { jskit: { title: "Notes" } } },
   { path: "/home/studio", component: StudioPage, meta: { ownBar: true, jskit: { title: "Studio" } } },
   { path: "/home/studio/:id", component: StudioPage, meta: { ownBar: true, jskit: { parent: "/studio" } } },
+  { path: "/home/studio-actions", component: LongActionsPage, meta: { ownBar: true, jskit: { title: "Hosted service" } } },
   { path: "/home/:section?", component: ScreenPage, meta: { title: "Home surface" } },
   { path: "/w/:workspaceSlug/admin/:section?", component: ScreenPage, meta: { title: "Admin surface" } },
   { path: "/help", component: ScreenPage, meta: { title: "Help and support" } },
