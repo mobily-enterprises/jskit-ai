@@ -26,9 +26,9 @@ import { MYSQL_DATABASE_OPTIONS } from "./mysqlPackageTestDatabase.js";
 // The database a PostgreSQL connection uses to create, drop and copy the test databases.
 const POSTGRES_MAINTENANCE_DATABASE = "postgres";
 const MYSQL_SNAPSHOT_SUFFIX = "_0";
-// How many tables the restores of one preparation fill at once, each on a connection of its own, shared between the
-// databases it restores at once: four 250,000-row tables filled in 19 s in turn and in 9.5 s at once (MariaDB 11.4, a
-// busy test machine), and a fill past what the server's cores and disk can take only queues.
+// How many tables the restores of one preparation, or of one run's test files, fill at once, each on a connection of
+// its own, shared between the databases restored at once: four 250,000-row tables filled in 19 s in turn and in 9.5 s
+// at once (MariaDB 11.4, a busy test machine), and a fill past what the server's cores and disk can take only queues.
 const MYSQL_FILL_CONNECTIONS = 8;
 const MYSQL_LABEL_TABLE = "jskit_test_snapshot";
 const MYSQL_ACCESS_DENIED = new Set(["ER_DBACCESS_DENIED_ERROR", "ER_ACCESS_DENIED_ERROR", "ER_SPECIFIC_ACCESS_DENIED_ERROR"]);
@@ -80,6 +80,14 @@ const POSTGRES_DEFINITIONS = `
 const ledgerOf = (knexConfig) => knexConfig.migrations?.tableName || "knex_migrations";
 
 /** A Knex on `database`; a MySQL `session` statement runs on each connection it opens, after the configuration's own. */
+/**
+ * The fill connections of one restore when `databasesAtOnce` databases are restored at once (a preparation's, or a
+ * run's test files'): its share of MYSQL_FILL_CONNECTIONS, at least one, so they never fill on more than those together.
+ */
+function fillConnections(databasesAtOnce = 1) {
+  return Math.max(1, Math.floor(MYSQL_FILL_CONNECTIONS / databasesAtOnce));
+}
+
 function knexOn(knexConfig, database, connectionOptions = {}, session = "", connections = 1) {
   // The configuration's own pool settings stay, such as a PostgreSQL session's UTC time zone.
   const pool = { ...knexConfig.pool, min: 0, max: connections };
@@ -209,12 +217,19 @@ const mysql = {
       await knex.raw("SET FOREIGN_KEY_CHECKS = 1");
     }
     if (replaced.length < 1) return;
-    // The pool opens a connection for each table it fills at once, and queues the rest.
-    const fill = knexOn(knexConfig, database, {}, "SET FOREIGN_KEY_CHECKS = 0", Math.min(connections, replaced.length));
+    // Each filler holds a connection of its own and takes the next table once its last is filled, so no table waits
+    // in the pool's queue, where knex gives up after its acquireConnectionTimeout (60 s by default): daniela's cold
+    // preparation of five copies queued 73 tables on each copy's one connection, and the last two gave up.
+    const fillers = Math.min(connections, replaced.length);
+    const fill = knexOn(knexConfig, database, {}, "SET FOREIGN_KEY_CHECKS = 0", fillers);
+    const queue = [...replaced];
     try {
-      await settleAll(replaced.map(({ name, columns }) => {
-        const list = columns.map(() => "??").join(", ");
-        return fill.raw(`INSERT INTO ?? (${list}) SELECT ${list} FROM ??.??`, [name, ...columns, ...columns, snapshot.database, name]);
+      await settleAll(Array.from({ length: fillers }, async () => {
+        for (let table = queue.shift(); table; table = queue.shift()) {
+          const { name, columns } = table;
+          const list = columns.map(() => "??").join(", ");
+          await fill.raw(`INSERT INTO ?? (${list}) SELECT ${list} FROM ??.??`, [name, ...columns, ...columns, snapshot.database, name]);
+        }
       }));
     } finally {
       await fill.destroy();
@@ -420,7 +435,7 @@ const mysql = {
       provided.push(database);
     }
     // The databases restored at once share the fill's connections.
-    const connections = Math.max(1, Math.floor(MYSQL_FILL_CONNECTIONS / provided.length));
+    const connections = fillConnections(provided.length);
     const replaced = await settleAll(provided.map((database) => mysql.restore(knexConfig, database, snapshot, connections)));
     return { databases: provided, restored: replaced.reduce((sum, tables) => sum + tables.length, 0) };
   },
@@ -649,6 +664,7 @@ export {
   POSTGRES_INSUFFICIENT_PRIVILEGE,
   POSTGRES_MAINTENANCE_DATABASE,
   dialectOf,
+  fillConnections,
   ledgerOf,
   rowDifference,
   settleAll,

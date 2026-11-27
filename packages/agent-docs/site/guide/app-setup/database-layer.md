@@ -401,7 +401,11 @@ the application's `knexfile.js`:
   table is made on the server, its definition and then its rows copied from
   the snapshot database (`INSERT ... SELECT`), so no row passes through Node;
   a preparation fills up to eight tables at once, each on a connection of its
-  own, shared between the databases it restores at once.
+  own, shared between the databases it restores at once, and a test file's
+  restore fills on its share of the eight by the run's files at once, so a
+  run never fills on more than eight connections, plus one for each database
+  being restored. No table waits in a connection pool's queue, where Knex gives
+  up after its `acquireConnectionTimeout`.
   The tables it fills are then sampled for the planner in one `ANALYZE TABLE`:
   InnoDB keeps the statistics it took of the empty table until it samples it
   again, and the planner would read a filled table as empty.

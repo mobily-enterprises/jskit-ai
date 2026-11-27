@@ -112,7 +112,7 @@ Exports
 - `requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {})`
 - `requireTestDatabase(environment)`
 - `resetTestDatabase({ environment })`
-- `restoreTestDatabase(knexConfig, database, snapshot)`
+- `restoreTestDatabase(knexConfig, database, snapshot, databasesAtOnce = 1)`
 - `tableNames(knex)`
 - `testDatabaseNames(name, count)`
 - `testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd(), checkDatabase })`
@@ -134,6 +134,7 @@ Exports
 - `POSTGRES_INSUFFICIENT_PRIVILEGE`
 - `POSTGRES_MAINTENANCE_DATABASE`
 - `dialectOf(knexConfig)`
+- `fillConnections(databasesAtOnce = 1)`
 - `ledgerOf(knexConfig)`
 - `rowDifference(table, built, captured)`
 - `settleAll(promises)`

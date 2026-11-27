@@ -52,6 +52,7 @@ import {
   POSTGRES_INSUFFICIENT_PRIVILEGE,
   POSTGRES_MAINTENANCE_DATABASE,
   dialectOf,
+  fillConnections,
   ledgerOf,
   rowDifference,
   settleAll,
@@ -262,11 +263,14 @@ async function matchesSnapshot(knexConfig, database, snapshot) {
  * Restores `database`, which must be disposable, to the snapshot, and answers the tables it replaced, sorted: on MySQL
  * and MariaDB those that differ from the snapshot's, found exactly (a table's definition and AUTO_INCREMENT counter,
  * its triggers, its rows' CHECKSUM TABLE, and tables missing or added), so a file that wrote three tables costs three; on PostgreSQL
- * every table, the database a new copy of the snapshot database, which costs less than finding them.
+ * every table, the database a new copy of the snapshot database, which costs less than finding them. A test file's
+ * restore passes how many databases its run restores at once (its files at once), and fills on its share of the
+ * connections a restore fills on, so the run's files never fill on more than those together.
+ * @param {number} [databasesAtOnce]
  * @returns {Promise<string[]>}
  */
-async function restoreTestDatabase(knexConfig, database, snapshot) {
-  const replaced = await dialectOf(knexConfig).restore(knexConfig, database, snapshot);
+async function restoreTestDatabase(knexConfig, database, snapshot, databasesAtOnce = 1) {
+  const replaced = await dialectOf(knexConfig).restore(knexConfig, database, snapshot, fillConnections(databasesAtOnce));
   if (!replaced) throw new Error(`The database user may not recreate ${database}.`);
   return replaced;
 }
@@ -576,7 +580,7 @@ async function claimTestDatabaseCopy(context, { environment }) {
   const knexFactory = loadKnexFactory();
   if (knexConfig.client !== "pg") {
     const knex = await createMysqlPackageTestKnex(context, { knexFactory, environment, testDatabase: databases[0],
-      pool: PACKAGE_TEST_POOL, fill: (database) => restoreTestDatabase(knexConfig, database, snapshot) });
+      pool: PACKAGE_TEST_POOL, fill: (database) => restoreTestDatabase(knexConfig, database, snapshot, databases.length) });
     return { database: knex.client.config.connection.database, knex };
   }
   return claimPostgresCopy(context, { knexFactory, knexConfig, snapshot, base: databases[0] });
@@ -659,7 +663,7 @@ async function resetTestDatabase({ environment }) {
     throw new Error(`resetTestDatabase() restores this file's own copy, and TEST_DB_NAME names ${database || "none"}, ` +
       "which is not one of the run's: pass the file's environment (process.env).");
   }
-  return restoreTestDatabase(knexConfig, database, snapshot);
+  return restoreTestDatabase(knexConfig, database, snapshot, databases.length);
 }
 
 /**
