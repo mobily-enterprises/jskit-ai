@@ -2,6 +2,7 @@ import { createApp, h } from "vue";
 import { createVuetify } from "vuetify";
 import { VAlert } from "vuetify/components/VAlert";
 import { VApp } from "vuetify/components/VApp";
+import { VExpansionPanel, VExpansionPanels } from "vuetify/components/VExpansionPanel";
 import { VIconBtn } from "vuetify/components/VIconBtn";
 import { VMain } from "vuetify/components/VMain";
 import { VProgressCircular } from "vuetify/components/VProgressCircular";
@@ -15,7 +16,8 @@ import { createMaterialVuetifyOptions } from "../../../src/client/index.js";
 // avatar material.css already restacks, with JSKIT's Material 3 options and stylesheet
 // (underlayStacking.browser.test.js): a tonal alert (its tint), an alert with a border (its border box), icon buttons
 // with a text at rest, tonal and active (their state layer and underlay), an editable stepper's step (its state layer
-// and underlay), a tonal snackbar (its tint) and a circular progress with a reading (its ring's svg).
+// and underlay), a tonal snackbar (its tint), a circular progress with a reading (its ring's svg) and focusable
+// expansion panels, the first open (each title's state layer, shown on the open one, on hover and on focus).
 const App = () => h(VApp, () => h(VMain, { class: "pa-6" }, () => [
   h(VAlert, {
     variant: "tonal",
@@ -32,7 +34,13 @@ const App = () => h(VApp, () => h(VMain, { class: "pa-6" }, () => [
     h(VIconBtn, { text: "Pinned", active: true, width: 96, "data-testid": "active-icon-button" })
   ]),
   h(VStepper, { modelValue: 1, editable: true, hideActions: true, items: ["Shipping"], class: "mb-4", "data-testid": "stepper" }),
-  h(VProgressCircular, { modelValue: 75, size: 72, width: 6, "data-testid": "progress" }, () => "75%"),
+  h("div", { class: "d-flex ga-4 align-start" }, [
+    h(VProgressCircular, { modelValue: 75, size: 72, width: 6, "data-testid": "progress" }, () => "75%"),
+    h(VExpansionPanels, { modelValue: [0], multiple: true, focusable: true, style: "max-width: 480px", "data-testid": "panels" }, () => [
+      h(VExpansionPanel, { title: "Billing", text: "Invoices go to the billing contact." }),
+      h(VExpansionPanel, { title: "Security" })
+    ])
+  ]),
   h(VSnackbar, { modelValue: true, variant: "tonal", timeout: -1, text: "Saved the report.", "data-testid": "snackbar" })
 ]));
 

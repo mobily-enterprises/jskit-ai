@@ -39,11 +39,21 @@ const TEXTS = Object.freeze({
   snackbar: ["Saved the report."]
 });
 
+// Focusable expansion panels' texts, the first panel open: its title, its text and the closed panel's title.
+const PANEL_TEXTS = Object.freeze({ panels: ["Billing", "Invoices go to the billing contact.", "Security"] });
+
+// Vuetify's state layer for an expansion panel title, its __overlay over the title's text, as an unlayered
+// stylesheet that overrides material.css's.
+const VUETIFY_STATE_LAYER = `
+  .v-expansion-panel-title { background-color: transparent !important; }
+  .v-expansion-panel-title > .v-expansion-panel-title__overlay { display: inline !important; }
+`;
+
 // What axe's color-contrast makes of each component's texts, and what lies on top of each text's first line: in
 // axe's model of the page (its element stack, which counts a layer the browser's hit test skips for
 // pointer-events: none) and for the browser (elementsFromPoint). "self" is the text's own element. A text of one or
 // two characters (a step's number) is too short for axe to judge (shortTextContent).
-async function judged(page) {
+async function judged(page, texts) {
   if (!(await page.evaluate(() => Boolean(globalThis.axe)))) await page.addScriptTag({ path: AXE_PATH });
   return page.evaluate(async (texts) => {
     const results = await globalThis.axe.run(document, { runOnly: { type: "rule", values: ["color-contrast"] } });
@@ -87,7 +97,7 @@ async function judged(page) {
     } finally {
       globalThis.axe.teardown();
     }
-  }, TEXTS);
+  }, texts);
 }
 
 // How many pixels of two screenshots of the window differ, and by how much at most in any channel.
@@ -137,11 +147,76 @@ test("axe judges the text of a tonal alert, a bordered alert, icon buttons, an e
   await style.evaluate((element) => element.remove());
 
   const texts = Object.values(TEXTS).flat();
-  assert.deepEqual({ ...(await judged(page)), pixels: await pixelDifference(page, restacked, asVuetifyStacksThem) }, {
+  assert.deepEqual({ ...(await judged(page, TEXTS)), pixels: await pixelDifference(page, restacked, asVuetifyStacksThem) }, {
     passed: Object.fromEntries(Object.entries(TEXTS).map(([key, list]) => [key, [...list].sort()])),
     failed: [],
     unjudged: [],
     tops: Object.fromEntries(texts.map((text) => [text, "axe self, browser self"])),
     pixels: { differing: 0, maxDelta: 0 }
+  });
+});
+
+// Vuetify draws an expansion panel title's state layer, shown on an open focusable panel, on hover and on keyboard
+// focus, as a positioned box over the title's text, a text of the title's own: axe found the layer over the text and
+// judged none of it (color-contrast incomplete, bgOverlap). material.css draws the state as the title's own
+// background, the text's own colour at the state's opacity, as the layer drew it, so the window shows the same
+// pixels either way.
+test("axe judges an expansion panel title's text on top of its state layer, on an open focusable panel, on hover and on keyboard focus, and the page draws the same as with Vuetify's state layer", {
+  skip: SKIP,
+  timeout: 120_000
+}, async (t) => {
+  const { vite, browser } = await open(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" });
+  t.after(() => page.close());
+  await page.goto("/");
+  const titles = page.getByTestId("panels").locator(".v-expansion-panel-title");
+  await expect(titles).toHaveText(["Billing", "Security"]);
+  await expect(page.getByText("Invoices go to the billing contact.")).toBeVisible();
+
+  const states = {
+    "at rest": async () => {},
+    "Billing hovered": () => titles.nth(0).hover(),
+    "Security hovered": () => titles.nth(1).hover(),
+    "Security focused": async () => {
+      await page.mouse.move(1, 1);
+      await titles.nth(0).focus();
+      await page.keyboard.press("Tab");
+    },
+    "Billing focused": () => page.keyboard.press("Shift+Tab")
+  };
+  const titlesThat = (state) => titles.evaluateAll((list, selector) => list.filter((title) => title.matches(selector))
+    .map((title) => [...title.childNodes].filter((node) => node.nodeType === 3).map((node) => node.textContent).join("").trim()), state);
+  const seen = {};
+  for (const [state, reach] of Object.entries(states)) {
+    await reach();
+    await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState !== "running"));
+    const drawn = await page.screenshot({ animations: "disabled" });
+    const style = await page.addStyleTag({ content: VUETIFY_STATE_LAYER });
+    const asVuetifyDrawsIt = await page.screenshot({ animations: "disabled" });
+    await style.evaluate((element) => element.remove());
+    seen[state] = {
+      hovered: await titlesThat(":hover"),
+      focused: await titlesThat(":focus-visible"),
+      ...(await judged(page, PANEL_TEXTS)),
+      pixels: await pixelDifference(page, drawn, asVuetifyDrawsIt)
+    };
+  }
+
+  const texts = PANEL_TEXTS.panels;
+  const judgedOnTop = (hovered, focused) => ({
+    hovered,
+    focused,
+    passed: { panels: [...texts].sort() },
+    failed: [],
+    unjudged: [],
+    tops: Object.fromEntries(texts.map((text) => [text, "axe self, browser self"])),
+    pixels: { differing: 0, maxDelta: 0 }
+  });
+  assert.deepEqual(seen, {
+    "at rest": judgedOnTop([], []),
+    "Billing hovered": judgedOnTop(["Billing"], []),
+    "Security hovered": judgedOnTop(["Security"], []),
+    "Security focused": judgedOnTop([], ["Security"]),
+    "Billing focused": judgedOnTop([], ["Billing"])
   });
 });
