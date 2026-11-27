@@ -16,9 +16,11 @@ repeating it here.
 
 ## Tests
 
-- `npm run verify` runs what CI's verify job runs: lint, the repository checks,
-  every package's tests, then the SQLite run. README's Common commands names the
-  database settings the data tests need, and the PostgreSQL and browser runs.
+- `npm run verify` is what CI's verify job runs after `npm ci` and the audit:
+  lint, the repository checks, every package's tests, then the SQLite run.
+  README's Common commands names the database settings data tests need (without
+  `TEST_DB_NAME` a data test fails; it never skips), and the PostgreSQL and
+  browser runs.
 - One package: `npm test -w packages/<name>` runs its `test` script,
   `jskit test`, which runs its files in parallel within the machine's test
   budget ([test files run in parallel](packages/agent-docs/site/guide/framework/typed-features.md#test-files-run-in-parallel)).
