@@ -85,15 +85,22 @@ async function refuseBusyPorts(host, ports) {
   }
 }
 
+/**
+ * Waits until the server answers `url` with a success, and says how long it took: when it first answered at all, and
+ * (on Linux) the CPU time its processes used, which tells a start that computes from one that waits on something.
+ */
 async function waitUntilReady(url, server, name) {
   const started = performance.now();
   const deadline = Date.now() + READY_TIMEOUT_MS;
+  let answered = "";
   while (Date.now() < deadline) {
     if (server.exitCode !== null || server.signalCode !== null) throw new Error(`${name} stopped while starting.`);
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(2_000) });
+      answered ||= seconds(started);
       if (response.ok) {
-        console.log(`[browser-tests] ${name} started in ${seconds(started)}.`);
+        const cpu = process.platform === "linux" ? `, ${treeCpuSeconds(server.pid).toFixed(1)}s of CPU` : "";
+        console.log(`[browser-tests] ${name} started in ${seconds(started)} (first answer at ${answered}${cpu}).`);
         return;
       }
     } catch {
@@ -112,8 +119,8 @@ let runFiles = [];
 let serverMemoryFile = "";
 const running = (server) => server.exitCode === null && server.signalCode === null;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms, false));
-/** The peak resident memory (VmHWM) of process `pid` and each process under it, added up, in bytes (Linux's /proc). */
-function treePeakBytes(pid) {
+/** Process `pid` and each process under it (Linux's /proc). */
+function processTree(pid) {
   const children = new Map();
   for (const entry of readdirSync("/proc").filter((name) => /^\d+$/u.test(name))) {
     let stat;
@@ -126,17 +133,39 @@ function treePeakBytes(pid) {
     const parent = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]);
     children.set(parent, [...(children.get(parent) ?? []), Number(entry)]);
   }
-  let total = 0;
+  const tree = [];
   for (const queue = [pid]; queue.length > 0;) {
     const current = queue.pop();
+    tree.push(current);
+    queue.push(...(children.get(current) ?? []));
+  }
+  return tree;
+}
+/** Adds up what `read` answers for each process of `pid`'s tree, 0 for one that ended while the others were read. */
+function treeTotal(pid, read) {
+  let total = 0;
+  for (const current of processTree(pid)) {
     try {
-      total += Number(readFileSync(`/proc/${current}/status`, "utf8").match(/^VmHWM:\s+(\d+) kB$/mu)?.[1] ?? 0) * 1024;
+      total += read(current);
     } catch {
       // It ended while the others were read.
     }
-    queue.push(...(children.get(current) ?? []));
   }
   return total;
+}
+/** The peak resident memory (VmHWM) of process `pid` and each process under it, added up, in bytes. */
+function treePeakBytes(pid) {
+  return treeTotal(pid, (current) =>
+    Number(readFileSync(`/proc/${current}/status`, "utf8").match(/^VmHWM:\s+(\d+) kB$/mu)?.[1] ?? 0) * 1024);
+}
+/** The CPU time, user and system, process `pid` and each process under it have used, in seconds. */
+function treeCpuSeconds(pid) {
+  return treeTotal(pid, (current) => {
+    const stat = readFileSync(`/proc/${current}/stat`, "utf8");
+    // After "pid (name) ": state is field 3, utime 14 and stime 15, in clock ticks of 1/100 s.
+    const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+    return (Number(fields[11]) + Number(fields[12])) / 100;
+  });
 }
 /** Records the peak memory of the largest of the run's app servers as they stop, for the next run's worker count. */
 function recordServerMemory() {

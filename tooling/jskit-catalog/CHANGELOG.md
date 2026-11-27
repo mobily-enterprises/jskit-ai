@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Each browser test server's start line says when the server first answered and, on Linux, how much CPU its start used (`started in 22.3s (first answer at 21.9s, 6.1s of CPU)`): a start whose CPU is near its time computes, one far below it waits on something, as whs2's five servers seemed to, ready at 22, 32, 39, 47 and 54 s though started at once.
 - **Behaviour change.** `jskit test --databases` and the browser test servers leave the run's test databases for the next run, which restores them (`@jskit-ai/database-runtime`), where they dropped the numbered copies at their end: no `jskit test: dropped ...` or `[browser-tests] dropped ...` line, and a launcher's stop no longer waits up to 5 s for the drops (every one of daniela's runs ended "not all dropped within 5s").
 - `jskit test --list [node options] [files or globs]` prints the files that run would take, one per line, then `Total: <n> file(s)` (the closing line Playwright's `--list` prints), and runs nothing, preparing no database even with `--databases`. A host checks with it that a run of named files takes exactly those, before it sends them to a test machine.
 - `jskit migration-history` runs as `APP_ENV=test`, as `jskit test` does, and refuses a shell whose `APP_ENV` is staging or production, where it stopped at once wherever `APP_ENV` was unset, as in CI (`APP_ENV is not set`): a project's `APP_ENV=test` in front of it in a script can go.
