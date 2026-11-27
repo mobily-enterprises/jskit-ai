@@ -72,6 +72,8 @@ not convert those choices into a generator questionnaire.
   `server.js` takes `API_BASE_PATH` and `toRequestPathname` from the kernel's
   `shared/surface/paths`. `server/lib/envFile.js` loads `.env` once per process
   for every entry point. `server/lib/loggerOptions.js` gives Fastify's logger
+  the level `LOG_LEVEL` names, info without one (`jskit test` and the browser
+  test servers set warn, so a test server does not log every request), and
   pino's error serializer under `error` as well as `err`, so
   `logger.error({ error }, "...")` keeps the error's message and stack. `eslint.config.mjs` holds
   server and shared code to every typed-features rule (`typedFeaturesConfig`),

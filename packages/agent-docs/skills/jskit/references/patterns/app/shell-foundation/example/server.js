@@ -93,7 +93,7 @@ function canServeStaticFile(distRoot, relativePath) {
  */
 async function createServer({ runtimeEnv }) {
   const app = Fastify({
-    logger: buildLoggerOptions(),
+    logger: buildLoggerOptions(runtimeEnv),
     // The proxies in front of the server (TRUSTED_PROXIES; loopback without it), so request.ip and the rate limits
     // counted by it are each client's address behind them.
     trustProxy: resolveTrustedProxies(runtimeEnv),

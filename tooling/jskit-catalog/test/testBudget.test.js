@@ -15,6 +15,7 @@ import { browserTestWorkers } from "../scripts/browser-tests.mjs";
 import { planTestRuns, withTimeReporter } from "../scripts/test-command.mjs";
 import { checkTestTimes, FILE_TIMES, fileStop } from "../scripts/test-time-report.mjs";
 import { checkTestRuns, formatTestRunsReport } from "../scripts/test-runs.mjs";
+import { useTestAppEnvironment } from "../scripts/test-environment.mjs";
 
 const execFileAsync = promisify(execFile);
 const CLI_PATH = fileURLToPath(new URL("../scripts/jskit.mjs", import.meta.url));
@@ -490,6 +491,49 @@ test("jskit check passes an app whose runs use jskit test and whose configs read
     const failure = await execFileAsync(process.execPath, [CLI_PATH, "check", "--root", root]).then(() => null, (error) => error);
     assert.equal(failure?.code, 1);
     assert.match(failure.stderr, /^playwright\.config\.mjs:1 {2}test\/playwright-workers {2}playwright's workers are not browserTestWorkers\(\): each worker drives a browser, and its own app server where it starts one, about two threads, so it takes half the test budget \(1 on a managed target\); set `workers: browserTestWorkers\(\)` from @jskit-ai\/jskit-catalog\/browser-tests\.$/mu);
+  });
+});
+
+test("tests run as APP_ENV=test and log at warn unless LOG_LEVEL asks for more, so a failure stays readable", () => {
+  const quiet = {};
+  useTestAppEnvironment(quiet, "jskit test");
+  assert.deepEqual(quiet, { APP_ENV: "test", LOG_LEVEL: "warn" });
+  const asked = { APP_ENV: "development", LOG_LEVEL: "debug" };
+  useTestAppEnvironment(asked, "jskit browser tests");
+  assert.deepEqual(asked, { APP_ENV: "test", LOG_LEVEL: "debug" });
+});
+
+test("jskit test gives every test file LOG_LEVEL=warn unless the shell names a level", async () => {
+  await withProject({
+    "package.json": { name: "log-level-fixture", private: true, type: "module" },
+    "test/level.test.js": "import assert from \"node:assert/strict\";\nimport test from \"node:test\";\n" +
+      "test(\"logs at the level asked\", () => assert.equal(process.env.LOG_LEVEL, process.env.EXPECTED_LOG_LEVEL));\n"
+  }, async (root) => {
+    const env = { ...process.env, V64_TEST_CONCURRENCY: "1" };
+    for (const variable of ["NODE_TEST_CONTEXT", "LOG_LEVEL"]) delete env[variable];
+    for (const [LOG_LEVEL, EXPECTED_LOG_LEVEL] of [[undefined, "warn"], ["debug", "debug"]]) {
+      const { stdout } = await execFileAsync(process.execPath, [CLI_PATH, "test"], { cwd: root, env: { ...env, LOG_LEVEL, EXPECTED_LOG_LEVEL } });
+      assert.match(stdout, /pass 1\b/u, String(LOG_LEVEL));
+    }
+  });
+});
+
+test("jskit check names an app whose logger options take no level from LOG_LEVEL, so its test servers log every request", async () => {
+  const app = {
+    "package.json": { name: "logged", scripts: { test: "jskit test" } },
+    "package-lock.json": { name: "logged", lockfileVersion: 3, packages: { "": { name: "logged" } } },
+    "server/lib/loggerOptions.js": "import pino from \"pino\";\n\nfunction buildLoggerOptions() {\n  return { serializers: { error: pino.stdSerializers.err } };\n}\n\n" +
+      "export { buildLoggerOptions };\n"
+  };
+  await withProject(app, async (root) => {
+    assert.deepEqual(await findings(root), ["server/lib/loggerOptions.js:3 test/log-level"]);
+    const failure = await execFileAsync(process.execPath, [CLI_PATH, "check", "--root", root]).then(() => null, (error) => error);
+    assert.equal(failure?.code, 1);
+    assert.match(failure.stderr, /^server\/lib\/loggerOptions\.js:3 {2}test\/log-level {2}buildLoggerOptions\(\) takes no level from LOG_LEVEL, so a test server logs every request at info: give its options `level: String\(runtimeEnv\.LOG_LEVEL \|\| ""\)\.trim\(\) \|\| "info"`/mu);
+  });
+  const levelled = "function buildLoggerOptions(runtimeEnv) {\n  return { level: String(runtimeEnv.LOG_LEVEL || \"\").trim() || \"info\" };\n}\n";
+  await withProject({ ...app, "server/lib/loggerOptions.js": levelled }, async (root) => {
+    assert.deepEqual(await findings(root), []);
   });
 });
 

@@ -133,7 +133,7 @@ Exports
 
 ### `patterns/minimal-foundation/example/server/lib/loggerOptions.js`
 Exports
-- `buildLoggerOptions()`
+- `buildLoggerOptions(runtimeEnv)`
 
 ### `patterns/minimal-foundation/example/server/lib/runtimeEnv.js`
 Exports
@@ -242,7 +242,7 @@ Exports
 
 ### `patterns/shell-foundation/example/server/lib/loggerOptions.js`
 Exports
-- `buildLoggerOptions()`
+- `buildLoggerOptions(runtimeEnv)`
 
 ### `patterns/shell-foundation/example/server/lib/runtimeEnv.js`
 Exports

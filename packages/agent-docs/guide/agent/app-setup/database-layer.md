@@ -395,38 +395,52 @@ the application's `knexfile.js`:
   those two replaced, is set.
   Every file starts from the snapshot, rows included: a copy an earlier file of
   the run used is restored before the next file takes it, so no file sees what
-  another wrote. On MySQL and MariaDB the restore replaces only the tables that
-  differ from the snapshot, found exactly: a table's definition and its
+  another wrote. On MySQL and MariaDB the restore replaces only the tables
+  that differ from the snapshot, found exactly: a table's definition and its
   `AUTO_INCREMENT` counter (`SHOW CREATE TABLE`, so a row written and deleted,
-  or a write rolled back, counts), a trigger on it, a row in a table the
-  snapshot holds empty, rows that are not the snapshot's, and tables missing or
-  added. A file that wrote three tables costs three tables, not the whole
-  schema. On PostgreSQL the copy is made again from the snapshot database,
-  which costs less than finding the tables.
-- When the run ends, whether its test files passed, failed or were stopped
-  (Ctrl-C, `SIGTERM`), or its foreign key check failed before the first file,
-  it drops the numbered copies it made and says so
-  (`jskit test: dropped the run's 3 numbered test database(s).`); the next run
-  makes them afresh from the snapshot. `TEST_DB_NAME` and the snapshot stay, so
-  a later run in the same tree restores them instead of replaying the
-  migrations. Only the copies the run made are dropped, and none a session is
-  connected to, such as another run's: the run names each copy it kept and why.
-- A run that never reached its end (killed with `SIGKILL`, stopped at a
-  command's time limit, or on a machine that went down) leaves its copies. So
-  every run, a browser run's `prepare` module included, starts by dropping the
-  numbered copies of its database it will not make itself (`<name>_<count>` and
-  up), none a session is connected to, and its summary says so
-  (`dropped 1 numbered test database(s) earlier runs left (shop_test_7)`): a
-  killed run's copies last until the next run starts, never longer. Only names
-  JSKIT gives a copy count: `<name>_snapshot` and a project's own lettered
-  copies stay. Two runs at once on one database name still are not supported.
+  or a write rolled back, counts), a trigger on it, rows whose `CHECKSUM
+  TABLE` is not the snapshot's, and tables missing or added; each replaced
+  table is made on the server, its definition and then its rows copied from
+  the snapshot database (`INSERT ... SELECT`), so no row passes through Node;
+  a preparation fills up to eight tables at once, each on a connection of its
+  own, shared between the databases it restores at once, and a test file's
+  restore fills on its share of the eight by the run's files at once, so a
+  run never fills on more than eight connections, plus one for each database
+  being restored. No table waits in a connection pool's queue, where Knex gives
+  up after its `acquireConnectionTimeout`.
+  The tables it fills are then sampled for the planner in one `ANALYZE TABLE`:
+  InnoDB keeps the statistics it took of the empty table until it samples it
+  again, and the planner would read a filled table as empty.
+  A file that wrote three tables costs three tables, not the whole schema. On
+  PostgreSQL the copy is made again from the snapshot database, which costs
+  less than finding the tables; the snapshot database is analyzed once when
+  it is built (`ANALYZE`), so each copy has its statistics.
+- `TEST_DB_NAME` and its copies stay on the server when the run ends,
+  whether its test files passed, failed or were stopped (Ctrl-C, `SIGTERM`),
+  or its foreign key check failed before the first file, and so do the copies
+  a run of fewer files does not take: the next run restores each one it takes
+  instead of making it again. On MySQL and MariaDB a run after one whose files
+  wrote three tables copies those three, not the schema; its summary says how
+  many tables its restores copied (`restore 412ms of 3 table(s)`). A run that
+  never reached its end (killed with `SIGKILL`, stopped at a command's time
+  limit, or on a machine that went down) leaves nothing the next run does not
+  restore, a table it was copying included. Each copy takes the disk space of
+  the snapshot's rows, and there are as many as the most files a run took at
+  once; they last until the project's test databases are dropped. Two runs at
+  once on one database name still are not supported.
 - The snapshot holds the schema as the engine reports it and the rows the
-  migrations wrote, including the migration ledger. On MySQL and MariaDB it is
-  each table's `SHOW CREATE TABLE` and rows, in
-  `node_modules/.cache/jskit-test-databases/`; on PostgreSQL it is the database
-  `<TEST_DB_NAME>_snapshot`, which `CREATE DATABASE <name> TEMPLATE <snapshot>`
-  copies while nothing is connected to it (the user needs `CREATEDB`), file by
-  file (`STRATEGY FILE_COPY`) from PostgreSQL 15. Its key
+  migrations wrote, including the migration ledger, in a database of its own
+  on the database server, where `npm ci`, which empties `node_modules`, cannot
+  remove it: one for each test database, replaced when its key changes. On
+  MySQL and MariaDB it is `<TEST_DB_NAME>_0`, two characters as each copy's,
+  so a host that grants each database by name grants it within the same length
+  (the user needs all privileges on it, as on `TEST_DB_NAME` and its copies;
+  without them the run takes one file at a time and names the grant); its
+  label, a table of its own, holds its key, the server's version, each table's
+  definition and the `CHECKSUM TABLE` a copy is compared with. On PostgreSQL
+  it is the database `<TEST_DB_NAME>_snapshot`, which `CREATE DATABASE <name>
+  TEMPLATE <snapshot>` copies while nothing is connected to it (the user needs
+  `CREATEDB`), file by file (`STRATEGY FILE_COPY`) from PostgreSQL 15. Its key
   is a digest of the dialect, of the name and contents of every migration file
   that the application's `migrations/` and its installed packages supply, and
   of `package-lock.json`, since an upgraded package can change a helper its
@@ -479,7 +493,8 @@ the application's `knexfile.js`:
   snapshot's. The harness restores the snapshot before another test file uses
   that database, instead of running `migrate.latest()` over the whole history.
 - A browser run's seed is not part of the snapshot: it runs in each restored
-  database, in one transaction ([Browser test preparation](#browser-test-preparation)).
+  database, in one transaction, and its tables are then sampled for the
+  planner (`ANALYZE`) ([Browser test preparation](#browser-test-preparation)).
 - Only `jskit migration-history`, the full-history check in
   [Verification](#verification), replays the whole history, as its own step:
   the migrations, or the knexfile's `testDatabaseSchema` build, from empty
@@ -531,19 +546,16 @@ transaction each, so stale rows never survive a run and the migrations are
 replayed only when one changes. It refuses the application's database,
 `STAGING_DB_NAME`, `PRODUCTION_DB_NAME`, `TEST_DB_NAME` and their copies.
 When the run stops (Playwright's `SIGTERM`, Ctrl-C, or a start that failed), the
-launcher stops its servers, whose sessions keep their copies, then drops the
-numbered copies the `prepare` module made and says so
-(`[browser-tests] dropped the run's 3 numbered test database(s).`), all within
-the 10 s Playwright gives its webServer; `BROWSER_TEST_DB_NAME` and the snapshot
-stay. `prepareTestDatabases()` itself drops the copies it made when it throws,
-for a Node or a browser run alike.
+launcher stops its servers within the 10 s Playwright gives its webServer;
+`BROWSER_TEST_DB_NAME`, its copies and the snapshot stay for the next run, which
+restores them.
 
 Give disposable integration and migration tests their own `TEST_DB_NAME`;
 the two names, and their copies, must differ, and the application account
 needs grants for each (a `<app>_%` grant covers the copies). Each preparation
 reports how many databases it made, whether it replayed the migrations for a
-new snapshot, and its restore and seed durations, so a cold rebuild is visible
-to the caller.
+new snapshot, its restore and seed durations and how many tables its restores
+copied, so a cold rebuild is visible to the caller.
 
 Run related checks in one suite invocation and prepare only their required
 fixtures. A local browser run serves the production build, never the

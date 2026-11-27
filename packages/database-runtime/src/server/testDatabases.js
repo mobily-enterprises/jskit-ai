@@ -3,18 +3,23 @@
 // A run gets one database per test file or browser worker running at once: the designated one (TEST_DB_NAME for Node
 // test files, BROWSER_TEST_DB_NAME for browser workers), then copies named after it (`<name>_1`, `_2`, ...) where the
 // database user may create them. Each starts from a snapshot of the schema the migrations build, with the rows they
-// write, instead of replaying every migration. A snapshot is taken once from a real replay into the designated
-// database, keyed by the dialect, the names and contents of the migrations and the application's package-lock.json
+// write, instead of replaying every migration. A snapshot is taken once from a real replay into a database of its
+// own, keyed by the dialect, the names and contents of the migrations and the application's package-lock.json
 // (a package upgrade can change what its migrations' helpers build), so changing, adding or reordering a migration, or
 // installing other packages, takes a new one. An application whose schema does not come from its migrations alone, such
 // as one whose migrations start from a baseline schema file, gives its own `schema.build` and the files it reads, which
 // join the key:
 //
-// - MySQL and MariaDB: each table's SHOW CREATE TABLE and its rows, in a file under
-//   `node_modules/.cache/jskit-test-databases/` named after the key and the server's version; a restore replaces only
-//   the tables that differ from it;
+// - MySQL and MariaDB: a prepared database, `<name>_0`, whose tables each copy's are made from on the server (SHOW
+//   CREATE TABLE, then INSERT ... SELECT); a restore replaces only the tables that differ from it;
 // - PostgreSQL: a prepared database, `<name>_snapshot`, that every copy is created from with
 //   CREATE DATABASE ... TEMPLATE (STRATEGY FILE_COPY from PostgreSQL 15).
+//
+// Either stays on the database server between runs, so `npm ci`, which empties node_modules, keeps it. So do the
+// designated database and its copies: the next run restores each one it takes, on MySQL and MariaDB replacing only the
+// tables that differ from the snapshot (on PostgreSQL making it again from the template), so a run after one whose files
+// wrote a few tables copies those tables, not the whole schema. Copies a run does not take stay for one that does, until
+// the project's databases are dropped. A run killed mid-way leaves nothing the next run does not restore.
 //
 // testDatabaseSnapshots.js holds each dialect's snapshot and restore.
 //
@@ -30,7 +35,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes } from "node:crypto";
 import diagnosticsChannel from "node:diagnostics_channel";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -43,17 +48,11 @@ import { RUNTIME_QUERY_CHANNEL } from "./database.js";
 import { loadKnexFactory } from "./knexFactory.js";
 import { createMysqlPackageTestKnex, letteredCopies } from "./mysqlPackageTestDatabase.js";
 import {
-  POSTGRES_MAINTENANCE_DATABASE,
-  dropCopiesIfThrows,
-  dropLeftTestDatabaseCopies,
-  endTestDatabaseRun,
-  rememberTestDatabaseCopies,
-  testDatabaseNames
-} from "./testDatabaseCopies.js";
-import {
   DIALECTS,
   POSTGRES_INSUFFICIENT_PRIVILEGE,
+  POSTGRES_MAINTENANCE_DATABASE,
   dialectOf,
+  fillConnections,
   ledgerOf,
   rowDifference,
   settleAll,
@@ -89,6 +88,15 @@ const LOCKFILE = "package-lock.json";
 
 const folded = (value) => String(value ?? "").trim().toLowerCase();
 const milliseconds = (since) => Math.round(performance.now() - since);
+
+/**
+ * The databases for `count` test files or workers at once: `name`, then its numbered copies.
+ * @param {string} name
+ * @param {number} count
+ */
+function testDatabaseNames(name, count) {
+  return Array.from({ length: count }, (_, index) => (index ? `${name}_${index}` : name));
+}
 
 /** The database the application's environment connects to: DB_NAME, else the one DATABASE_URL names. */
 function connectedDatabaseName(environment) {
@@ -179,10 +187,9 @@ async function testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd(), sc
 /**
  * Prepares the disposable databases for up to `count` test files or browser workers at once, each holding the current
  * migrations' schema afresh, then the seed's rows when given: the database `variable` names, then the numbered copies
- * the database user may create; `shortfall` names the first it may not. It first drops the numbered copies an earlier
- * run that never reached its end left and this one will not make, none a session is connected to
- * (dropLeftTestDatabaseCopies()). A throw drops the copies made so far; the process keeps those it returns, which a
- * browser run's launcher drops when it stops (testDatabaseCopies.js).
+ * the database user may create; `shortfall` names the first it may not. Each one an earlier run left is restored, not
+ * made again (the dialect's provide()), and every one stays after the run, for the next. Its summary says how many
+ * tables the restores copied.
  * @param {object} options
  * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig The application's Knex
  *   migration configuration (its knexfile.js), from `createKnexMigrationConfigFromApp()`.
@@ -209,29 +216,29 @@ async function prepareTestDatabases({
   const root = path.resolve(appRoot);
   const { key, migrations } = await testDatabaseSnapshotKey(knexConfig, { appRoot: root, schemaFiles: schema.files });
   const build = schema.build ?? ((knex) => knex.migrate.latest());
-  const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, root, build);
-  // An earlier run that never reached its end left its copies; those this run will not make itself go first.
-  const swept = await dropLeftTestDatabaseCopies(knexConfig, name, count);
+  const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, build);
   const restoreStarted = performance.now();
   const names = testDatabaseNames(name, count);
-  // A throw drops the copies made so far; the process keeps those it returns for its end (rememberTestDatabaseCopies()).
-  const databases = await dropCopiesIfThrows(knexConfig, names, () => dialect.provide(knexConfig, names, snapshot));
+  const { databases, restored } = await dialect.provide(knexConfig, names, snapshot);
   const restoreMs = milliseconds(restoreStarted);
   const seedStarted = performance.now();
-  if (seed) await dropCopiesIfThrows(knexConfig, databases, () => settleAll(databases.map((database) =>
-    withKnex(knexConfig, database, (knex) => knex.transaction(seed)))));
+  // A seed's rows are sampled for the planner as a restore's are (refreshStatistics()).
+  if (seed) await settleAll(databases.map((database) => withKnex(knexConfig, database, async (knex) => {
+    await knex.transaction(seed);
+    await dialect.refreshStatistics(knex, database);
+  })));
   const seedMs = milliseconds(seedStarted);
   const { replayed, ...stored } = snapshot;
   const shortfall = databases.length < names.length ? `the database user may not create ${names[databases.length]}` : "";
   return {
-    databases: rememberTestDatabaseCopies(knexConfig, databases),
+    databases,
     snapshot: stored,
     shortfall,
     summary: `${databases.length}${shortfall ? ` of ${count}` : ""} test database(s) from ${name} ready in ${milliseconds(started)}ms: ` +
       (replayed && schema.build ? "schema built once for a new snapshot, " : "") +
       (replayed && !schema.build ? `${migrations.length} migrations replayed once for a new snapshot, ` : "") +
       (replayed ? "" : "stored snapshot, ") +
-      `restore ${restoreMs}ms${seed ? `, seed ${seedMs}ms` : ""}${swept ? `; ${swept}` : ""}${shortfall ? `; ${shortfall}` : ""}`
+      `restore ${restoreMs}ms of ${restored} table(s)${seed ? `, seed ${seedMs}ms` : ""}${shortfall ? `; ${shortfall}` : ""}`
   };
 }
 
@@ -255,12 +262,15 @@ async function matchesSnapshot(knexConfig, database, snapshot) {
 /**
  * Restores `database`, which must be disposable, to the snapshot, and answers the tables it replaced, sorted: on MySQL
  * and MariaDB those that differ from the snapshot's, found exactly (a table's definition and AUTO_INCREMENT counter,
- * its triggers, its rows, and tables missing or added), so a file that wrote three tables costs three; on PostgreSQL
- * every table, the database a new copy of the snapshot database, which costs less than finding them.
+ * its triggers, its rows' CHECKSUM TABLE, and tables missing or added), so a file that wrote three tables costs three; on PostgreSQL
+ * every table, the database a new copy of the snapshot database, which costs less than finding them. A test file's
+ * restore passes how many databases its run restores at once (its files at once), and fills on its share of the
+ * connections a restore fills on, so the run's files never fill on more than those together.
+ * @param {number} [databasesAtOnce]
  * @returns {Promise<string[]>}
  */
-async function restoreTestDatabase(knexConfig, database, snapshot) {
-  const replaced = await dialectOf(knexConfig).restore(knexConfig, database, snapshot);
+async function restoreTestDatabase(knexConfig, database, snapshot, databasesAtOnce = 1) {
+  const replaced = await dialectOf(knexConfig).restore(knexConfig, database, snapshot, fillConnections(databasesAtOnce));
   if (!replaced) throw new Error(`The database user may not recreate ${database}.`);
   return replaced;
 }
@@ -289,7 +299,7 @@ async function proveMigrationHistory({ knexConfig, environment, schema = {}, app
   const root = path.resolve(appRoot);
   const { key, migrations } = await testDatabaseSnapshotKey(knexConfig, { appRoot: root, schemaFiles: schema.files });
   const build = schema.build ?? ((knex) => knex.migrate.latest());
-  const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, root, build);
+  const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, build);
   const failure = (reason) => new Error(`The migration history proof: ${reason}`);
   let restored = false;
   try {
@@ -338,7 +348,8 @@ function refusedPrivilege(error) {
  * connected database itself, or one the database user may not prepare), one file at a time on the connected database.
  * Of the `asked` files at once, `concurrency` run; when fewer, `shortfall` says why, for the runner to report and fail
  * on. Anything else that stops the preparation, such as a TEST_DB_NAME copy named like a protected database or an
- * unreachable server, fails the run. Its cleanup() ends the run, removing its settings and dropping its copies.
+ * unreachable server, fails the run. Its cleanup() ends the run, removing its settings; its databases stay for the
+ * next run, which restores them.
  * @param {object} options
  * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig
  * @param {Record<string, string | undefined>} options.environment
@@ -346,7 +357,7 @@ function refusedPrivilege(error) {
  * @param {TestDatabaseSchema} [options.schema]
  * @param {string} [options.appRoot]
  * @param {(knex: import("knex").Knex) => Promise<string>} [options.checkDatabase] Runs once on the prepared TEST_DB_NAME,
- *   before any test file: what it answers joins the summary, and a throw drops the copies and fails the run.
+ *   before any test file: what it answers joins the summary, and a throw fails the run.
  */
 async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd(), checkDatabase }) {
   assertNoRetiredVariables(environment);
@@ -369,10 +380,9 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
     prepared = await prepareTestDatabases({ knexConfig, environment, count, schema, appRoot });
   } catch (error) {
     if (!refusedPrivilege(error)) throw error;
-    return oneAtATime(`the database user may not prepare ${testDatabase} (${error.code})`);
+    return oneAtATime(`the database user may not prepare ${testDatabase}: ${error.sqlMessage ?? error.message}`);
   }
-  const checked = await dropCopiesIfThrows(knexConfig, prepared.databases, async () =>
-    (checkDatabase ? withKnex(knexConfig, prepared.databases[0], checkDatabase) : ""));
+  const checked = checkDatabase ? await withKnex(knexConfig, prepared.databases[0], checkDatabase) : "";
   // mkdtemp makes the directory for this user alone; the settings file holds the connection password.
   const directory = mkdtempSync(path.join(os.tmpdir(), "jskit-test-databases-"));
   const { client, connection, migrations } = knexConfig;
@@ -389,7 +399,7 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
     env: { JSKIT_TEST_DATABASES: directory },
     preload: TEST_DATABASE_FILE,
     summary: `${prepared.summary}${checked ? `; ${checked}` : ""}`,
-    cleanup: () => endTestDatabaseRun(knexConfig, prepared.databases, directory)
+    cleanup: () => rmSync(directory, { recursive: true, force: true })
   };
 }
 
@@ -570,7 +580,7 @@ async function claimTestDatabaseCopy(context, { environment }) {
   const knexFactory = loadKnexFactory();
   if (knexConfig.client !== "pg") {
     const knex = await createMysqlPackageTestKnex(context, { knexFactory, environment, testDatabase: databases[0],
-      pool: PACKAGE_TEST_POOL, fill: (database) => restoreTestDatabase(knexConfig, database, snapshot) });
+      pool: PACKAGE_TEST_POOL, fill: (database) => restoreTestDatabase(knexConfig, database, snapshot, databases.length) });
     return { database: knex.client.config.connection.database, knex };
   }
   return claimPostgresCopy(context, { knexFactory, knexConfig, snapshot, base: databases[0] });
@@ -653,7 +663,7 @@ async function resetTestDatabase({ environment }) {
     throw new Error(`resetTestDatabase() restores this file's own copy, and TEST_DB_NAME names ${database || "none"}, ` +
       "which is not one of the run's: pass the file's environment (process.env).");
   }
-  return restoreTestDatabase(knexConfig, database, snapshot);
+  return restoreTestDatabase(knexConfig, database, snapshot, databases.length);
 }
 
 /**

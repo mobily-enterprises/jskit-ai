@@ -42,7 +42,7 @@ async function runFile(context, suffix) {
   context.after(async () => {
     try {
       await run.cleanup();
-      await admin.raw("DROP DATABASE IF EXISTS ??", [name]);
+      for (const database of [name, `${name}_0`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
     } finally {
       await admin.destroy();
       await rm(appRoot, { recursive: true, force: true });

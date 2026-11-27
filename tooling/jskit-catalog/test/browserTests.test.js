@@ -656,6 +656,11 @@ test("jskit browser-test-server serves the app on a host's address as one worker
     });
     try {
       await outputMatches(target, [/Frontend built in/u, /^jskit browser tests: 1 server\(s\) ready/mu, /the app server says hello/u]);
+      // Its start says when the server first answered and, on Linux, the CPU its start used: a start that computes
+      // reads near its time, one that waits on something shared far below it.
+      const cpu = process.platform === "linux" ? ", \\d+\\.\\ds of CPU" : "";
+      assert.match(target.output, new RegExp("The browser test server of worker 0 \\(http://127\\.0\\.0\\.1:\\d+\\) started in " +
+        `\\d+\\.\\ds \\(first answer at \\d+\\.\\ds${cpu}\\)\\.`, "u"));
       assert.equal(await readFile(path.join(root, "dist", "index.html"), "utf8"), "built");
       assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/api/health`)).json(), {
         port: String(port), database: "app_browser_0", index: "0", publicUrl: `http://127.0.0.1:${port}`,
@@ -674,30 +679,15 @@ test("jskit browser-test-server serves the app on a host's address as one worker
   });
 });
 
-// The app's prepare module as database-runtime's prepareTestDatabases() leaves its numbered copies: under the key the
-// launcher drops them by once its servers have stopped. Its drop writes the copies it dropped.
-const PREPARE_WITH_COPIES = "import { writeFileSync } from \"node:fs\";\n" +
-  "export default async ({ workers, baseUrls }) => {\n" +
-  "  const databases = Array.from({ length: workers }, (_, index) => `app_browser_${index}`);\n" +
-  "  globalThis[Symbol.for(\"@jskit-ai/database-runtime/preparedTestDatabaseCopies\")] ??= new Map();\n" +
-  "  globalThis[Symbol.for(\"@jskit-ai/database-runtime/preparedTestDatabaseCopies\")].set(databases, async () => {\n" +
-  "    writeFileSync(\"dropped.json\", JSON.stringify(databases.slice(1)));\n" +
-  "    return `dropped ${databases.slice(1).join(\", \")}`;\n" +
-  "  });\n" +
-  "  return databases.map((DB_NAME, index) => ({ DB_NAME, PUBLIC_APP_URL: baseUrls[index] }));\n" +
-  "};\n";
-
 // A host stops a target as a terminal does: Vibe64 closes its pseudo-terminal with SIGHUP (node-pty's kill()), then
-// signals the process group with SIGTERM. Either way the servers stop and the copies are dropped before the target exits.
-test("jskit browser-test-server stops its servers and drops its database copies on a host's SIGTERM or a terminal's SIGHUP", async () => {
+// signals the process group with SIGTERM. Either way the servers stop before the target exits.
+test("jskit browser-test-server stops its servers on a host's SIGTERM or a terminal's SIGHUP", async () => {
   await withProject({
     ...LAUNCHER_APP,
-    "tests/e2e/databases.mjs": PREPARE_WITH_COPIES,
     "tests/e2e/sign-in.mjs": SIGN_IN,
     "playwright.config.mjs": TARGET_CONFIG
   }, async (root) => {
     for (const [signal, exitCode] of [["SIGTERM", 143], ["SIGHUP", 129]]) {
-      await rm(path.join(root, "dropped.json"), { force: true });
       const port = await freeConsecutivePorts(3);
       const target = serveTarget(root, ["127.0.0.1", String(port), "3"]);
       try {
@@ -705,9 +695,6 @@ test("jskit browser-test-server stops its servers and drops its database copies 
         target.child.kill(signal);
         assert.equal(await exitOf(target.child), exitCode, `${signal}: ${target.output}${target.errors}`);
         for (const index of [0, 1, 2]) assert.equal(await answers(port + index), false, signal);
-        assert.deepEqual(JSON.parse(await readFile(path.join(root, "dropped.json"), "utf8")), ["app_browser_1", "app_browser_2"],
-          signal);
-        assert.match(target.output, /\[browser-tests\] dropped app_browser_1, app_browser_2\./u, signal);
       } finally {
         if (target.child.exitCode === null) process.kill(-target.child.pid, "SIGKILL");
       }
@@ -717,14 +704,10 @@ test("jskit browser-test-server stops its servers and drops its database copies 
 
 // A host's stop signals a target more than once: Vibe64's wrapper sends the launch SIGTERM when its terminal hangs up,
 // the hang-up itself sends SIGHUP, and the host's stop sends the whole process group SIGTERM. A launcher that handled
-// each signal once was killed by the second SIGTERM in the middle of its stop, before it dropped the copies.
-test("jskit browser-test-server stopped by a host's repeated signals still stops its servers and drops its copies, once", async () => {
-  const slowDrop = PREPARE_WITH_COPIES.replace("async () => {\n    writeFileSync",
-    "async () => {\n    await new Promise((resolve) => setTimeout(resolve, 400));\n    writeFileSync");
-  assert.notEqual(slowDrop, PREPARE_WITH_COPIES);
+// each signal once was killed by the second SIGTERM in the middle of its stop, before its servers had stopped.
+test("jskit browser-test-server stopped by a host's repeated signals still stops its servers, and exits as the first one asks", async () => {
   await withProject({
     ...LAUNCHER_APP,
-    "tests/e2e/databases.mjs": slowDrop,
     "tests/e2e/sign-in.mjs": SIGN_IN,
     "playwright.config.mjs": TARGET_CONFIG
   }, async (root) => {
@@ -739,8 +722,6 @@ test("jskit browser-test-server stopped by a host's repeated signals still stops
       }
       assert.equal(await exited, 143, `ended by ${target.child.signalCode || target.child.exitCode}: ${target.output}${target.errors}`);
       for (const index of [0, 1, 2]) assert.equal(await answers(port + index), false);
-      assert.deepEqual(JSON.parse(await readFile(path.join(root, "dropped.json"), "utf8")), ["app_browser_1", "app_browser_2"]);
-      assert.equal(target.output.match(/\[browser-tests\] dropped app_browser_1, app_browser_2\./gu)?.length, 1, target.output);
     } finally {
       if (target.child.exitCode === null && target.child.signalCode === null) process.kill(-target.child.pid, "SIGKILL");
     }
@@ -749,14 +730,13 @@ test("jskit browser-test-server stopped by a host's repeated signals still stops
 
 // A target's output can go before its stop does: a host's pseudo-terminal answers EIO once it has hung up, and a pipe
 // whose reader has gone answers EPIPE. Its servers' output still reaches the launcher's own, and a write that failed
-// there killed the launcher before its stop dropped the copies (Vibe64's two-size check left them at four workers).
-test("jskit browser-test-server whose output has gone still stops its servers and drops its database copies", async () => {
+// there killed the launcher before its stop ended its servers (Vibe64's two-size check left them at four workers).
+test("jskit browser-test-server whose output has gone still stops its servers", async () => {
   const loggingServer = APP_SERVER.replace("http.createServer((request, response) => {",
     "http.createServer((request, response) => {\n  console.log(`the app server answers ${request.url}`);");
   await withProject({
     ...LAUNCHER_APP,
     "server.mjs": loggingServer,
-    "tests/e2e/databases.mjs": PREPARE_WITH_COPIES,
     "tests/e2e/sign-in.mjs": SIGN_IN,
     "playwright.config.mjs": TARGET_CONFIG
   }, async (root) => {
@@ -770,7 +750,6 @@ test("jskit browser-test-server whose output has gone still stops its servers an
       assert.equal((await fetch(`http://127.0.0.1:${port}/output-gone`)).status, 200);
       assert.equal(await exitOf(target.child), 1, "a target whose output has gone stops");
       for (const index of [0, 1, 2]) assert.equal(await answers(port + index), false);
-      assert.deepEqual(JSON.parse(await readFile(path.join(root, "dropped.json"), "utf8")), ["app_browser_1", "app_browser_2"]);
     } finally {
       if (target.child.exitCode === null) process.kill(-target.child.pid, "SIGKILL");
     }

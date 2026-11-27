@@ -387,6 +387,14 @@ Local functions
 - `keptAs(sourceCode, node)`
 - `listenedObject(sourceCode, node)`
 
+### `plugin/rules/requestRecoveryLabel.js`
+Exports
+- `requestRecoveryLabel`
+Local functions
+- `propertyNamed(object, name)`
+- `isLiteral(node, value)`
+- `bannerOff(value)`
+
 ### `plugin/rules/requiredCollaborators.js`
 Exports
 - `requiredCollaborators`

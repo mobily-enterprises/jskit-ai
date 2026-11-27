@@ -83,19 +83,6 @@ Local functions
 - `repairRecordedTable(knex, tableName, state, reference, keys)`
 - `dropTableLeftWithoutKey(knex, migration, tableName, keys)`
 
-### `src/server/testDatabaseCopies.js`
-Exports
-- `POSTGRES_MAINTENANCE_DATABASE`
-- `dropCopiesIfThrows(knexConfig, databases, work)`
-- `dropLeftTestDatabaseCopies(knexConfig, name, count)`
-- `dropTestDatabaseCopies(knexConfig, databases)`
-- `endTestDatabaseRun(knexConfig, databases, directory)`
-- `rememberTestDatabaseCopies(knexConfig, databases)`
-- `testDatabaseNames(name, count)`
-Local functions
-- `preparedCopies()`
-- `dropUnlessInUse(knex, client, database)`
-
 ### `src/server/testDatabaseFile.js`
 Exports
 - None
@@ -125,9 +112,9 @@ Exports
 - `requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {})`
 - `requireTestDatabase(environment)`
 - `resetTestDatabase({ environment })`
-- `restoreTestDatabase(knexConfig, database, snapshot)`
+- `restoreTestDatabase(knexConfig, database, snapshot, databasesAtOnce = 1)`
 - `tableNames(knex)`
-- `testDatabaseNames`
+- `testDatabaseNames(name, count)`
 - `testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd(), checkDatabase })`
 - `testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd(), schemaFiles = [] } = {})`
 - `type TestDatabaseSchema`
@@ -145,16 +132,17 @@ Local functions
 Exports
 - `DIALECTS`
 - `POSTGRES_INSUFFICIENT_PRIVILEGE`
+- `POSTGRES_MAINTENANCE_DATABASE`
 - `dialectOf(knexConfig)`
+- `fillConnections(databasesAtOnce = 1)`
 - `ledgerOf(knexConfig)`
 - `rowDifference(table, built, captured)`
 - `settleAll(promises)`
 - `withKnex(knexConfig, database, use, connectionOptions)`
 Local functions
-- `knexOn(knexConfig, database, connectionOptions = {}, session = "")`
+- `knexOn(knexConfig, database, connectionOptions = {}, session = "", connections = 1)`
 - `localWallClock(seconds)`
 - `withDateStopped(milliseconds, work)`
-- `rowsDigest(rows)`
 - `ledgerNames(knex, ledger, tables)`
 
 ### `src/server/types.js`

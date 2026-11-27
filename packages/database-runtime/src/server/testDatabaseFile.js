@@ -76,7 +76,8 @@ if (isMainThread && process.env.NODE_TEST_CONTEXT && directory) {
   // The run restored every database as it started; one an earlier file used holds what that file left.
   const { database, used } = await claimDatabase(directory, databases);
   if (used) {
-    await restoreTestDatabase(knexConfig, database, snapshot);
+    // Its share of the fill's connections: the run's other files may be restoring at the same time.
+    await restoreTestDatabase(knexConfig, database, snapshot, databases.length);
   }
   const { host, port, user, password } = knexConfig.connection;
   Object.assign(process.env, {

@@ -32,12 +32,24 @@ for (const patternName of ["minimal-foundation", "shell-foundation"]) {
     const moduleUrl = pathToFileURL(path.join(PATTERNS_ROOT, patternName, "example", "server", "lib", "loggerOptions.js")).href;
     const { buildLoggerOptions } = await import(moduleUrl);
 
-    const [underError, underErr] = await loggedLines(buildLoggerOptions());
+    const [underError, underErr] = await loggedLines(buildLoggerOptions({}));
 
     assert.equal(underError.error.message, "boom");
     assert.equal(underError.error.type, "Error");
     assert.match(underError.error.stack, /boom/u);
     assert.equal(underErr.err.message, "boom");
+  });
+}
+
+for (const patternName of ["minimal-foundation", "shell-foundation"]) {
+  test(`${patternName} logs at the level LOG_LEVEL names, info without one`, async () => {
+    const moduleUrl = pathToFileURL(path.join(PATTERNS_ROOT, patternName, "example", "server", "lib", "loggerOptions.js")).href;
+    const { buildLoggerOptions } = await import(moduleUrl);
+    for (const [runtimeEnv, level] of [[{}, "info"], [{ LOG_LEVEL: " " }, "info"], [{ LOG_LEVEL: "warn" }, "warn"]]) {
+      const app = Fastify({ logger: buildLoggerOptions(runtimeEnv) });
+      assert.equal(app.log.level, level, JSON.stringify(runtimeEnv));
+      await app.close();
+    }
   });
 }
 

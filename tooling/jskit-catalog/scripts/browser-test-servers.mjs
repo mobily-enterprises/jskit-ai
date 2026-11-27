@@ -8,9 +8,9 @@
 // earlier run would answer for this run's. Stopped by Playwright (SIGTERM), by Ctrl-C, by its terminal's hang-up (SIGHUP,
 // which a host such as Vibe64 sends a target's command first), by the end of the stdin pipe Playwright gives its
 // webServer (a Playwright that ended without stopping it) or by a write its output refused (a hung-up terminal answers
-// EIO, a pipe without a reader EPIPE), the launcher stops its servers and waits for them, then
-// drops the numbered database copies the prepare module made, within Playwright's grace, before it exits; it drops
-// them too when its start fails. `jskit browser-test-server` (browser-test-server.mjs) runs it
+// EIO, a pipe without a reader EPIPE), the launcher stops its servers and waits for them, within Playwright's grace,
+// before it exits. The databases the prepare module gave the workers stay for the next run, which restores them
+// (database-runtime's prepareTestDatabases()). `jskit browser-test-server` (browser-test-server.mjs) runs it
 // for one server a host starts, with `terminal`: that server's output also reaches the launcher's own. A run takes free
 // ports of its own, so its worker environments and signed-in states have names of their own; the launcher removes them
 // when it stops, so they never pile up in the cache, nor outlive the sessions they hold.
@@ -28,13 +28,9 @@ import { useTestAppEnvironment } from "./test-environment.mjs";
 const SETTINGS_VARIABLE = "JSKIT_BROWSER_TESTS";
 const LOG_DIRECTORY = path.join("test-results", "browser-test-servers");
 const READY_TIMEOUT_MS = 60_000;
-// Within the 10 s gracefulShutdown browser-tests.mjs gives Playwright's webServer: the servers stop first (one still
-// running then is killed), since a server's sessions keep its database copy, then the copies are dropped.
+// Within the 10 s gracefulShutdown browser-tests.mjs gives Playwright's webServer: the servers stop, and one still
+// running then is killed.
 const STOP_WAIT_MS = 4_000;
-const DROP_WAIT_MS = 5_000;
-// Where database-runtime's prepareTestDatabases() keeps, in this process, each set of numbered copies it made with its
-// drop: the app's prepare module loads the app's own copy of that package, so the launcher reads them here.
-const PREPARED_COPIES = Symbol.for("@jskit-ai/database-runtime/preparedTestDatabaseCopies");
 
 // The peak resident memory of the largest app server of a run, beside its worker environments, for the next run's
 // worker count (browserTestWorkers()).
@@ -89,15 +85,22 @@ async function refuseBusyPorts(host, ports) {
   }
 }
 
+/**
+ * Waits until the server answers `url` with a success, and says how long it took: when it first answered at all, and
+ * (on Linux) the CPU time its processes used, which tells a start that computes from one that waits on something.
+ */
 async function waitUntilReady(url, server, name) {
   const started = performance.now();
   const deadline = Date.now() + READY_TIMEOUT_MS;
+  let answered = "";
   while (Date.now() < deadline) {
     if (server.exitCode !== null || server.signalCode !== null) throw new Error(`${name} stopped while starting.`);
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(2_000) });
+      answered ||= seconds(started);
       if (response.ok) {
-        console.log(`[browser-tests] ${name} started in ${seconds(started)}.`);
+        const cpu = process.platform === "linux" ? `, ${treeCpuSeconds(server.pid).toFixed(1)}s of CPU` : "";
+        console.log(`[browser-tests] ${name} started in ${seconds(started)} (first answer at ${answered}${cpu}).`);
         return;
       }
     } catch {
@@ -114,12 +117,10 @@ let stopping = false;
 let runFiles = [];
 // Where this run records its servers' peak memory as they stop.
 let serverMemoryFile = "";
-// The prepare module's work, which a stop waits for (within DROP_WAIT_MS) so the copies it is making are dropped too.
-let preparing = Promise.resolve();
 const running = (server) => server.exitCode === null && server.signalCode === null;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms, false));
-/** The peak resident memory (VmHWM) of process `pid` and each process under it, added up, in bytes (Linux's /proc). */
-function treePeakBytes(pid) {
+/** Process `pid` and each process under it (Linux's /proc). */
+function processTree(pid) {
   const children = new Map();
   for (const entry of readdirSync("/proc").filter((name) => /^\d+$/u.test(name))) {
     let stat;
@@ -132,17 +133,39 @@ function treePeakBytes(pid) {
     const parent = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]);
     children.set(parent, [...(children.get(parent) ?? []), Number(entry)]);
   }
-  let total = 0;
+  const tree = [];
   for (const queue = [pid]; queue.length > 0;) {
     const current = queue.pop();
+    tree.push(current);
+    queue.push(...(children.get(current) ?? []));
+  }
+  return tree;
+}
+/** Adds up what `read` answers for each process of `pid`'s tree, 0 for one that ended while the others were read. */
+function treeTotal(pid, read) {
+  let total = 0;
+  for (const current of processTree(pid)) {
     try {
-      total += Number(readFileSync(`/proc/${current}/status`, "utf8").match(/^VmHWM:\s+(\d+) kB$/mu)?.[1] ?? 0) * 1024;
+      total += read(current);
     } catch {
       // It ended while the others were read.
     }
-    queue.push(...(children.get(current) ?? []));
   }
   return total;
+}
+/** The peak resident memory (VmHWM) of process `pid` and each process under it, added up, in bytes. */
+function treePeakBytes(pid) {
+  return treeTotal(pid, (current) =>
+    Number(readFileSync(`/proc/${current}/status`, "utf8").match(/^VmHWM:\s+(\d+) kB$/mu)?.[1] ?? 0) * 1024);
+}
+/** The CPU time, user and system, process `pid` and each process under it have used, in seconds. */
+function treeCpuSeconds(pid) {
+  return treeTotal(pid, (current) => {
+    const stat = readFileSync(`/proc/${current}/stat`, "utf8");
+    // After "pid (name) ": state is field 3, utime 14 and stime 15, in clock ticks of 1/100 s.
+    const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+    return (Number(fields[11]) + Number(fields[12])) / 100;
+  });
 }
 /** Records the peak memory of the largest of the run's app servers as they stop, for the next run's worker count. */
 function recordServerMemory() {
@@ -163,25 +186,12 @@ function stopServers() {
   stopping = true;
   for (const server of servers) if (running(server)) server.kill("SIGTERM");
 }
-/** Drops every set of numbered copies prepare made, once the servers have exited, and says what it did. */
-async function dropPreparedCopies(exited) {
-  await Promise.all([preparing.catch(() => {}), exited]);
-  const drops = [...(globalThis[PREPARED_COPIES]?.values() ?? [])];
-  for (const report of await Promise.all(drops.map((drop) => drop()))) if (report) console.log(`[browser-tests] ${report}.`);
-  return true;
-}
 async function stopAndExit(code) {
   if (stopping) return;
   stopServers();
   const stopped = Promise.all(servers.filter(running).map((server) => once(server, "exit")));
   await Promise.race([stopped, delay(STOP_WAIT_MS)]);
-  const killed = servers.filter(running);
-  for (const server of killed) server.kill("SIGKILL");
-  const exited = Promise.all(killed.map((server) => once(server, "exit")));
-  if (!(await Promise.race([dropPreparedCopies(exited), delay(DROP_WAIT_MS)]))) {
-    console.error(`[browser-tests] The prepared test database copies were not all dropped within ${DROP_WAIT_MS / 1000}s; ` +
-      "the next run makes them afresh and drops them.");
-  }
+  for (const server of servers.filter(running)) server.kill("SIGKILL");
   for (const file of runFiles) rmSync(file, { force: true });
   process.exit(code);
 }
@@ -191,7 +201,7 @@ process.on("SIGINT", () => stopAndExit(130));
 process.on("SIGTERM", () => stopAndExit(143));
 process.on("SIGHUP", () => stopAndExit(129));
 // Its servers' output passes through its own, which can go before its stop does: a write that fails there stops it like
-// a signal, never as an uncaught error that would end it before its copies are dropped.
+// a signal, never as an uncaught error that would end it before its servers stop.
 for (const output of [process.stdout, process.stderr]) output.on("error", () => stopAndExit(1));
 // Only a pipe ends when Playwright does; a launcher started without one (stdin ignored, /dev/null) would end at once.
 const input = fstatSync(0);
@@ -219,11 +229,11 @@ runFiles = [workerEnvironmentsFile, ...(signedInStates ? baseUrls.map((_, index)
   .filter(Boolean);
 try {
   await refuseBusyPorts(host, baseUrls.map((_, index) => basePort + index));
-  preparing = prepareWorkers(appRoot, prepare, workers, baseUrls);
-  // Both settle before a failure of either ends the start, so the copies prepare makes are all made when they are dropped.
-  const [built, prepared] = await Promise.allSettled([buildFrontend({ appRoot, build }), preparing]);
+  // Both settle before a failure of either ends the start.
+  const [built, prepared] = await Promise.allSettled([buildFrontend({ appRoot, build }),
+    prepareWorkers(appRoot, prepare, workers, baseUrls)]);
   for (const result of [built, prepared]) if (result.status === "rejected") throw result.reason;
-  // A stop during the start drops the copies; no server starts on them.
+  // A stop during the start ends it; no server starts.
   if (stopping) throw new Error("The run was stopped while it started.");
   const workerEnvironments = prepared.value;
   mkdirSync(path.join(appRoot, LOG_DIRECTORY), { recursive: true });

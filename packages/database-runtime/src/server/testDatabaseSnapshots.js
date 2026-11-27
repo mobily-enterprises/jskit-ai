@@ -1,10 +1,17 @@
 // How each dialect keeps a test run's schema snapshot and restores a test database from it (testDatabases.js prepares
 // the run's databases with them):
 //
-// - MySQL and MariaDB: each table's SHOW CREATE TABLE and its rows, in a file under
-//   `node_modules/.cache/jskit-test-databases/` named after the snapshot's key and the server's version;
+// - MySQL and MariaDB: a prepared database, `<name>_0`, that each copy's tables are made from on the server: each one's
+//   SHOW CREATE TABLE, then INSERT ... SELECT of its rows. A restore replaces only the tables that differ from it,
+//   found by definition and CHECKSUM TABLE, so no row passes through this process. The name's suffix has two
+//   characters, as each copy's (`_1`, `_2`...), so a host that grants each database by name grants it within the same
+//   length. Its label, a table of its own, names its key, the server's version, the second its build's clock was
+//   stopped at, its migrations and each table's definition, columns and checksum;
 // - PostgreSQL: a prepared database, `<name>_snapshot`, that every copy is created from with
 //   CREATE DATABASE ... TEMPLATE (STRATEGY FILE_COPY from PostgreSQL 15).
+//
+// Either lives on the database server, where `npm ci` cannot remove it, one for each test database, replaced when its
+// key changes.
 //
 // A build that fills rows from the clock (a column default, NOW(), the month, JavaScript's Date) builds other values each
 // time, so the migration history proof (proveMigrationHistory()) could never match its replay with the snapshot. On
@@ -12,29 +19,31 @@
 // SQL clock (SET TIMESTAMP) and JavaScript's Date. PostgreSQL's clock cannot be stopped, so each build's time window on
 // the server is stored instead, and a date or time inside it compares as "clock" (each build's against its own window);
 // one outside it, such as one computed from the clock, still differs.
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import { detectDialectFromClient } from "../shared/dialect.js";
 import { loadKnexFactory } from "./knexFactory.js";
 import { MYSQL_DATABASE_OPTIONS } from "./mysqlPackageTestDatabase.js";
-import { POSTGRES_MAINTENANCE_DATABASE } from "./testDatabaseCopies.js";
 
-const SNAPSHOT_DIRECTORY = path.join("node_modules", ".cache", "jskit-test-databases");
+// The database a PostgreSQL connection uses to create, drop and copy the test databases.
+const POSTGRES_MAINTENANCE_DATABASE = "postgres";
+const MYSQL_SNAPSHOT_SUFFIX = "_0";
+// How many tables the restores of one preparation, or of one run's test files, fill at once, each on a connection of
+// its own, shared between the databases restored at once: four 250,000-row tables filled in 19 s in turn and in 9.5 s
+// at once (MariaDB 11.4, a busy test machine), and a fill past what the server's cores and disk can take only queues.
+const MYSQL_FILL_CONNECTIONS = 8;
+const MYSQL_LABEL_TABLE = "jskit_test_snapshot";
 const MYSQL_ACCESS_DENIED = new Set(["ER_DBACCESS_DENIED_ERROR", "ER_ACCESS_DENIED_ERROR", "ER_SPECIFIC_ACCESS_DENIED_ERROR"]);
 const POSTGRES_INSUFFICIENT_PRIVILEGE = "42501";
 // PostgreSQL 15 and later copy a template file by file (STRATEGY FILE_COPY) instead of through the write-ahead log, the
 // default there: about half the time per copy of a test schema, and less again with copies made at once.
 const POSTGRES_FILE_COPY_VERSION = 150000;
-// MySQL values read as text, so every captured row writes back as the SQL literal it came from.
-const MYSQL_SNAPSHOT_CONNECTION = Object.freeze({
+// MySQL values read as text, as a failed migration history proof shows the rows that differ.
+const MYSQL_TEXT_CONNECTION = Object.freeze({
   dateStrings: true,
   jsonStrings: true,
   supportBigNumbers: true,
   bigNumberStrings: true
 });
 const MYSQL_GENERATED_COLUMN = /\b(?:VIRTUAL|STORED|PERSISTENT) GENERATED\b/iu;
-const INSERT_BATCH = 500;
 // The date and time columns whose values a PostgreSQL build can take from the clock, and how the bounds of a build's
 // window, in seconds since the epoch, read as each: in the session's time zone, as now() is stored in them, and for a
 // column without a zone also as this process's wall clock (localWallClock()), as a JavaScript Date written to it is.
@@ -71,9 +80,17 @@ const POSTGRES_DEFINITIONS = `
 const ledgerOf = (knexConfig) => knexConfig.migrations?.tableName || "knex_migrations";
 
 /** A Knex on `database`; a MySQL `session` statement runs on each connection it opens, after the configuration's own. */
-function knexOn(knexConfig, database, connectionOptions = {}, session = "") {
+/**
+ * The fill connections of one restore when `databasesAtOnce` databases are restored at once (a preparation's, or a
+ * run's test files'): its share of MYSQL_FILL_CONNECTIONS, at least one, so they never fill on more than those together.
+ */
+function fillConnections(databasesAtOnce = 1) {
+  return Math.max(1, Math.floor(MYSQL_FILL_CONNECTIONS / databasesAtOnce));
+}
+
+function knexOn(knexConfig, database, connectionOptions = {}, session = "", connections = 1) {
   // The configuration's own pool settings stay, such as a PostgreSQL session's UTC time zone.
-  const pool = { ...knexConfig.pool, min: 0, max: 1 };
+  const pool = { ...knexConfig.pool, min: 0, max: connections };
   if (session) {
     const own = knexConfig.pool?.afterCreate;
     const run = (connection, done) => connection.query(session, (error) => done(error, connection));
@@ -122,7 +139,7 @@ async function withKnex(knexConfig, database, use, connectionOptions) {
 
 /**
  * Awaits every promise, and then throws the first failure, if any: a step run on each test database at once ends on
- * all of them before a failure on one drops the copies, which keeps any a session is still connected to.
+ * all of them before a failure on one ends the preparation, so none still runs after it.
  * @param {Promise<unknown>[]} promises
  */
 async function settleAll(promises) {
@@ -130,11 +147,6 @@ async function settleAll(promises) {
   const failed = results.find(({ status }) => status === "rejected");
   if (failed) throw failed.reason;
   return results.map(({ value }) => value);
-}
-
-// A table's rows as read, in any order: two tables' digests are equal when their rows are.
-function rowsDigest(rows) {
-  return createHash("sha256").update(rows.map((row) => JSON.stringify(row)).sort().join("\n")).digest("hex");
 }
 
 /**
@@ -169,71 +181,105 @@ const mysql = {
   unstopped: "a random value, what the server holds, or a clock the build does not stop: it stops the SQL clock (NOW(), " +
     "CURRENT_TIMESTAMP, column defaults) and JavaScript's Date at the snapshot's own second, but not SYSDATE()",
 
+  // The base tables of `database`, sorted: a snapshot database's label table aside.
   async tables(knex, database) {
-    const [rows] = await knex.raw(
-      "SELECT TABLE_NAME AS name, TABLE_TYPE AS type FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?", [database]
-    );
+    const [rows] = await knex.raw("SELECT TABLE_NAME AS name, TABLE_TYPE AS type FROM information_schema.TABLES " +
+      "WHERE TABLE_SCHEMA = ? AND TABLE_NAME <> ?", [database, MYSQL_LABEL_TABLE]);
     if (rows.some(({ type }) => type !== "BASE TABLE")) throw new Error(`${database} holds a view; test databases hold tables only.`);
     return rows.map(({ name }) => name).sort();
   },
 
+  /** CHECKSUM TABLE of each of `names` in `database`, by name: the server reads the rows, and none reaches this process. */
+  async checksums(knex, database, names) {
+    if (names.length < 1) return new Map();
+    const [rows] = await knex.raw(`CHECKSUM TABLE ${names.map(() => "??.??").join(", ")}`, names.flatMap((name) => [database, name]));
+    return new Map(rows.map((row) => [row.Table.slice(database.length + 1), String(row.Checksum)]));
+  },
+
   /**
-   * Drops the tables `names` lists that `database` holds, then creates those of them the snapshot's `tables` has, with
-   * their rows. Runs on the pool's one connection, so FOREIGN_KEY_CHECKS applies to every statement: a table another
-   * one's foreign key references is dropped and created again, and the key holds again once it is.
+   * Drops the tables `names` lists that `database` holds, then creates those of them the snapshot has, from its
+   * definitions, on the pool's one connection, so FOREIGN_KEY_CHECKS applies to every statement: a table another one's
+   * foreign key references is dropped and created again, and the key holds again once it is. Then copies their rows
+   * from the snapshot database on the server (INSERT ... SELECT, generated columns left to the server), up to
+   * `connections` tables at once, each on a connection of its own without foreign key checks, and samples those that
+   * hold rows (analyze()).
    */
-  async replaceTables(knex, database, names, tables) {
+  async replaceTables(knexConfig, knex, database, names, snapshot, connections = MYSQL_FILL_CONNECTIONS) {
     const [[actual]] = await knex.raw("SELECT DATABASE() AS name");
     if (actual.name !== database) throw new Error(`A test database restore requires a connection to ${database}.`);
     const existing = new Set(await mysql.tables(knex, database));
-    const replaced = tables.filter(({ name }) => names.includes(name));
+    const replaced = (snapshot?.definitions ?? []).filter(({ name }) => names.includes(name));
     await knex.raw("SET FOREIGN_KEY_CHECKS = 0");
     try {
       for (const name of names) if (existing.has(name)) await knex.raw("DROP TABLE ??", [name]);
       for (const { create } of replaced) await knex.raw(create);
-      for (const { inserts } of replaced) for (const insert of inserts) await knex.raw(insert);
     } finally {
       await knex.raw("SET FOREIGN_KEY_CHECKS = 1");
     }
+    if (replaced.length < 1) return;
+    // Each filler holds a connection of its own and takes the next table once its last is filled, so no table waits
+    // in the pool's queue, where knex gives up after its acquireConnectionTimeout (60 s by default): daniela's cold
+    // preparation of five copies queued 73 tables on each copy's one connection, and the last two gave up.
+    const fillers = Math.min(connections, replaced.length);
+    const fill = knexOn(knexConfig, database, {}, "SET FOREIGN_KEY_CHECKS = 0", fillers);
+    const queue = [...replaced];
+    try {
+      await settleAll(Array.from({ length: fillers }, async () => {
+        for (let table = queue.shift(); table; table = queue.shift()) {
+          const { name, columns } = table;
+          const list = columns.map(() => "??").join(", ");
+          await fill.raw(`INSERT INTO ?? (${list}) SELECT ${list} FROM ??.??`, [name, ...columns, ...columns, snapshot.database, name]);
+        }
+      }));
+    } finally {
+      await fill.destroy();
+    }
+    // An empty table's CHECKSUM TABLE is 0, and its statistics, taken when it was created, already hold.
+    await mysql.analyze(knex, replaced.filter(({ checksum }) => checksum !== "0").map(({ name }) => name));
   },
 
   /**
-   * The tables of `database` that differ from the snapshot's `tables`, sorted, each found exactly: one missing, or one
-   * the snapshot lacks; one whose SHOW CREATE TABLE differs, its definition or its AUTO_INCREMENT counter (which a row
-   * written and deleted, or a write rolled back, moves); one a trigger is on; one empty in the snapshot that holds a
-   * row; one whose rows, read as the capture read them, are not the snapshot's.
+   * Samples `names` again for the planner, in one ANALYZE TABLE. InnoDB keeps the statistics it took when a table was
+   * created, so a table created and then filled reads as empty until the server samples it again, seconds later at
+   * best: the planner would read a whole table where an index serves (whs2: 356 s, 34 s once sampled).
    */
-  async changedTables(knex, database, tables) {
+  async analyze(knex, names) {
+    if (names.length < 1) return;
+    const [results] = await knex.raw(`ANALYZE TABLE ${names.map(() => "??").join(", ")}`, names);
+    const failed = results.find((result) => String(result.Msg_type).toLowerCase() === "error");
+    if (failed) throw new Error(`ANALYZE TABLE ${failed.Table} failed: ${failed.Msg_text}`);
+  },
+
+  /** Samples every table of `database` again (analyze()), as after a seed filled some. */
+  async refreshStatistics(knex, database) {
+    await mysql.analyze(knex, await mysql.tables(knex, database));
+  },
+
+  /**
+   * The tables of `database` that differ from the snapshot's `definitions`, sorted, each found exactly: one missing, or
+   * one the snapshot lacks; one whose SHOW CREATE TABLE differs, its definition or its AUTO_INCREMENT counter (which a
+   * row written and deleted, or a write rolled back, moves); one a trigger is on; one whose CHECKSUM TABLE is not the
+   * snapshot's.
+   */
+  async changedTables(knex, database, definitions) {
     const present = new Set(await mysql.tables(knex, database));
-    const captured = new Set(tables.map(({ name }) => name));
+    const captured = new Set(definitions.map(({ name }) => name));
     const changed = new Set([...present, ...captured].filter((name) => !present.has(name) || !captured.has(name)));
     const [triggers] = await knex.raw("SELECT EVENT_OBJECT_TABLE AS name FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = ?",
       [database]);
     for (const { name } of triggers) changed.add(name);
-    const unchanged = () => tables.filter(({ name }) => !changed.has(name));
+    const unchanged = () => definitions.filter(({ name }) => !changed.has(name));
     for (const { name, create } of unchanged()) {
       const [[definition]] = await knex.raw("SHOW CREATE TABLE ??", [name]);
       if (definition["Create Table"] !== create) changed.add(name);
     }
-    // One statement for the tables the snapshot holds empty.
-    const empty = unchanged().filter(({ inserts }) => inserts.length === 0);
-    if (empty.length > 0) {
-      const [filled] = await knex.raw(empty.map(() => "SELECT ? AS name FROM DUAL WHERE EXISTS (SELECT 1 FROM ??)").join(" UNION ALL "),
-        empty.flatMap(({ name }) => [name, name]));
-      for (const { name } of filled) changed.add(name);
-    }
-    for (const { name, digest } of unchanged().filter(({ inserts }) => inserts.length > 0)) {
-      const [rows] = await knex.raw("SELECT * FROM ??", [name]);
-      if (rowsDigest(rows) !== digest) changed.add(name);
-    }
+    const checksums = await mysql.checksums(knex, database, unchanged().map(({ name }) => name));
+    for (const { name, checksum } of unchanged()) if (checksums.get(name) !== checksum) changed.add(name);
     return [...changed].sort();
   },
 
-  /**
-   * Each table's definition, its rows as INSERT statements (generated columns left to the server) and a digest of its
-   * rows as read (rowsDigest()).
-   */
-  async capture(knex, database) {
+  /** Each table of the snapshot database: its definition, the columns a copy fills, and its rows' checksum. */
+  async describe(knex, database) {
     // SHOW CREATE TABLE carries neither, so a copy would silently lack them.
     const [[{ triggers, routines, events }]] = await knex.raw(
       "SELECT (SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = ?) AS triggers, " +
@@ -242,53 +288,65 @@ const mysql = {
       [database, database, database]
     );
     if (Number(triggers) + Number(routines) + Number(events) > 0) {
-      throw new Error(`${database} holds triggers, routines or events; MySQL test databases restored from a snapshot hold tables only.`);
+      throw new Error(`${database} holds triggers, routines or events; MySQL test databases copied from a snapshot hold tables only.`);
     }
-    const [columns] = await knex.raw(
-      "SELECT TABLE_NAME AS tableName, COLUMN_NAME AS name, EXTRA AS extra FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ?",
-      [database]
-    );
-    const tables = [];
-    for (const name of await mysql.tables(knex, database)) {
+    const [columns] = await knex.raw("SELECT TABLE_NAME AS tableName, COLUMN_NAME AS name, EXTRA AS extra FROM " +
+      "information_schema.COLUMNS WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, ORDINAL_POSITION", [database]);
+    const names = await mysql.tables(knex, database);
+    const checksums = await mysql.checksums(knex, database, names);
+    const definitions = [];
+    for (const name of names) {
       const [[definition]] = await knex.raw("SHOW CREATE TABLE ??", [name]);
-      const [rows] = await knex.raw("SELECT * FROM ??", [name]);
-      const digest = rowsDigest(rows);
-      const generated = columns.filter((column) => column.tableName === name && MYSQL_GENERATED_COLUMN.test(column.extra))
+      const filled = columns.filter((column) => column.tableName === name && !MYSQL_GENERATED_COLUMN.test(column.extra))
         .map((column) => column.name);
-      for (const row of rows) for (const column of generated) delete row[column];
-      const inserts = [];
-      for (let start = 0; start < rows.length; start += INSERT_BATCH) {
-        inserts.push(knex(name).insert(rows.slice(start, start + INSERT_BATCH)).toQuery());
-      }
-      tables.push({ name, create: definition["Create Table"], inserts, digest });
+      definitions.push({ name, create: definition["Create Table"], columns: filled, checksum: checksums.get(name) });
     }
-    return tables;
+    return definitions;
   },
 
-  async ensureSnapshot(knexConfig, database, key, appRoot, build) {
-    // Another server version may write, or accept, another SHOW CREATE TABLE.
-    const version = await withKnex(knexConfig, undefined, async (knex) => (await knex.raw("SELECT VERSION() AS version"))[0][0].version);
-    const server = createHash("sha256").update(String(version)).digest("hex").slice(0, 8);
-    const file = path.join(appRoot, SNAPSHOT_DIRECTORY, `${key}-${server}.json`);
-    if (existsSync(file)) {
-      const { clock, migrations, tables } = JSON.parse(readFileSync(file, "utf8"));
-      // One stored before builds stopped the clock holds none, and is built again.
-      if (clock !== undefined) return { key, file, clock, migrations, tables: tables.map(({ name }) => name), replayed: false };
-    }
-    const clock = Math.floor(Date.now() / 1000);
-    await mysql.createDatabase(knexConfig, database);
-    // The schema is built on the application's own connection settings; only the capture reads values as text.
-    await mysql.build(knexConfig, database, clock, async (knex) => {
-      await mysql.replaceTables(knex, database, await mysql.tables(knex, database), []);
-      await build(knex);
+  /** The label of the snapshot database `database`, or null without one: the database missing, or its build unfinished. */
+  async label(knexConfig, database) {
+    return withKnex(knexConfig, undefined, async (knex) => {
+      const [tables] = await knex.raw("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?",
+        [database, MYSQL_LABEL_TABLE]);
+      if (tables.length < 1) return null;
+      const [[row]] = await knex.raw("SELECT label FROM ??.??", [database, MYSQL_LABEL_TABLE]);
+      return row ? JSON.parse(row.label) : null;
     });
-    const { migrations } = await mysql.outline(knexConfig, database);
-    const tables = await withKnex(knexConfig, database, (knex) => mysql.capture(knex, database), MYSQL_SNAPSHOT_CONNECTION);
-    mkdirSync(path.dirname(file), { recursive: true });
-    // Written whole, then renamed, so a run beside this one never reads half a snapshot.
-    writeFileSync(`${file}.${process.pid}`, JSON.stringify({ clock, migrations, tables }));
-    renameSync(`${file}.${process.pid}`, file);
-    return { key, file, clock, migrations, tables: tables.map(({ name }) => name), replayed: true };
+  },
+
+  /**
+   * The snapshot database, `<name>_0`, built again unless its label names this key and the server's version: a server
+   * upgraded since may write, or accept, another SHOW CREATE TABLE.
+   */
+  async ensureSnapshot(knexConfig, database, key, build) {
+    const snapshotDatabase = `${database}${MYSQL_SNAPSHOT_SUFFIX}`;
+    const version = await withKnex(knexConfig, undefined, async (knex) => (await knex.raw("SELECT VERSION() AS version"))[0][0].version);
+    const stored = await mysql.label(knexConfig, snapshotDatabase);
+    const snapshot = ({ clock, migrations, definitions }, replayed) => ({ key, database: snapshotDatabase, clock, migrations,
+      tables: definitions.map(({ name }) => name), definitions, replayed });
+    if (stored?.key === key && stored.version === version) return snapshot(stored, false);
+    const clock = Math.floor(Date.now() / 1000);
+    await withKnex(knexConfig, undefined, async (knex) => {
+      try {
+        await knex.raw("DROP DATABASE IF EXISTS ??", [snapshotDatabase]);
+        await knex.raw(`CREATE DATABASE ?? ${MYSQL_DATABASE_OPTIONS}`, [snapshotDatabase]);
+      } catch (error) {
+        if (!MYSQL_ACCESS_DENIED.has(error.code)) throw error;
+        throw Object.assign(new Error(`it may not create ${snapshotDatabase}, the database that holds the run's snapshot; ` +
+          `grant it all privileges on ${snapshotDatabase} by name, as on ${database} and its copies`), { code: error.code });
+      }
+    });
+    await mysql.build(knexConfig, snapshotDatabase, clock, build);
+    const { migrations } = await mysql.outline(knexConfig, snapshotDatabase);
+    const label = await withKnex(knexConfig, snapshotDatabase, async (knex) => {
+      const definitions = await mysql.describe(knex, snapshotDatabase);
+      // Written last: a build that never finished leaves no label, and is built again.
+      await knex.raw("CREATE TABLE ?? (label LONGTEXT NOT NULL)", [MYSQL_LABEL_TABLE]);
+      await knex(MYSQL_LABEL_TABLE).insert({ label: JSON.stringify({ key, version, clock, migrations, definitions }) });
+      return { clock, migrations, definitions };
+    });
+    return snapshot(label, true);
   },
 
   /**
@@ -309,7 +367,7 @@ const mysql = {
     return { result: await mysql.build(knexConfig, database, snapshot.clock, use) };
   },
 
-  /** Each of `tables` of `database` as rows read as the capture reads them, or null when `database` lacks it. */
+  /** Each of `tables` of `database` as rows read as text, or null when `database` lacks it: what a failure shows. */
   async rows(knexConfig, database, tables) {
     return withKnex(knexConfig, database, async (knex) => {
       const present = new Set(await mysql.tables(knex, database));
@@ -318,7 +376,7 @@ const mysql = {
         rows.set(name, present.has(name) ? (await knex.raw("SELECT * FROM ??", [name]))[0].map((row) => JSON.stringify(row)) : null);
       }
       return rows;
-    }, MYSQL_SNAPSHOT_CONNECTION);
+    }, MYSQL_TEXT_CONNECTION);
   },
 
   /** Creates `database` unless it exists; false when the database user may not create it. */
@@ -337,7 +395,8 @@ const mysql = {
   /** Empties `database`, every table of it dropped, and creates it when missing. */
   async clear(knexConfig, database) {
     await mysql.createDatabase(knexConfig, database);
-    await withKnex(knexConfig, database, async (knex) => mysql.replaceTables(knex, database, await mysql.tables(knex, database), []));
+    await withKnex(knexConfig, database, async (knex) =>
+      mysql.replaceTables(knexConfig, knex, database, await mysql.tables(knex, database), null));
   },
 
   /**
@@ -345,25 +404,29 @@ const mysql = {
    * the migration ledger, whose rows hold when each migration ran.
    */
   async differences(knexConfig, database, snapshot) {
-    const { tables } = JSON.parse(readFileSync(snapshot.file, "utf8"));
-    const changed = await withKnex(knexConfig, database, (knex) => mysql.changedTables(knex, database, tables),
-      MYSQL_SNAPSHOT_CONNECTION);
+    const changed = await withKnex(knexConfig, database, (knex) => mysql.changedTables(knex, database, snapshot.definitions));
     return changed.filter((name) => name !== ledgerOf(knexConfig));
   },
 
-  /** Replaces the tables of `database` that differ from the snapshot's (changedTables()), and answers their names. */
-  async restore(knexConfig, database, snapshot) {
-    const { tables } = JSON.parse(readFileSync(snapshot.file, "utf8"));
+  /**
+   * Replaces the tables of `database` that differ from the snapshot's (changedTables()), filling up to `connections` at
+   * once, and answers their names.
+   */
+  async restore(knexConfig, database, snapshot, connections = MYSQL_FILL_CONNECTIONS) {
     // A test may have dropped the whole database; one the user may not create but that exists is restored in place.
     await mysql.createDatabase(knexConfig, database);
-    // On the capture's connection settings, so rows read as the capture read them; they only change how values read.
     return withKnex(knexConfig, database, async (knex) => {
-      const changed = await mysql.changedTables(knex, database, tables);
-      await mysql.replaceTables(knex, database, changed, tables);
+      const changed = await mysql.changedTables(knex, database, snapshot.definitions);
+      await mysql.replaceTables(knexConfig, knex, database, changed, snapshot, connections);
       return changed;
-    }, MYSQL_SNAPSHOT_CONNECTION);
+    });
   },
 
+  /**
+   * Creates each of `databases` the server lacks, as far as the user may, and restores each (restore()): one an earlier
+   * run left is changed only where its files wrote. Answers those it provides and how many tables their restores
+   * copied.
+   */
   async provide(knexConfig, databases, snapshot) {
     const provided = [];
     for (const [index, database] of databases.entries()) {
@@ -371,8 +434,10 @@ const mysql = {
       if (!(await mysql.createDatabase(knexConfig, database)) && index > 0) break;
       provided.push(database);
     }
-    await settleAll(provided.map((database) => mysql.restore(knexConfig, database, snapshot)));
-    return provided;
+    // The databases restored at once share the fill's connections.
+    const connections = fillConnections(provided.length);
+    const replaced = await settleAll(provided.map((database) => mysql.restore(knexConfig, database, snapshot, connections)));
+    return { databases: provided, restored: replaced.reduce((sum, tables) => sum + tables.length, 0) };
   },
 
   async outline(knexConfig, database) {
@@ -399,10 +464,20 @@ const postgres = {
   },
 
   /**
+   * Samples every table of the knex's database for the planner, in one ANALYZE: a table no ANALYZE has read has no
+   * column statistics until autovacuum reaches it, and a copy of a template takes the template's.
+   */
+  async refreshStatistics(knex) {
+    const { rows } = await knex.raw("SELECT table_name AS name FROM information_schema.tables WHERE table_schema = " +
+      "current_schema() AND table_type = 'BASE TABLE'");
+    if (rows.length > 0) await knex.raw(`ANALYZE ${rows.map(() => "??").join(", ")}`, rows.map(({ name }) => name));
+  },
+
+  /**
    * The snapshot database, built again unless its label names this key and the window its build ran in (one built before
    * builds recorded it names none).
    */
-  async ensureSnapshot(knexConfig, database, key, _appRoot, build) {
+  async ensureSnapshot(knexConfig, database, key, build) {
     const snapshotDatabase = `${database}_snapshot`;
     const current = await postgres.maintenance(knexConfig, async (knex) => {
       const { rows } = await knex.raw(
@@ -419,6 +494,8 @@ const postgres = {
         await knex.raw("CREATE DATABASE ??", [snapshotDatabase]);
       });
       ({ window } = await postgres.replay(knexConfig, snapshotDatabase, null, build));
+      // Sampled once here, every copy of the template takes its statistics.
+      await withKnex(knexConfig, snapshotDatabase, (knex) => postgres.refreshStatistics(knex));
       // The key is hexadecimal and the window integers, so they are safe inline; COMMENT takes no bound parameters.
       await postgres.maintenance(knexConfig, (knex) => knex.raw(
         `COMMENT ON DATABASE ?? IS 'jskit-test-snapshot ${key} ${window[0]} ${window[1]}'`, [snapshotDatabase]));
@@ -544,15 +621,21 @@ const postgres = {
     });
   },
 
-  // One at a time: each copy reads the template while it is made.
+  /**
+   * Makes each of `databases` again from the snapshot (restore()), one at a time, since each copy reads the template
+   * while it is made, as far as the user may. Answers those it provides and how many tables they hold.
+   */
   async provide(knexConfig, databases, snapshot) {
     const provided = [];
+    let restored = 0;
     for (const database of databases) {
-      if (!(await postgres.restore(knexConfig, database, snapshot))) break;
+      const tables = await postgres.restore(knexConfig, database, snapshot);
+      if (!tables) break;
       provided.push(database);
+      restored += tables.length;
     }
     if (provided.length < 1) throw new Error(`The database user may not create ${databases[0]} from the snapshot (CREATEDB).`);
-    return provided;
+    return { databases: provided, restored };
   },
 
   async outline(knexConfig, database) {
@@ -579,7 +662,9 @@ function dialectOf(knexConfig) {
 export {
   DIALECTS,
   POSTGRES_INSUFFICIENT_PRIVILEGE,
+  POSTGRES_MAINTENANCE_DATABASE,
   dialectOf,
+  fillConnections,
   ledgerOf,
   rowDifference,
   settleAll,

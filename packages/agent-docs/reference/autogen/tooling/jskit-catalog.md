@@ -45,10 +45,12 @@ Local functions
 - `waitUntilReady(url, server, name)`
 - `running(server)`
 - `delay(ms)`
+- `processTree(pid)`
+- `treeTotal(pid, read)`
 - `treePeakBytes(pid)`
+- `treeCpuSeconds(pid)`
 - `recordServerMemory()`
 - `stopServers()`
-- `dropPreparedCopies(exited)`
 - `stopAndExit(code)`
 
 ### `scripts/browser-test-times.mjs`
@@ -472,6 +474,7 @@ Local functions
 - `usesBrowserHarness(source)`
 - `developmentServerCommand(source)`
 - `checkPlaywrightIsolation({ file, source, report })`
+- `checkLoggerLevel({ root, report })`
 - `checkRunnerConfig({ root, configPath, directory, runner, report })`
 
 ### `scripts/test-time-report.mjs`
