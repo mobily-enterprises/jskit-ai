@@ -780,6 +780,10 @@ Exports
 Exports
 - None
 
+### `fixtures/adaptive-shell/src/ButtonContrastPage.vue`
+Exports
+- None
+
 ### `fixtures/adaptive-shell/src/ButtonsPage.vue`
 Exports
 - None

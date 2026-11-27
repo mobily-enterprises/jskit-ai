@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@jskit-ai/auth-provider-oidc-core": "0.2.67",
-    "@jskit-ai/auth-web": "0.2.60"
+    "@jskit-ai/auth-provider-oidc-core": "0.2.68",
+    "@jskit-ai/auth-web": "0.2.61"
   }
 }
