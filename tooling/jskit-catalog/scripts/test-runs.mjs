@@ -10,6 +10,8 @@ import { fileExists, toPosixPath } from "./files.mjs";
 // The one exception is a test file's own first line, `// jskit-test: alone - <reason>`, which `jskit test` honours.
 // A Playwright config those scripts use bounds its whole run (globalTimeout) and, when it starts the app (webServer),
 // does so through browserTestConfig(): the production build, and a server, port and database for each worker.
+// An app's server/lib/loggerOptions.js (the foundation patterns') takes its level from LOG_LEVEL, which `jskit test` and
+// the browser test servers set to warn, so a test server does not log every request.
 
 const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features#test-files-run-in-parallel";
 const BUDGET_MODULE = "@jskit-ai/jskit-catalog/test-budget";
@@ -21,6 +23,7 @@ const PINNED_BUDGET = /^(?:V64_TEST_CONCURRENCY|PLAYWRIGHT_WORKERS)=/u;
 const CONFIG_EXTENSIONS = Object.freeze(["ts", "mts", "cts", "js", "mjs", "cjs"]);
 const SCRIPT_FILE = /\.(?:[cm]?[jt]s|jsx|tsx)$/u;
 const FIXED_PLAYWRIGHT_WORKERS = /^(?:--workers(?:=.*)?|-j.*)$/u;
+const LOGGER_OPTIONS = "server/lib/loggerOptions.js";
 const FIXED_VITEST_WORKERS = /^--(?:max-?[wW]orkers|min-?[wW]orkers|no-file-?[pP]arallelism|file-?[pP]arallelism)(?:=.*)?$/u;
 
 function commandsOf(script) {
@@ -127,6 +130,18 @@ function checkPlaywrightIsolation({ file, source, report }) {
   }
 }
 
+// The app's logger options take their level from LOG_LEVEL.
+async function checkLoggerLevel({ root, report }) {
+  const file = path.join(root, LOGGER_OPTIONS);
+  if (!(await fileExists(file))) return;
+  const source = await readFile(file, "utf8");
+  if (source.includes("LOG_LEVEL")) return;
+  report({ file: LOGGER_OPTIONS, line: lineOf(source, "function buildLoggerOptions"), rule: "test/log-level",
+    message: "buildLoggerOptions() takes no level from LOG_LEVEL, so a test server logs every request at info: give its " +
+      'options `level: String(runtimeEnv.LOG_LEVEL || "").trim() || "info"` and pass it server.js\'s runtimeEnv; ' +
+      "`jskit test` and the browser test servers set LOG_LEVEL=warn." });
+}
+
 // A config sets the runner's workers from the budget, and Vitest's never turns file parallelism off.
 async function checkRunnerConfig({ root, configPath, directory, runner, report }) {
   const { rule, setting, configNames, budget } = RUNNERS[runner];
@@ -196,6 +211,7 @@ async function checkTestRuns({ projectRoot, manifests }) {
     }
   }
   for (const config of configs.values()) await checkRunnerConfig({ root, report, ...config });
+  await checkLoggerLevel({ root, report });
   findings.sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line);
   return { ok: findings.length < 1, findings, manifests: manifests.length };
 }

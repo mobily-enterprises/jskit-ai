@@ -472,6 +472,7 @@ Local functions
 - `usesBrowserHarness(source)`
 - `developmentServerCommand(source)`
 - `checkPlaywrightIsolation({ file, source, report })`
+- `checkLoggerLevel({ root, report })`
 - `checkRunnerConfig({ root, configPath, directory, runner, report })`
 
 ### `scripts/test-time-report.mjs`
