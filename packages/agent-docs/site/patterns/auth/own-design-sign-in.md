@@ -141,6 +141,6 @@ in an app without Vuetify.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/auth-web@0.2.59`
+- Owner: `@jskit-ai/auth-web@0.2.60`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/auth-web/patterns/own-design-sign-in/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/auth-web/patterns/own-design-sign-in/example)

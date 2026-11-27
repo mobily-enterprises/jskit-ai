@@ -7,11 +7,11 @@
     "db:migrate:status": "knex --knexfile ./knexfile.js migrate:list"
   },
   "dependencies": {
-    "@jskit-ai/connectors-core": "0.2.52",
-    "@jskit-ai/connector-google-calendar": "0.2.52",
-    "@jskit-ai/database-runtime": "0.1.285",
-    "@jskit-ai/database-runtime-mysql": "0.1.283",
-    "@jskit-ai/kernel": "0.2.34",
+    "@jskit-ai/connectors-core": "0.2.53",
+    "@jskit-ai/connector-google-calendar": "0.2.53",
+    "@jskit-ai/database-runtime": "0.1.286",
+    "@jskit-ai/database-runtime-mysql": "0.1.284",
+    "@jskit-ai/kernel": "0.2.35",
     "knex": "^3.1.0"
   }
 }
