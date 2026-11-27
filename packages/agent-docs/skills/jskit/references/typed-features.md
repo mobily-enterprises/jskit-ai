@@ -1130,6 +1130,17 @@ the last run's largest app server reached.**
   `// jskit-test: alone - <reason>`. `jskit test` runs it after the others,
   one such file at a time, and fails on a marker without a reason or below the
   first line.
+- Tests never reach an outside service, even when a developer's real keys sit
+  in the environment they inherit. Every Node process `jskit test` and the
+  browser test servers start, and every one those start, connects only to
+  loopback, `localhost`, unix sockets and the database host the environment
+  names (`DB_HOST`, `DATABASE_URL`); any other connection fails before its
+  name is looked up, with `JSKIT_TEST_NETWORK_REFUSED` naming the host. Stub
+  the service at the seam the app already uses: an injected client or provider
+  double, or a test-only env value pointing at a local fake. A test file that
+  must reach one says why on its first line,
+  `// jskit-test: network - <reason>`, and `jskit test` runs it without the
+  guard, after the others; a marker without a reason fails the run.
 - `jskit test` ends with its 10 slowest test files and tests, records each
   file's time in `node_modules/.cache/jskit-test/file-times.json`, and fails
   when a file takes more than 10 minutes or the whole command more than 45:

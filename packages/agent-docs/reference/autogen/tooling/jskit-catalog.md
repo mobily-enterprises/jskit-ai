@@ -430,10 +430,10 @@ Exports
 Local functions
 - `findTestFiles(patterns, cwd)`
 - `missedTestFiles(defaultFiles, cwd)`
-- `readAloneFiles(files, cwd)`
-- `aloneDestination(destination)`
-- `aloneRunOptions(options)`
-- `aloneShard(files, options)`
+- `readMarkedFiles(files, cwd)`
+- `markedDestination(destination, kind)`
+- `markedRunOptions(options, kind)`
+- `markedShard(files, options)`
 - `databaseShortfall(databases, asked)`
 - `runNode(args, env)`
 - `listTestFiles(args)`
@@ -458,6 +458,25 @@ Exports
 Exports
 - `STOPPED_PREFIX`
 - `STOPS_VARIABLE`
+
+### `scripts/test-network-guard-preload.mjs`
+Exports
+- None
+
+### `scripts/test-network-guard.mjs`
+Exports
+- `NETWORK_GUARD_PRELOAD`
+- `NETWORK_GUARD_VARIABLE`
+- `NETWORK_REFUSED_CODE`
+- `installNetworkGuard({ env = process.env, command = env[NETWORK_GUARD_VARIABLE] || "jskit test", stderr = process.stderr } = {})`
+- `isAllowedTestHost(host, env)`
+- `networkGuardEnvironment(env, command)`
+- `withoutNetworkGuard(nodeOptions)`
+Local functions
+- `hostName(host)`
+- `databaseHosts(env)`
+- `refusal(command, host, port)`
+- `connectTarget(args)`
 
 ### `scripts/test-runs.mjs`
 Exports
