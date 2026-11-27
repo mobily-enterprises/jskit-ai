@@ -20,6 +20,7 @@ test("test:browser runs the browser test files whose switches are all set, and n
   assert.deepEqual(switchedBrowserTestFiles({ JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1" }), [
     "packages/shell-web/test/adaptiveShell.browser.test.js",
     "packages/shell-web/test/appEnvironmentBanner.browser.test.js",
+    "packages/shell-web/test/colorContrast.browser.test.js",
     "packages/shell-web/test/inertBehindDialog.browser.test.js",
     "packages/shell-web/test/pendingAction.browser.test.js",
     "packages/shell-web/test/productionBuild.browser.test.js"

@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from "vue";
-import { RouterLink } from "vue-router";
+import { RouterLink, useRoute } from "vue-router";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import ShellPrimaryAction from "../../../src/client/components/ShellPrimaryAction.vue";
 
@@ -10,8 +10,10 @@ import ShellPrimaryAction from "../../../src/client/components/ShellPrimaryActio
 // while the dialog is open), "Remove access" (a second dialog over the first) and "Open contacts" (a link that leaves
 // the page with the dialog open). "Note details" opens a dialog from its activator; "Report a problem" opens the
 // shell's own error dialog. The note's "Archive note" and the dialog's "Remove access" each have a tooltip and open a
-// dialog. Presses of the note's Edit and the dialogs' actions are counted.
+// dialog. Presses of the note's Edit and the dialogs' actions are counted. `?unreadable=1` adds a line of text no one can
+// read (#f2f2f2 on #f9f9ff, 1.07:1), which an accessibility check must fail.
 const errorRuntime = useShellWebErrorRuntime();
+const unreadable = useRoute().query.unreadable === "1";
 const invite = ref(false);
 const removeAccess = ref(false);
 const archive = ref(false);
@@ -75,6 +77,9 @@ function reportProblem() {
       <v-btn variant="text" data-testid="fixture-report-problem" @click="reportProblem">Report a problem</v-btn>
     </div>
     <p data-testid="fixture-notes-presses">{{ presses.join(",") }}</p>
+    <p v-if="unreadable" data-testid="fixture-unreadable" style="background: #f9f9ff; color: #f2f2f2;">
+      This line is unreadable on purpose.
+    </p>
 
     <v-dialog v-model="invite" max-width="480" height="600" aria-label="Invite someone">
       <v-card title="Invite someone" data-testid="fixture-invite-dialog">
