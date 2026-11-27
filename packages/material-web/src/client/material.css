@@ -169,8 +169,11 @@
   /* A control's state layer and container tint lie under its content, as Material 3 orders them. Vuetify draws a
      button's, chip's, list item's, card's and avatar's overlay and underlay over the label, so axe found a layer over
      every label and judged the contrast of none (color-contrast incomplete, bgOverlap). Each control is its own
-     stacking context with its layers at z-index -1 in it, and its content parts are positioned: axe-core 4.14 reads
-     the first, 4.11 the second, and each still found layers over labels with only one of the two. */
+     stacking context with its layers at z-index -1 in it, and each of its content parts is one too, which axe-core
+     4.14 needs to read the labels above the layers. A content part is isolated, not positioned (as 0.1.10 and 0.1.11
+     made it), so a child the app places absolutely in it is placed in the control, as Vuetify places it: a dot at a
+     button's top right corner was drawn on its label. axe-core 4.11 ranks an isolated part under its positioned
+     control and so judges none of these labels: check contrast with 4.14. */
   :is(.v-btn, .v-chip, .v-list-item, .v-card, .v-avatar) {
     isolation: isolate;
   }
@@ -188,7 +191,7 @@
   .v-list-item > :is(.v-list-item__prepend, .v-list-item__content, .v-list-item__append),
   .v-card > :is(.v-card-item, .v-card-title, .v-card-subtitle, .v-card-text, .v-card-actions),
   .v-avatar > :not(.v-avatar__underlay) {
-    position: relative;
+    isolation: isolate;
   }
 
   /* A filled or elevated button has no activated state layer: Material 3 gives these buttons none (a selected

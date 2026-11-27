@@ -124,23 +124,27 @@ test("a menu mounted while closed covers nothing, and still opens and closes wit
   await items.evaluate((element) => Promise.all(element.closest(".v-overlay__content").getAnimations().map((animation) => animation.finished)));
 
   // Frame by frame from Escape until the overlay is gone: its content animates out while the overlay is still drawn.
-  const frames = items.evaluate(async (element) => {
+  // The page takes the first frame before Escape is pressed: a sampler started beside the key press ran only after a
+  // second round trip, which the press overtook, and on a busy host found the menu already closed.
+  await items.evaluate((element) => {
     const content = element.closest(".v-overlay__content");
     const overlay = content.parentElement;
-    const seen = [];
-    const started = performance.now();
-    while (performance.now() - started < 3000) {
-      const animating = content.getAnimations().some((animation) => animation.playState === "running");
-      seen.push({ overlay: getComputedStyle(overlay).display, content: content.style.display || "shown", animating });
-      if (seen.at(-1).overlay === "none") {
-        break;
+    globalThis.closingMenuFrames = (async () => {
+      const seen = [];
+      const started = performance.now();
+      while (performance.now() - started < 3000) {
+        const animating = content.getAnimations().some((animation) => animation.playState === "running");
+        seen.push({ overlay: getComputedStyle(overlay).display, content: content.style.display || "shown", animating });
+        if (seen.at(-1).overlay === "none") {
+          break;
+        }
+        await new Promise((resolve) => requestAnimationFrame(resolve));
       }
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-    }
-    return seen;
+      return seen;
+    })();
   });
   await page.keyboard.press("Escape");
-  const seen = await frames;
+  const seen = await page.evaluate(() => globalThis.closingMenuFrames);
   assert.ok(seen.some((frame) => frame.overlay !== "none" && frame.content === "shown" && frame.animating),
     `the menu animates out while its overlay is drawn: ${JSON.stringify(seen.filter((_, index) => index % 4 === 0))}`);
   assert.equal(seen.at(-1).overlay, "none", "once closed, the menu's overlay is gone again");
