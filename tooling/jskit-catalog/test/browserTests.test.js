@@ -682,7 +682,7 @@ test("jskit browser-test-server stopped by a host's repeated signals still stops
       assert.deepEqual(JSON.parse(await readFile(path.join(root, "dropped.json"), "utf8")), ["app_browser_1", "app_browser_2"]);
       assert.equal(target.output.match(/\[browser-tests\] dropped app_browser_1, app_browser_2\./gu)?.length, 1, target.output);
     } finally {
-      if (target.child.exitCode === null) process.kill(-target.child.pid, "SIGKILL");
+      if (target.child.exitCode === null && target.child.signalCode === null) process.kill(-target.child.pid, "SIGKILL");
     }
   });
 });
