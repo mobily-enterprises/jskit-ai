@@ -66,6 +66,16 @@ new immutable migration for the next change. Keep resource fields and storage
 metadata aligned with the resulting schema. Do not use a field-patching command
 or rewrite a historical baseline.
 
+## Read the CRUD flow first
+
+Before changing how a CRUD route, service or repository behaves, read
+`@jskit-ai/crud-core`'s `src/server/jsonApiModule/`, `test/defineCrudFeature.test.js`
+and `test/crudOnHandles.test.js`, and `@jskit-ai/resource-runtime`'s
+`src/server/resourceHandle.js` (under `packages/` in JSKIT's repository, under
+`node_modules/@jskit-ai/` in an app). They define the CRUD service's method
+names, forwarded options, 404 behavior, tagged JSON:API results and
+transaction ownership; the repository is the table's handle.
+
 ## Customize without copying CRUD
 
 `defineCrudFeature()` deliberately keeps application extension points:

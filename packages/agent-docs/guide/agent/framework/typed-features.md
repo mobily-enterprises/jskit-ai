@@ -1069,7 +1069,8 @@ its own app server, and no more than the memory available holds at the peak
 the last run's largest app server reached.**
 
 - The budget is `V64_TEST_CONCURRENCY` when it is a positive whole number (a
-  test runner that hands out slots exports it for each run), otherwise half of
+  host's variable, not JSKIT's: the budget a host or test runner sets for the
+  machine's test slots, read when set), otherwise half of
   the CPUs the process may use, rounded down and at least 1: a 2-vCPU VPS runs
   one file at a time, an 8-thread machine four, and a container or slice whose
   cgroup `cpu.max` quota gives it 3 CPUs of a 16-thread machine one
