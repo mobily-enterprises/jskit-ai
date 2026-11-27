@@ -1,6 +1,7 @@
 import { md3 } from "vuetify/blueprints";
 import { materialThemes } from "./colorSchemes.js";
 import { materialDefaults } from "./defaults.js";
+import { endKeyboardRipplesWithThePress } from "./keyboardRipple.js";
 import { materialSymbols } from "./symbols.js";
 
 // The default Material 3 seed, the baseline purple of the Material 3 guidelines.
@@ -45,7 +46,8 @@ function appIconAliases(icons) {
  * the app's own colours as harmonized custom colours), following the system's light or dark setting, the brand and
  * plain typefaces (Roboto Flex unless the app names its own), Material Symbols Rounded behind every icon alias (plus
  * the app's own), and JSKIT's Material 3 component defaults. Pass the result to createVuetify(); import
- * "@jskit-ai/material-web/client/material.css" after "vuetify/styles".
+ * "@jskit-ai/material-web/client/material.css" after "vuetify/styles". In a browser it also makes a keyboard press's
+ * ripple end with the press on a control whose own key handler moves focus away (keyboardRipple.js), once per window.
  * @param {{ seed?: string, colors?: Record<string, string | { value: string, blend?: boolean }>, icons?: Record<string, string>, typography?: { brand?: string, plain?: string } }} [theme]
  */
 function createMaterialVuetifyOptions({ seed = DEFAULT_SEED, colors = {}, icons = {}, typography = {} } = {}) {
@@ -54,15 +56,14 @@ function createMaterialVuetifyOptions({ seed = DEFAULT_SEED, colors = {}, icons 
   for (const theme of Object.values(themes)) {
     theme.variables = { ...theme.variables, ...typefaces };
   }
+  const aliases = { ...materialSymbols, ...appIconAliases(icons) };
+  endKeyboardRipplesWithThePress(globalThis.window);
   return {
     blueprint: md3,
     defaults: materialDefaults,
     icons: {
       defaultSet: "svg",
-      aliases: {
-        ...materialSymbols,
-        ...appIconAliases(icons)
-      }
+      aliases
     },
     theme: {
       defaultTheme: "system",
