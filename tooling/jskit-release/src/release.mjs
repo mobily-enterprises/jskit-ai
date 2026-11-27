@@ -622,9 +622,40 @@ async function installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(p
 
 const PIN_COMMIT_MESSAGE = "Consume released packages";
 
+const CATALOG = "@jskit-ai/jskit-catalog";
+
+/** Whether the repository's own manifest declares the JSKIT catalog, whose block its AGENTS.md carries. */
+async function declaresCatalog(repoRoot) {
+  const manifest = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8"));
+  return Boolean(manifest.dependencies?.[CATALOG] || manifest.devDependencies?.[CATALOG]);
+}
+
+/** Runs a step of the pin on the installed versions, showing its output; a failure stops the pin before its commit. */
+function runPinStep(repoRoot, name, argv, env = process.env) {
+  const ran = spawnSync(argv[0], argv.slice(1), { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env });
+  const output = `${ran.stdout || ""}${ran.stderr || ""}`.trim();
+  if (ran.error || ran.status !== 0) {
+    throw new Error(`${name} ${ran.error ? `could not start (${ran.error.message})`
+      : `failed with exit code ${ran.status ?? ran.signal}`}, so the pin was not committed.${output ? ` ${output}` : ""}`);
+  }
+  if (output) process.stdout.write(`${output}\n`);
+}
+
+/** The installed catalog's `jskit agents`, so the pin commit carries the block its `jskit check` asks AGENTS.md for. */
+async function writeInstalledAgentsBlock(repoRoot) {
+  const catalogRoot = path.join(repoRoot, "node_modules", ...CATALOG.split("/"));
+  const manifest = await readFile(path.join(catalogRoot, "package.json"), "utf8").catch(error => {
+    throw new Error(`${CATALOG} is not installed in ${repoRoot} (${error.message}), so the pin was not committed.`);
+  });
+  const { bin } = JSON.parse(manifest);
+  process.stdout.write(`${path.basename(repoRoot)}: writing the installed catalog's JSKIT block in AGENTS.md (jskit agents)\n`);
+  runPinStep(repoRoot, "jskit agents", [process.execPath, path.join(catalogRoot, typeof bin === "string" ? bin : bin.jskit), "agents"]);
+}
+
 // pin: make every dependency on a package published from the given
 // repositories follow that package's current version, keeping ^/~, then
-// install, commit and push.
+// install, write the installed catalog's JSKIT block in AGENTS.md when the
+// repository declares @jskit-ai/jskit-catalog (jskit agents), commit and push.
 // --branch <name> pins that branch instead of main (a project starter kept on
 // its own branch, say): the checkout must be on it and current with origin's,
 // and the commit is pushed to it.
@@ -658,25 +689,24 @@ async function pinCommand({ cwd: repoRoot, from, dryRun, noCommit, noPush, branc
   for (const change of changes) process.stdout.write(`${path.basename(repoRoot)}: ${change}\n`);
   // Shown as its argv, one line however its arguments are written.
   const after = JSON.stringify(afterPin);
+  const catalog = await declaresCatalog(repoRoot);
   if (dryRun) {
+    if (catalog) {
+      process.stdout.write(`${path.basename(repoRoot)}: would write the installed catalog's JSKIT block in AGENTS.md (jskit agents) after the install\n`);
+    }
     if (afterPin.length) process.stdout.write(`${path.basename(repoRoot)}: would run ${after} after the install (jskitRelease.afterPin)\n`);
     process.stdout.write("Pin dry-run complete.\n");
     return;
   }
   await forgetPinnedLockEntries(repoRoot, new Set(versions.keys()));
   await installReleasedPins(repoRoot);
+  if (catalog) await writeInstalledAgentsBlock(repoRoot);
   if (afterPin.length) {
     // The repository's own step on the versions just installed; whatever it changes is committed with the pins.
     process.stdout.write(`${path.basename(repoRoot)}: running ${after} (jskitRelease.afterPin)\n`);
     const bin = path.join(repoRoot, "node_modules", ".bin");
-    const ran = spawnSync(afterPin[0], afterPin.slice(1), { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, PATH: process.env.PATH ? `${bin}${path.delimiter}${process.env.PATH}` : bin } });
-    const output = `${ran.stdout || ""}${ran.stderr || ""}`.trim();
-    if (ran.error || ran.status !== 0) {
-      throw new Error(`jskitRelease.afterPin ${after} ${ran.error ? `could not start (${ran.error.message})`
-        : `failed with exit code ${ran.status ?? ran.signal}`}, so the pin was not committed.${output ? ` ${output}` : ""}`);
-    }
-    if (output) process.stdout.write(`${output}\n`);
+    runPinStep(repoRoot, `jskitRelease.afterPin ${after}`, afterPin,
+      { ...process.env, PATH: process.env.PATH ? `${bin}${path.delimiter}${process.env.PATH}` : bin });
   }
   if (noCommit) {
     process.stdout.write(`${path.basename(repoRoot)}: pins installed; not committed\n`);

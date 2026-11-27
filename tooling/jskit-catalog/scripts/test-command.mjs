@@ -318,4 +318,4 @@ async function runTests(args) {
   return exitCode;
 }
 
-export { planTestRuns, runTests, withTimeReporter };
+export { DEFAULT_PATTERN, findTestFiles, planTestRuns, runTests, withTimeReporter };

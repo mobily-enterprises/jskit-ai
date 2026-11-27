@@ -82,7 +82,10 @@ catalog and agent documentation) and `nestedManifests` (`patterns`, `examples`).
 A repository that `pin` updates may declare `afterPin`: an argv array run without
 a shell, in the repo root, with `node_modules/.bin` first on `PATH`, after the
 pins install and before the commit, so its files join that commit (a generated
-copy that must follow a pinned package, say).
+copy that must follow a pinned package, say). A repository whose own
+`package.json` declares `@jskit-ai/jskit-catalog` gets the installed catalog's
+JSKIT block in its `AGENTS.md` (its `jskit agents`) before `afterPin`, so the
+pin commit carries the block that the repository's `jskit check` asks for.
 A package can also declare its own `jskitRelease.pack` command, which builds a
 custom tarball and prints its path (or JSON `{"tarball": path}`) as its last
 output line, and `jskitRelease.versionFiles`, JSON files whose `version` must

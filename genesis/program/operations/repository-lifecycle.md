@@ -73,7 +73,9 @@ report the same plan without writing, pushing or uploading. Registry
 verification is a separate network-dependent operation. `release` verifies and
 then runs `npm-publish`. `jskit-release pin --from <repoDir>...` lets consuming
 repositories follow released versions, install (retrying through a throwaway
-npm cache while npm does not serve them yet), commit and push. `--branch
+npm cache while npm does not serve them yet), write the installed catalog's
+JSKIT block in `AGENTS.md` when the repository declares
+`@jskit-ai/jskit-catalog` (`jskit agents`), commit and push. `--branch
 <name>` pins a checkout of that named branch (current with origin's) and pushes
 to it; `--no-commit` leaves the installed edits uncommitted and `--no-push`
 commits without pushing, for a caller that proves the commit before moving the
