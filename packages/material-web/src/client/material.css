@@ -195,29 +195,67 @@
   }
 
   /* The same for the other components Vuetify draws a layer of their own over their text in: a tonal alert's tint
-     and an alert's border box, an editable stepper step's state layer and underlay, a tonal snackbar's tint, and a
-     circular progress's ring (an svg at z-index 0) over its reading. axe found each over its component's text and
-     judged none of it (color-contrast incomplete, bgOverlap). Each tint is the text's own colour, so drawing it
-     under the text changes no pixel; a border and a ring do not reach the text. An icon button's text is judged as
-     Vuetify draws it. An expansion panel's title is left as Vuetify draws it: its text is the title's own, with no
-     part of its own to lift above the state layer, which shows only on hover, on focus and on an open `focusable`
-     panel. */
-  :is(.v-alert, .v-stepper-item, .v-snackbar__wrapper, .v-progress-circular) {
+     and an alert's border box, an editable stepper step's state layer and underlay, and a tonal snackbar's tint.
+     axe found each over its component's text and judged none of it (color-contrast incomplete, bgOverlap). Each tint
+     is the text's own colour, so drawing it under the text changes a pixel only by rounding; a border does not reach
+     the text. An icon button's text is judged as Vuetify draws it. A circular progress's reading keeps Vuetify's
+     order: its ring is an svg, which axe takes for an image whether it lies over the reading or under it
+     (bgOverlap, imgNode), so it judges the reading neither way. */
+  :is(.v-alert, .v-stepper-item, .v-snackbar__wrapper) {
     isolation: isolate;
   }
 
   .v-alert > :is(.v-alert__underlay, .v-alert__border),
   .v-stepper-item > :is(.v-stepper-item__overlay, .v-stepper-item__underlay),
-  .v-snackbar__wrapper > .v-snackbar__underlay,
-  .v-progress-circular > svg {
+  .v-snackbar__wrapper > .v-snackbar__underlay {
     z-index: -1;
   }
 
   .v-alert > :is(.v-alert__prepend, .v-alert__content, .v-alert__append, .v-alert__close),
   .v-stepper-item > .v-stepper-item__content,
-  .v-snackbar__wrapper > :is(.v-snackbar__prepend, .v-snackbar__content, .v-snackbar__actions),
-  .v-progress-circular > .v-progress-circular__content {
+  .v-snackbar__wrapper > :is(.v-snackbar__prepend, .v-snackbar__content, .v-snackbar__actions) {
     isolation: isolate;
+  }
+
+  /* An expansion panel title's state, on an open `focusable` panel, on hover, on keyboard focus and on a disabled
+     panel, is the title's own background: the text's own colour at the state's opacity, as Vuetify's state layer
+     draws it. Vuetify draws the layer, a positioned box, over the title's text, a text of the title's own with no
+     part to lift above it, so axe judged none of it (color-contrast incomplete, bgOverlap). A title with a background
+     of its own (its `color`, a bg- class or an inline background) keeps Vuetify's layer: no rule can mix a tint into
+     a background another rule sets. Every browser JSKIT builds for has :focus-visible, so Vuetify's :focus rules for
+     one without it are not repeated. */
+  .v-expansion-panel-title:not([class*=" bg-"], [style*="background"]) {
+    background-color: color-mix(in srgb, currentColor calc(var(--jskit-panel-title-state, 0) * 100%), transparent);
+  }
+
+  .v-expansion-panel-title:not([class*=" bg-"], [style*="background"]) > .v-expansion-panel-title__overlay {
+    display: none;
+  }
+
+  .v-expansion-panel--disabled .v-expansion-panel-title {
+    --jskit-panel-title-state: 0.4615384615;
+  }
+
+  .v-expansion-panel-title--hover:hover {
+    --jskit-panel-title-state: calc(var(--v-hover-opacity) * var(--v-theme-overlay-multiplier));
+  }
+
+  .v-expansion-panel-title--hover:focus-visible {
+    --jskit-panel-title-state: calc(var(--v-focus-opacity) * var(--v-theme-overlay-multiplier));
+  }
+
+  .v-expansion-panel-title--focusable.v-expansion-panel-title--active {
+    --jskit-panel-title-state: calc(var(--v-activated-opacity) * var(--v-theme-overlay-multiplier));
+  }
+
+  .v-expansion-panel-title--focusable.v-expansion-panel-title--active:hover {
+    --jskit-panel-title-state: calc((var(--v-activated-opacity) + var(--v-hover-opacity)) *
+      var(--v-theme-overlay-multiplier));
+  }
+
+  .v-expansion-panel-title--focusable.v-expansion-panel-title--active:focus-visible {
+    --jskit-panel-title-state: calc((var(--v-activated-opacity) + var(--v-focus-opacity)) *
+      var(--v-theme-overlay-multiplier));
   }
 
   /* A filled or elevated button has no activated state layer: Material 3 gives these buttons none (a selected
