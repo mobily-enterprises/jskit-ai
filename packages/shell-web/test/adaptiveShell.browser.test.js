@@ -1429,6 +1429,133 @@ test("page actions carry their attributes in every form, collapse into the overf
   }
 });
 
+// The long actions page's labelled actions, in bar order, and the two its overflow menu holds after them.
+const LONG_ACTIONS = Object.freeze([
+  "fixture-long-action-size",
+  "fixture-long-action-restart",
+  "fixture-long-action-restore",
+  "fixture-long-action-tags"
+]);
+const LONG_MENU_ONLY = Object.freeze(["fixture-long-action-delete", "fixture-long-action-tooling"]);
+// A title as wide as two of the long actions page's actions at 1280 px: an expanded bar folds some of them, not all.
+const LONG_TITLE = "Nightly backups for the billing database";
+
+// The top app bar of ShellLayout as drawn: whether its row overflows, which long actions it shows, each item a person
+// must reach (More actions and the bar's own items, by their accessible names) that lies outside the window or under
+// something else at its centre, whether the title is clipped, the room the title leaves in its box, and each shown
+// action's width with its margins.
+function readLongActionsBar(page) {
+  return page.evaluate(() => {
+    const bar = document.querySelector("[data-testid=jskit-shell-app-bar]");
+    const row = bar.querySelector(".shell-layout__app-bar-row");
+    const headline = row.querySelector(".shell-layout__headline");
+    const title = headline.querySelector("[data-testid=jskit-shell-page-title]");
+    const more = bar.querySelector("[data-testid=jskit-shell-page-actions-overflow]");
+    const reachable = (element) => {
+      const box = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+      return box.left >= 0 && box.right <= window.innerWidth && Boolean(hit && element.contains(hit));
+    };
+    const style = window.getComputedStyle(headline);
+    const actions = [...bar.querySelectorAll("[data-testid^=fixture-long-action]")];
+    return {
+      overflows: row.scrollWidth > row.clientWidth,
+      inBar: actions.map((element) => element.dataset.testid),
+      unreachable: [
+        more ? null : "More actions (not drawn)",
+        ...[more, ...bar.querySelectorAll("[data-testid=fixture-status]")]
+          .filter((element) => element && !reachable(element))
+          .map((element) => element.getAttribute("aria-label"))
+      ].filter(Boolean),
+      titleClipped: title.scrollWidth > title.clientWidth + 1,
+      slack: Math.floor(headline.clientWidth - Number.parseFloat(style.paddingInlineStart) -
+        Number.parseFloat(style.paddingInlineEnd) - title.getBoundingClientRect().width),
+      widths: Object.fromEntries(actions.map((element) => {
+        const margins = window.getComputedStyle(element);
+        return [element.dataset.testid, Math.ceil(element.getBoundingClientRect().width +
+          Number.parseFloat(margins.marginInlineStart) + Number.parseFloat(margins.marginInlineEnd))];
+      }))
+    };
+  });
+}
+
+// The long actions page's More actions menu, opened and closed again: its items' data-testids, in order.
+async function readLongActionsMenu(page) {
+  await page.getByTestId("jskit-shell-page-actions-overflow").click();
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  const items = await menu.getByRole("menuitem").evaluateAll((elements) => elements.map((element) => element.dataset.testid));
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  return items;
+}
+
+// What a bar that folds its actions by width shows: nothing past the bar, every item a person must reach on screen and
+// on top, the title whole; the first actions in bar order inline and the rest in More actions before the menu's own,
+// as few folded as leave the title whole, so the room left beside the title is less than the first folded action
+// needs. Returns the folded actions.
+async function foldedByWidth(page, { bar, widths, at }) {
+  assert.deepEqual({ overflows: bar.overflows, unreachable: bar.unreachable, titleClipped: bar.titleClipped }, {
+    overflows: false,
+    unreachable: [],
+    titleClipped: false
+  }, at);
+  const folded = LONG_ACTIONS.slice(bar.inBar.length);
+  assert.deepEqual(bar.inBar, LONG_ACTIONS.slice(0, bar.inBar.length), `${at}: the bar keeps the first actions`);
+  assert.deepEqual(await readLongActionsMenu(page), [...folded, ...LONG_MENU_ONLY], `${at}: More actions holds the rest, in bar order`);
+  if (folded.length > 0) {
+    assert.ok(bar.slack < widths[folded[0]], `${at}: ${folded[0]} (${widths[folded[0]]}px) folded with ${bar.slack}px left`);
+  }
+  return folded;
+}
+
+test("a medium window's bar folds the page actions it has no room for into More actions, and More actions and the bar's own items stay on screen and reachable", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  // Each action's width, from an expanded bar that shows them all.
+  const wide = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
+  t.after(() => wide.close());
+  await wide.goto("/home/long-actions?topRight=3");
+  await expect(wide.getByTestId("fixture-long-action-tags")).toBeVisible();
+  const { widths } = await readLongActionsBar(wide);
+
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 768, height: 1024 } });
+  t.after(() => page.close());
+  await page.goto("/home/long-actions?topRight=3");
+  await expect(page.getByTestId("jskit-shell-page-title")).toHaveText("Hosted service");
+  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
+  const bar = await readLongActionsBar(page);
+  const folded = await foldedByWidth(page, { bar, widths, at: "768px" });
+  assert.ok(folded.length > 0 && bar.inBar.length > 0, `768px: some actions fold and some stay (${bar.inBar.join(", ")})`);
+
+  // A folded action runs from the menu.
+  await page.getByTestId("jskit-shell-page-actions-overflow").click();
+  await page.getByRole("menu").getByTestId(folded[0]).click();
+  await expect(page.getByTestId("fixture-action-log")).toHaveText(folded[0].replace("fixture-long-action-", ""));
+});
+
+test("an expanded window's bar keeps every page action that fits beside the title, and a long title folds only those that don't", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
+  t.after(() => page.close());
+
+  await page.goto("/home/long-actions?topRight=3");
+  await expect(page.getByTestId("fixture-long-action-tags")).toBeVisible();
+  const ordinary = await readLongActionsBar(page);
+  assert.deepEqual(await foldedByWidth(page, { bar: ordinary, widths: ordinary.widths, at: "1280px" }), []);
+
+  await page.goto(`/home/long-actions?topRight=3&title=${encodeURIComponent(LONG_TITLE)}`);
+  await expect(page.getByTestId("jskit-shell-page-title")).toHaveText(LONG_TITLE);
+  const long = await readLongActionsBar(page);
+  const folded = await foldedByWidth(page, { bar: long, widths: ordinary.widths, at: "1280px, a long title" });
+  assert.ok(folded.length > 0 && long.inBar.length > 0, `1280px, a long title: some actions fold and some stay (${long.inBar.join(", ")})`);
+});
+
 test("a nested component's title gives the page's own title back, and Save returns to the list with its query", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
