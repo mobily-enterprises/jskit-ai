@@ -117,6 +117,44 @@ test("a manifest requirement no provider has is logged as an install-time requir
   ]);
 });
 
+test("a manifest requirement marked install-time only (installRequires) is not logged; an unmarked one still is", () => {
+  const logger = recordingLogger();
+  const manifest = {
+    provides: ["feature.books"],
+    requires: ["runtime.database", "runtime.storage", "runtime.uploads"],
+    installRequires: ["runtime.uploads"]
+  };
+
+  assertManifestMatchesProviders(booksPackage(manifest), [BOOKS_PROVIDER], { logger });
+
+  assert.deepEqual(logger.warnings, [
+    {
+      fields: {
+        packageId: "@fixture/books",
+        capabilityId: "runtime.storage"
+      },
+      message: "Package manifest requires a capability its providers do not."
+    }
+  ]);
+  const drift = manifestCapabilityDrift(booksPackage(manifest), [BOOKS_PROVIDER]);
+  assert.deepEqual([drift.extraRequires, drift.installRequires], [["runtime.storage"], ["runtime.uploads"]]);
+});
+
+test("installRequires marks only manifest requirements no provider has: one the manifest does not require, or one a provider requires, is refused", () => {
+  const logger = recordingLogger();
+  const marking = (requires, installRequires) => booksPackage({ provides: ["feature.books"], requires, installRequires });
+
+  assert.throws(
+    () => assertManifestMatchesProviders(marking(["runtime.database"], ["runtime.uploads"]), [BOOKS_PROVIDER], { logger }),
+    { message: "Package @fixture/books marks capability runtime.uploads install-time only (installRequires), but its manifest does not require it." }
+  );
+  assert.throws(
+    () => assertManifestMatchesProviders(marking(["runtime.database"], ["runtime.database"]), [BOOKS_PROVIDER], { logger }),
+    { message: "Package @fixture/books marks capability runtime.database install-time only (installRequires), but its providers require it." }
+  );
+  assert.deepEqual(logger.warnings, []);
+});
+
 test("a manifest's drift names each capability to add or remove, the kernel's own and client ones aside", () => {
   const manifest = {
     provides: ["feature.authors", "client.books"],

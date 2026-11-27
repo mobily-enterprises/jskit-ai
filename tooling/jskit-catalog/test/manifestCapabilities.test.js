@@ -16,23 +16,10 @@ const PACKAGES_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 const CLI_PATH = fileURLToPath(new URL("../scripts/jskit.mjs", import.meta.url));
 const execFileAsync = promisify(execFile);
 
-// Install-time requirements: the packages need them in the app, while no server provider of theirs requires them.
-const INSTALL_TIME_REQUIREMENTS = Object.freeze([
-  {
-    packageId: "@jskit-ai/assistant-runtime",
-    capabilityId: "runtime.http-web"
-  },
-  {
-    packageId: "@jskit-ai/users-core",
-    capabilityId: "runtime.database"
-  },
-  {
-    packageId: "@jskit-ai/workspaces-core",
-    capabilityId: "runtime.database"
-  }
-]);
-
-test("every JSKIT package manifest names the capabilities its server providers require and provide", async () => {
+// Start-up compares each package's manifest with its server providers, in every app and so in production: a JSKIT
+// package's own manifest gives it nothing to warn about. A requirement only install time needs (the database the
+// migrations need, the web runtime the client code imports) is marked so in installRequires.
+test("every JSKIT package manifest names the capabilities its server providers require and provide, so start-up logs no warning", async () => {
   const warnings = [];
   const logger = {
     debug() {},
@@ -58,7 +45,7 @@ test("every JSKIT package manifest names the capabilities its server providers r
   }
 
   assert.ok(checkedPackages > 10, `expected the JSKIT packages with server providers, checked ${checkedPackages}`);
-  assert.deepEqual(warnings, INSTALL_TIME_REQUIREMENTS);
+  assert.deepEqual(warnings, []);
 });
 
 const feature = (id, requires, provides) =>
@@ -72,7 +59,7 @@ const runtimePackage = (name, capabilities, entrypoint = "src/server/Feature.js"
 
 // An app whose packages use the kernel of this repository: one manifest that drifted from its feature, one that
 // matches, one whose feature does not load and a client-only package with no server providers to compare.
-async function withManifestApp(run) {
+async function withManifestApp(run, extraFiles = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-manifest-capabilities-"));
   try {
     const files = {
@@ -90,7 +77,8 @@ async function withManifestApp(run) {
       "packages/notes/package.json": runtimePackage("@local/notes", { provides: ["app.notes"], requires: ["app.books"] }),
       "packages/notes/src/server/Feature.js": feature("app.notes", { books: "app.books" }, { notes: "app.notes" }),
       "packages/broken/package.json": runtimePackage("@local/broken", { provides: [] }, "src/server/Missing.js"),
-      "packages/theme/package.json": JSON.stringify({ name: "@local/theme", version: "0.1.0", jskit: { capabilities: { provides: ["client.theme"] } } })
+      "packages/theme/package.json": JSON.stringify({ name: "@local/theme", version: "0.1.0", jskit: { capabilities: { provides: ["client.theme"] } } }),
+      ...extraFiles
     };
     for (const [file, contents] of Object.entries(files)) {
       await mkdir(path.dirname(path.join(root, file)), { recursive: true });
@@ -117,12 +105,36 @@ test("jskit check reports each capability an application package's manifest miss
       "packages/broken/package.json:6  manifest/capabilities  declares server providers that do not load: " +
         "Package @local/broken provider entrypoint not found: src/server/Missing.js"
     ]);
-    // runtime.storage may be an install-time requirement, so it is listed for review rather than refused.
-    assert.deepEqual(result.installTime, [{ file: "packages/books/package.json", line: 13, capabilityId: "runtime.storage" }]);
+    // runtime.storage may be an install-time requirement installRequires does not mark yet, so it is listed for review
+    // rather than refused.
+    assert.deepEqual(result.extraRequires, [{ file: "packages/books/package.json", line: 13, capabilityId: "runtime.storage" }]);
     const report = formatManifestCapabilitiesReport(result);
-    assert.match(report, /^Manifest requirements no feature has \(1\), each needed only at install time/mu);
+    assert.match(report, /^Manifest requirements no feature has and installRequires does not mark \(1\): mark each one only install time needs/mu);
     assert.match(report, /^ {2}packages\/books\/package\.json:13 {2}runtime\.storage$/mu);
     assert.match(report, /^JSKIT package manifests: 4 error\(s\)\./mu);
+  });
+});
+
+test("jskit check leaves a requirement installRequires marks out of its review list, and fails a mark on one a feature requires or the manifest does not", async () => {
+  await withManifestApp(async (root) => {
+    const result = await checkManifestCapabilities({ projectRoot: root, manifests: await discoverProjectManifests(root) });
+
+    assert.equal(result.packages, 3);
+    assert.deepEqual(result.findings.filter(({ file }) => file === "packages/journal/package.json").map(({ line, message }) => `${line}  ${message}`), [
+      "16  jskit.capabilities.installRequires lists app.books, which its features require; remove it from installRequires.",
+      "17  jskit.capabilities.installRequires lists runtime.cache, which jskit.capabilities.requires does not list; add it to requires or remove it."
+    ]);
+    // runtime.database is marked install-time only; runtime.uploads is not.
+    assert.deepEqual(result.extraRequires.filter(({ file }) => file === "packages/journal/package.json"), [
+      { file: "packages/journal/package.json", line: 13, capabilityId: "runtime.uploads" }
+    ]);
+  }, {
+    "packages/journal/package.json": runtimePackage("@local/journal", {
+      provides: ["app.journal"],
+      requires: ["app.books", "runtime.database", "runtime.uploads"],
+      installRequires: ["app.books", "runtime.cache", "runtime.database"]
+    }),
+    "packages/journal/src/server/Feature.js": feature("app.journal", { books: "app.books" }, { journal: "app.journal" })
   });
 });
 
