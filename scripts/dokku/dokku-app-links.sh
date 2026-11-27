@@ -9,7 +9,8 @@ fi
 for p in $(dokku plugin:list | awk '/service plugin$/ {print $1}'); do
   if dokku "$p:help" 2>/dev/null | grep -q 'app-links'; then
     out="$(dokku "$p:app-links" "$APP" 2>/dev/null || true)"
-    [[ -n "$out" ]] && echo -e "== $p ==\n$out\n"
+    [[ -n "$out" ]] || continue
+    echo -e "== $p ==\n$out\n"
   fi
 done
 
