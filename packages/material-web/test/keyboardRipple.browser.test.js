@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -15,7 +16,8 @@ const ENDED = { timeout: 3000 };
 // A control's own Enter handler that moves focus (a card opening a panel and focusing its title) ran before Vuetify's
 // ripple directive heard the key, so the card's ripple showed after the card had lost focus, its keyup reached the
 // panel's title, and the ripple stayed drawn, over the text around the card for axe, while no other control showed a
-// keyboard ripple. Material 3's pressed state ends with the press.
+// keyboard ripple. Material 3's pressed state ends with the press. The blur that ends it goes only to a control that
+// shows a live ripple and no longer holds focus: not to one without a ripple, nor to one that keeps focus.
 test("a keyboard press's ripple ends with the press when the control's own Enter handler moves focus away, and the next press ripples", {
   skip: SKIP,
   timeout: 120_000
@@ -24,19 +26,44 @@ test("a keyboard press's ripple ends with the press when the control's own Enter
   const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 800 } });
   t.after(() => page.close());
   await page.goto("/");
+  // The blur events each control heard during `press`, which starts on a control already focused.
+  const blursDuring = async (press) => {
+    const before = await page.evaluate(() => ({ ...globalThis.blurs }));
+    await press();
+    const after = await page.evaluate(() => ({ ...globalThis.blurs }));
+    return Object.fromEntries(Object.keys(after).map((name) => [name, after[name] - before[name]]));
+  };
 
   const card = page.getByTestId("card");
   const title = page.getByTestId("panel-title");
   await card.focus();
-  await page.keyboard.press("Enter");
-  await expect(title).toBeFocused();
-  await expect(title).toHaveText("Opened 1 times");
-  await expect(card.locator(".v-ripple__animation"), "the card's ripple ends once Enter comes up on the panel").toHaveCount(0, ENDED);
+  const cardPress = await blursDuring(async () => {
+    await page.keyboard.press("Enter");
+    await expect(title).toBeFocused();
+    await expect(title).toHaveText("Opened 1 times");
+    await expect(card.locator(".v-ripple__animation"), "the card's ripple ends once Enter comes up on the panel").toHaveCount(0, ENDED);
+  });
+  assert.deepEqual(cardPress, { card: 2, plain: 0, title: 0, next: 0 },
+    "the card hears its own blur as focus leaves, then the one its ripple missed; nothing else hears one");
+
+  const plain = page.getByTestId("plain");
+  await plain.focus();
+  const plainPress = await blursDuring(async () => {
+    await page.keyboard.press("Enter");
+    await expect(title).toHaveText("Opened 2 times");
+    await expect(title).toBeFocused();
+  });
+  assert.deepEqual(plainPress, { card: 0, plain: 1, title: 0, next: 0 },
+    "a control without a ripple hears only its own blur as focus leaves it");
 
   const next = page.getByTestId("next");
   await next.focus();
-  await page.keyboard.down("Enter");
-  await expect(next.locator(".v-ripple__animation"), "the next control shows its keyboard ripple while Enter is down").toHaveCount(1);
-  await page.keyboard.up("Enter");
-  await expect(next.locator(".v-ripple__animation"), "and ends it when Enter comes up").toHaveCount(0, ENDED);
+  const nextPress = await blursDuring(async () => {
+    await page.keyboard.down("Enter");
+    await expect(next.locator(".v-ripple__animation"), "the next control shows its keyboard ripple while Enter is down").toHaveCount(1);
+    await page.keyboard.up("Enter");
+    await expect(next.locator(".v-ripple__animation"), "and ends it when Enter comes up").toHaveCount(0, ENDED);
+    await expect(next).toBeFocused();
+  });
+  assert.deepEqual(nextPress, { card: 0, plain: 0, title: 0, next: 0 }, "a control that keeps focus through its press hears no blur");
 });
