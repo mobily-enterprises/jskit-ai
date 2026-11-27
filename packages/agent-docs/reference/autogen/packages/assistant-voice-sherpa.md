@@ -42,7 +42,7 @@ Local functions
 
 ### `src/recognitionSession.js`
 Exports
-- `createRecognitionSession(recognizer, { vocabulary = {}, minimumRms = 0, tailPaddingSeconds = 0.45, onPartial = ignoreRecognizedText, onEndpoint = ignoreRecognizedText, continuous = false } = {})`
+- `createRecognitionSession(recognizer, { vocabulary = {}, minimumRms = 0, tailPaddingSeconds = 0.75, onPartial = ignoreRecognizedText, onEndpoint = ignoreRecognizedText, continuous = false } = {})`
 - `warmRecognizer(recognizer)`
 Local functions
 - `ignoreRecognizedText()`
