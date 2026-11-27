@@ -941,6 +941,7 @@ Exports
 
 ### `server/http/responseSerializerFactory.js`
 Exports
+- `branchValidator(validator, compiledBranches)`
 - `createCachedResponseSerializerFactory(buildSerializer)`
 - `schemaCacheKey(schema)`
 Local functions
@@ -951,7 +952,6 @@ Local functions
 - `everyRefResolves(schema, externalSchemas)`
 - `namesNothingOutside(value)`
 - `selfContainedBranch(ajv, ref)`
-- `branchValidator(validator, compiledBranches)`
 - `compiledOnFirstUse(build, options, key)`
 
 ### `server/http/securityHeaders.js`
