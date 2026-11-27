@@ -348,6 +348,12 @@ seconds), and 400 `codeInvalid`, `codeUsed`, `recoveryCodeInvalid` or
 refusal. Local auth's second-factor events for it say `via: "application"`,
 with no request's address (`ip` ""); a session's own events have no `via`.
 
+To refuse before asking for the code, `accountStateOf({ userId })` answers
+whether the account is `"active"`, `"disabled"` or `"missing"`, as
+`verifySecondFactorOf` would find it: one read of the account, which checks no
+code, spends no attempt and records no event. Like `verifySecondFactorOf`, it
+is a second-factor operation (`features.secondFactor`).
+
 ## How a session was signed in (local auth)
 
 An action that grants much (root on a machine, say) can ask more of the

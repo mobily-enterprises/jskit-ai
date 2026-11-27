@@ -390,6 +390,25 @@ function createLocalSecondFactor({ backend, config, logger, secondFactorEvents, 
     return { verifiedAt: outcome.verifiedAt, method: outcome.method, recoveryCodesLeft };
   }
 
+  /**
+   * Whether an account the application names (a provider user id) is "active", "disabled" or "missing", as
+   * verifySecondFactorOf would find it, so an application can refuse before it asks for a code. One read of the
+   * account: it checks nothing, spends no attempt, records no event and writes nothing.
+   * @param {{ userId: string }} input
+   * @returns {Promise<"active" | "disabled" | "missing">}
+   */
+  async function accountStateOf({ userId } = {}) {
+    const id = String(userId ?? "").trim();
+    if (!id) {
+      throw new TypeError("accountStateOf() takes the userId whose account it reads.");
+    }
+    const user = await backend.withTransaction((tx) => tx.users.findById(id));
+    if (!user) {
+      return "missing";
+    }
+    return user.disabled ? "disabled" : "active";
+  }
+
   async function replaceSecondFactorRecoveryCodes(request, input) {
     const session = await signedInSession(request);
     const proof = readProof(input);
@@ -459,6 +478,7 @@ function createLocalSecondFactor({ backend, config, logger, secondFactorEvents, 
     confirmSecondFactorSetup,
     verifySecondFactor,
     verifySecondFactorOf,
+    accountStateOf,
     replaceSecondFactorRecoveryCodes,
     removeSecondFactor,
     listSecondFactors,

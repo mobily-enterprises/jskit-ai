@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `accountStateOf` answers `AUTH_OPERATION_UNSUPPORTED`, as the other second-factor operations do.
 - `verifySecondFactorOf` answers `AUTH_OPERATION_UNSUPPORTED`, as the other second-factor operations do.
 - `auth_oidc_initial-collation`, a migration Knex runs just before `auth_oidc_initial` (run `npm run db:migrate`): on MySQL and MariaDB it creates the OIDC sign-in tables, where they do not exist yet, in the collation of the existing tables (`auth_oidc_clients`, then `users`, then `auth_local_users`) rather than the database's default, and converts one recorded in another collation when no character can be lost. It changes nothing where they match. The package now names `@jskit-ai/database-runtime` as a peer dependency, which that migration imports and its `runtime.database` already needed.
 - **Breaking:** `resolveOidcConfig` names whether the app runs in staging or production `isStagingOrProduction`, in place of `isDeployed`. The README and the pattern's `.env.example` say `AUTH_OIDC_SESSION_SECRET`, and `APP_PUBLIC_URL` behind a proxy, are required in staging and production, as the code requires them.
