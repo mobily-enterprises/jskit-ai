@@ -306,6 +306,8 @@ function createWebPlacementRuntime({ components, contextContributors = [], logge
   let placementDefinitions = Object.freeze([]);
   let placementTopology = Object.freeze([]);
   let sharedContext = Object.freeze({});
+  // The sources whose context is still loading, as each last said with `setContext(..., { pending })`.
+  const pendingContextSources = new Set();
   let revision = 0;
 
   function notify(event = {}) {
@@ -369,8 +371,21 @@ function createWebPlacementRuntime({ components, contextContributors = [], logge
     return sharedContext;
   }
 
-  function setContext(value = {}, { replace = false, source = "placement-context" } = {}) {
+  /**
+   * Merges `value` into the context placements read (replaces it with `replace`). `pending` says the source's context
+   * is still loading, as permissions a session sends after the page opens: the shell keeps a page it is opening unseen
+   * until no source is pending, so its navigation never arrives under the page (ShellLayout). The source's next call
+   * without it says its context has arrived, or that it never will; nothing else ends the wait.
+   * @param {Record<string, unknown>} [value]
+   * @param {{ replace?: boolean, source?: string, pending?: boolean }} [options]
+   */
+  function setContext(value = {}, { replace = false, source = "placement-context", pending = false } = {}) {
     const next = isRecord(value) ? { ...value } : {};
+    if (pending) {
+      pendingContextSources.add(source);
+    } else {
+      pendingContextSources.delete(source);
+    }
 
     let nextContext = next;
     if (!replace) {
@@ -384,6 +399,7 @@ function createWebPlacementRuntime({ components, contextContributors = [], logge
     debugLog("setContext", {
       replace,
       source,
+      pending,
       keys: Object.keys(sharedContext)
     });
     notify({
@@ -395,6 +411,11 @@ function createWebPlacementRuntime({ components, contextContributors = [], logge
 
   function getRevision() {
     return revision;
+  }
+
+  /** Whether a source of the context said it is still loading (`setContext(..., { pending: true })`). */
+  function isContextPending() {
+    return pendingContextSources.size > 0;
   }
 
   function getPlacements({ surface = WEB_PLACEMENT_SURFACE_ANY, target = "", layoutClass = "", context = {} } = {}) {
@@ -518,6 +539,7 @@ function createWebPlacementRuntime({ components, contextContributors = [], logge
     getPlacements,
     getContext,
     setContext,
+    isContextPending,
     subscribe,
     getRevision
   });

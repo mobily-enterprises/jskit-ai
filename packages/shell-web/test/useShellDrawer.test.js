@@ -16,10 +16,12 @@ function createDrawerElement() {
   };
 }
 
-function mountDrawer(t, { compact = false, props = {} } = {}) {
+function mountDrawer(t, { compact = false, drawn = true, fontsReady = Promise.resolve(), props = {} } = {}) {
   const frames = [];
   const drawerElement = createDrawerElement();
   const fontListeners = new Set();
+  // The drawer's element is on the page while the shell draws it.
+  const hasDrawer = ref(drawn);
   const page = installPage(t, {
     window: {
       requestAnimationFrame(callback) {
@@ -33,11 +35,11 @@ function mountDrawer(t, { compact = false, props = {} } = {}) {
     },
     document: {
       fonts: {
-        ready: Promise.resolve(),
+        ready: fontsReady,
         addEventListener: (_type, listener) => fontListeners.add(listener),
         removeEventListener: (_type, listener) => fontListeners.delete(listener)
       },
-      getElementById: () => drawerElement,
+      getElementById: () => (hasDrawer.value ? drawerElement : null),
       createRange: () => ({
         selectNodeContents() {},
         getBoundingClientRect: () => ({ left: 16, right: 16 + LABEL_TEXT_WIDTH, width: LABEL_TEXT_WIDTH })
@@ -77,6 +79,7 @@ function mountDrawer(t, { compact = false, props = {} } = {}) {
       navigationItemSpacing: 12,
       ...props
     },
+    hasDrawer,
     modalLayout: isCompactLayout,
     viewportWidth,
     navigationToggle,
@@ -89,7 +92,19 @@ function mountDrawer(t, { compact = false, props = {} } = {}) {
       }
     }
   }));
-  return { app, drawerOpen, focused, fontListeners, frames, isCompactLayout, observers, page, result, viewportWidth };
+  return {
+    app,
+    drawerOpen,
+    focused,
+    fontListeners,
+    frames,
+    hasDrawer,
+    isCompactLayout,
+    observers,
+    page,
+    result,
+    viewportWidth
+  };
 }
 
 async function runFrames(frames) {
@@ -202,6 +217,65 @@ test("a content drawer's width follows its measured labels", async (t) => {
   assert.equal(result.resolvedDrawerWidth.value, 16 + LABEL_TEXT_WIDTH + 12 + 1);
   assert.equal(observers.length, 1);
   assert.equal(observers[0].connected, true);
+  app.unmount();
+});
+
+test("a drawer that arrives after the shell mounted is watched and fitted to its labels", async (t) => {
+  const { app, frames, hasDrawer, observers, result } = mountDrawer(t, { drawn: false });
+  await runFrames(frames);
+  assert.equal(observers.length, 0);
+  assert.equal(result.resolvedDrawerWidth.value, 248);
+
+  hasDrawer.value = true;
+  await runFrames(frames);
+
+  assert.equal(observers.length, 1);
+  assert.equal(observers[0].connected, true);
+  assert.equal(result.resolvedDrawerWidth.value, 16 + LABEL_TEXT_WIDTH + 12 + 1);
+  app.unmount();
+});
+
+test("settling the drawer fits it at once, in place of the frame its measurement waited for", async (t) => {
+  const { app, frames, observers, result } = mountDrawer(t, { props: { drawerWidth: "content" } });
+  await nextTick();
+  await nextTick();
+  assert.equal(frames.filter(Boolean).length, 1);
+  assert.equal(result.resolvedDrawerWidth.value, 248);
+
+  await result.settleDrawerWidth();
+
+  assert.equal(result.resolvedDrawerWidth.value, 16 + LABEL_TEXT_WIDTH + 12 + 1);
+  assert.deepEqual(frames.filter(Boolean), []);
+  assert.equal(observers.at(-1).connected, true);
+  app.unmount();
+});
+
+test("settling the drawer waits for the fonts the page is loading, then fits it", async (t) => {
+  let fontsArrive = () => {};
+  const fontsReady = new Promise((resolve) => {
+    fontsArrive = resolve;
+  });
+  const { app, result } = mountDrawer(t, { fontsReady, props: { drawerWidth: "content" } });
+
+  const settled = result.settleDrawerWidth();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(result.resolvedDrawerWidth.value, 248);
+
+  fontsArrive();
+  await settled;
+  assert.equal(result.resolvedDrawerWidth.value, 16 + LABEL_TEXT_WIDTH + 12 + 1);
+  app.unmount();
+});
+
+test("settling a drawer of fixed width measures nothing", async (t) => {
+  const { app, frames, result } = mountDrawer(t, { props: { drawerWidth: 300 } });
+  await nextTick();
+  await nextTick();
+
+  await result.settleDrawerWidth();
+
+  assert.equal(result.resolvedDrawerWidth.value, 300);
+  assert.deepEqual(frames.filter(Boolean), []);
   app.unmount();
 });
 

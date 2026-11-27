@@ -42,6 +42,7 @@ const placement = {
   getContext: () => context,
   getPlacements: () => [],
   getRevision: () => 0,
+  isContextPending: () => false,
   subscribe: () => () => {},
   setContext(patch) {
     context = { ...context, ...patch };

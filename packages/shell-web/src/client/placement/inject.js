@@ -24,6 +24,9 @@ const NO_WEB_PLACEMENT_RUNTIME = Object.freeze({
   setContext() {
     return Object.freeze({});
   },
+  isContextPending() {
+    return false;
+  },
   subscribe() {
     return () => {};
   },
@@ -56,6 +59,12 @@ function followWebPlacementRuntime(runtime, listener) {
   });
 }
 
+/**
+ * The placement context, and its setters. `mergeContext(value, source, { pending: true })` says the source's part of it
+ * is still loading, as a session's permissions that arrive after the page opens: a ShellLayout opening meanwhile keeps
+ * the page unseen until the source sets its context again without `pending`, so its navigation never arrives under the
+ * page. Set it before the layout mounts (in the setup of the component that loads it) and end it on success or failure.
+ */
 function useWebPlacementContext() {
   const runtime = useWebPlacementRuntime();
   const context = shallowRef(runtime.getContext());
@@ -64,17 +73,19 @@ function useWebPlacementContext() {
     context.value = runtime.getContext();
   });
 
-  function mergeContext(value = {}, source = "component") {
+  function mergeContext(value = {}, source = "component", { pending = false } = {}) {
     context.value = runtime.setContext(value, {
-      source
+      source,
+      pending
     });
     return context.value;
   }
 
-  function replaceContext(value = {}, source = "component") {
+  function replaceContext(value = {}, source = "component", { pending = false } = {}) {
     context.value = runtime.setContext(value, {
       replace: true,
-      source
+      source,
+      pending
     });
     return context.value;
   }

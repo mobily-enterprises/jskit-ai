@@ -182,7 +182,7 @@ Exports
 
 ### `src/client/composables/useShellDrawer.js`
 Exports
-- `useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, layoutState })`
+- `useShellDrawer({ props, hasDrawer, modalLayout, viewportWidth, navigationToggle, layoutState })`
 Local functions
 - `navigationDrawerElement()`
 
@@ -233,6 +233,12 @@ Local functions
 ### `src/client/composables/useShellRouteTransition.js`
 Exports
 - `useShellRouteTransition(props)`
+
+### `src/client/composables/useShellSettled.js`
+Exports
+- `useShellSettled({ settleNavigation })`
+Local functions
+- `commitLayout()`
 
 ### `src/client/composables/useShellTopRightOverflow.js`
 Exports
@@ -779,6 +785,8 @@ Exports
 ### `fixtures/adaptive-shell/src/App.vue`
 Exports
 - None
+Local functions
+- `loadConsoleSession()`
 
 ### `fixtures/adaptive-shell/src/ButtonContrastPage.vue`
 Exports
@@ -797,6 +805,12 @@ Exports
 - None
 Local functions
 - `jumpToLastBooking()`
+
+### `fixtures/adaptive-shell/src/ConsolePage.vue`
+Exports
+- None
+Local functions
+- `press(name)`
 
 ### `fixtures/adaptive-shell/src/DialogFeedbackPage.vue`
 Exports

@@ -31,12 +31,14 @@ function navigationDrawerElement() {
  * "material" (Material 3's full width) or a number, which fixes it.
  * @param {object} options
  * @param {{ desktopDrawerClosedMode: string, drawerWidth: number | string | null, railWidth: number, navigationItemSpacing: number }} options.props
+ * @param {import("vue").Ref<boolean>} options.hasDrawer Whether the shell draws the drawer, which can arrive after it
+ *   mounted, with its destinations.
  * @param {import("vue").Ref<boolean>} options.modalLayout
  * @param {import("vue").Ref<number>} options.viewportWidth
  * @param {import("vue").Ref<{ $el: HTMLElement } | null>} options.navigationToggle
  * @param {ReturnType<typeof import("./useShellLayoutState.js").useShellLayoutState>} options.layoutState
  */
-function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, layoutState }) {
+function useShellDrawer({ props, hasDrawer, modalLayout, viewportWidth, navigationToggle, layoutState }) {
   const {
     drawerDefaultOpen,
     drawerOpen,
@@ -87,6 +89,8 @@ function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, l
   watch(drawerPresentation, scheduleDrawerWidthMeasurement, { flush: "post" });
   watch(resolvedSurface, scheduleDrawerWidthMeasurement, { flush: "post" });
   watch(resolvedNavigationItemSpacing, scheduleDrawerWidthMeasurement, { flush: "post" });
+  // A drawer that arrives after the shell mounted is watched and fitted as one drawn from the start is.
+  watch(hasDrawer, initializeDrawerMeasurement, { flush: "post" });
 
   onMounted(attachShellListeners);
   onBeforeUnmount(detachShellListeners);
@@ -108,10 +112,7 @@ function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, l
     document.fonts.removeEventListener("loadingdone", scheduleDrawerWidthMeasurement);
     drawerContentObserver?.disconnect();
     drawerContentObserver = null;
-    if (drawerMeasurementFrame !== null) {
-      window.cancelAnimationFrame(drawerMeasurementFrame);
-      drawerMeasurementFrame = null;
-    }
+    cancelDrawerWidthMeasurement();
   }
 
   function handleDrawerOpenChange(open) {
@@ -144,33 +145,67 @@ function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, l
   }
 
   function initializeDrawerMeasurement() {
-    const drawerElement = navigationDrawerElement();
-    if (drawerElement) {
-      drawerContentObserver?.disconnect();
-      drawerContentObserver = new MutationObserver(scheduleDrawerWidthMeasurement);
-      drawerContentObserver.observe(drawerElement.querySelector(".v-navigation-drawer__content") || drawerElement, {
-        childList: true,
-        characterData: true,
-        subtree: true
-      });
-    }
+    observeDrawerContent();
     scheduleDrawerWidthMeasurement();
   }
 
+  function observeDrawerContent() {
+    drawerContentObserver?.disconnect();
+    drawerContentObserver = null;
+    const drawerElement = navigationDrawerElement();
+    if (!shellMounted || !drawerElement) {
+      return;
+    }
+    drawerContentObserver = new MutationObserver(scheduleDrawerWidthMeasurement);
+    drawerContentObserver.observe(drawerElement.querySelector(".v-navigation-drawer__content") || drawerElement, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+  }
+
+  // Only an open drawer that fits its content is measured: a fixed width, a closed drawer and the rail are not.
+  function drawerFitsContentNow() {
+    return shellMounted &&
+      !fixedDrawerWidth.value &&
+      drawerPresentation.value.visible &&
+      !drawerPresentation.value.rail;
+  }
+
+  function cancelDrawerWidthMeasurement() {
+    if (drawerMeasurementFrame !== null) {
+      window.cancelAnimationFrame(drawerMeasurementFrame);
+      drawerMeasurementFrame = null;
+    }
+  }
+
   function scheduleDrawerWidthMeasurement() {
-    if (
-      !shellMounted ||
-      fixedDrawerWidth.value ||
-      !drawerPresentation.value.visible ||
-      drawerPresentation.value.rail
-    ) {
+    if (!drawerFitsContentNow()) {
       return;
     }
 
-    if (drawerMeasurementFrame !== null) {
-      window.cancelAnimationFrame(drawerMeasurementFrame);
-    }
+    cancelDrawerWidthMeasurement();
     drawerMeasurementFrame = window.requestAnimationFrame(updateMeasuredDrawerWidth);
+  }
+
+  /**
+   * Fits the drawer to its content now, as the shell settles (useShellSettled), instead of at the next frame, so the
+   * page first shows beside the drawer's final width rather than sliding to it. It measures once the fonts the page
+   * is loading have arrived: labels measured in the fallback font would refit the drawer, and move the page, then.
+   */
+  async function settleDrawerWidth() {
+    observeDrawerContent();
+    if (!drawerFitsContentNow()) {
+      return;
+    }
+    // Laying the page out asks for the fonts its text uses, so `ready` waits for them.
+    navigationDrawerElement()?.getBoundingClientRect();
+    await document.fonts.ready;
+    if (!drawerFitsContentNow()) {
+      return;
+    }
+    cancelDrawerWidthMeasurement();
+    updateMeasuredDrawerWidth();
   }
 
   function updateMeasuredDrawerWidth() {
@@ -199,7 +234,8 @@ function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, l
     handleDrawerVisibilityChange,
     resolvedDrawerWidth,
     resolvedNavigationItemSpacing,
-    resolvedRailWidth
+    resolvedRailWidth,
+    settleDrawerWidth
   };
 }
 

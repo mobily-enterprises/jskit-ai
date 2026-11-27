@@ -330,6 +330,35 @@ test("web placement runtime notifies subscribers on placement and context update
   assert.deepEqual(events, ["placements.replaced", "context.updated"]);
 });
 
+test("web placement runtime keeps the context pending until each source that said it is loading sets it again", () => {
+  const runtime = createWebPlacementRuntime({ components: createComponentsStub(), logger: silentLogger });
+  const events = [];
+  runtime.subscribe((event) => {
+    events.push(`${event.type} ${event.source}`);
+  });
+  assert.equal(runtime.isContextPending(), false);
+
+  runtime.setContext({ permissions: [] }, { source: "session", pending: true });
+  runtime.setContext({ plan: null }, { source: "billing", pending: true });
+  assert.equal(runtime.isContextPending(), true);
+
+  // Another source's context leaves the wait alone, and so does one of the two that end it.
+  runtime.setContext({ surface: "app" }, { source: "surface" });
+  runtime.setContext({ plan: "free" }, { source: "billing" });
+  assert.equal(runtime.isContextPending(), true);
+
+  runtime.setContext({ permissions: ["builds.read"] }, { source: "session" });
+  assert.equal(runtime.isContextPending(), false);
+  assert.deepEqual(runtime.getContext(), { permissions: ["builds.read"], plan: "free", surface: "app" });
+  assert.deepEqual(events, [
+    "context.updated session",
+    "context.updated billing",
+    "context.updated surface",
+    "context.updated billing",
+    "context.updated session"
+  ]);
+});
+
 test("web placement runtime rejects duplicate placement ids", () => {
   const components = createComponentsStub();
   const runtime = createWebPlacementRuntime({ components, logger: silentLogger });
