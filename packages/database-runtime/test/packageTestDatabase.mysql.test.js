@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import knexFactory from "knex";
 import { createKnexMigrationConfig } from "../src/server/knexMigrationConfig.js";
-import { createPackageTestKnex, requireTestDatabase, testDatabaseRun } from "../src/server/testDatabases.js";
+import { RUN_SETTINGS_FILE, createPackageTestKnex, requireTestDatabase, testDatabaseRun } from "../src/server/testDatabases.js";
 
 // createPackageTestKnex() on MariaDB and MySQL for a database user granted only its test database and that database's
 // copies, each by name with every _ escaped, as a managed host may grant them: a package test claims one of the 26 lettered
@@ -248,5 +248,42 @@ test("a jskit test --databases run whose database user may create only some numb
     assert.ok(run.summary.endsWith(`; the database user may not create ${base}_2`), run.summary);
   } finally {
     assert.equal(await run.cleanup(), "dropped the run's 1 numbered test database(s)");
+  }
+});
+
+// The contract a managed host grants by (Vibe64 Online grants exactly these names, and checks them by replaying what
+// JSKIT does): a run of N files at once needs TEST_DB_NAME and its copies _1 to _(N-1), and its package tests the
+// lettered copies, each granted by name, with no grant on a prefix.
+test("a jskit test --databases run of 16 files at once on MySQL or MariaDB needs exactly TEST_DB_NAME, its copies _1 to _15 and the lettered copies, each granted by name", async (context) => {
+  const base = `${requireTestDatabase(process.env)}_c8`;
+  const numbered = Array.from({ length: 15 }, (_, index) => `${base}_${index + 1}`);
+  const granted = await userGrantedOnly(context, base, [...numbered.map((name) => name.slice(base.length + 1)), ...LETTERS]);
+  const environment = { ...granted, DB_NAME: `${base}_application` };
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-sixteen-"));
+  const admin = knexFactory({ client: "mysql2", connection: serverConnection(), pool: { min: 0, max: 1 } });
+  context.after(async () => {
+    try {
+      for (const database of [base, ...numbered]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    } finally {
+      await admin.destroy();
+      await rm(appRoot, { recursive: true, force: true });
+    }
+  });
+  await mkdir(path.join(appRoot, "migrations"));
+  await writeFile(path.join(appRoot, "migrations", "20200101000000_notes.cjs"),
+    "exports.up = (knex) => knex.schema.createTable(\"notes\", (table) => table.increments());\nexports.down = () => {};\n");
+  const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment, appRoot });
+  const run = await testDatabaseRun({ knexConfig, environment, count: 16, appRoot });
+  try {
+    assert.deepEqual([run.concurrency, run.shortfall], [16, ""]);
+    const settings = JSON.parse(await readFile(path.join(run.env.JSKIT_TEST_DATABASES, RUN_SETTINGS_FILE), "utf8"));
+    assert.deepEqual(settings.databases, [base, ...numbered]);
+    await context.test("a package test in the run's sixteenth file", async (t) => {
+      const db = await createPackageTestKnex(t, { environment: { ...environment, DB_NAME: numbered[14], TEST_DB_NAME: numbered[14],
+        JSKIT_DESIGNATED_TEST_DB_NAME: base } });
+      assert.equal((await databaseOf(db)).name, `${base}_a`);
+    });
+  } finally {
+    assert.equal(await run.cleanup(), "dropped the run's 15 numbered test database(s)");
   }
 });

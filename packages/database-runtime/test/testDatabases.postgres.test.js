@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import net from "node:net";
@@ -13,8 +14,10 @@ import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared
 import { DatabaseProvider } from "../src/server/providers/DatabaseProvider.js";
 import { createKnexMigrationConfig } from "../src/server/knexMigrationConfig.js";
 import {
+  RUN_SETTINGS_FILE,
   countQueries,
   countRuntimeQueries,
+  createPackageTestKnex,
   matchesSnapshot,
   prepareTestDatabases,
   restoreTestDatabase,
@@ -450,4 +453,49 @@ test("a PostgreSQL snapshot built by the application's own schema build carries 
     await copy.destroy();
   }
   assert.equal(await matchesSnapshot(knexConfig, name, prepared.snapshot), true);
+});
+
+// The contract a managed host gives on PostgreSQL (Vibe64 Online's project roles): a role that may create databases,
+// and nothing more, runs 16 files at once, each on a copy it makes, and their package tests.
+test("a jskit test --databases run of 16 files at once on PostgreSQL needs only a role that may create databases", {
+  skip: SKIP
+}, async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-pg-sixteen-"));
+  await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
+  await writeFile(path.join(appRoot, "migrations", "20200101000000_books.cjs"), BOOKS);
+  const name = `${TEST_DB_NAME}_sixteen`;
+  const copies = Array.from({ length: 15 }, (_, index) => `${name}_${index + 1}`);
+  const role = `jskit_createdb_${randomBytes(4).toString("hex")}`;
+  const password = randomBytes(12).toString("hex");
+  const server = { ...process.env, DB_CLIENT: "pg", DB_NAME: TEST_DB_NAME, DATABASE_URL: "" };
+  const admin = knexFactory({ client: "pg", connection: createKnexMigrationConfig({ client: "pg", environment: server, appRoot }).connection });
+  context.after(async () => {
+    try {
+      for (const database of [name, ...copies, `${name}_snapshot`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+      await admin.raw("DROP ROLE IF EXISTS ??", [role]);
+    } finally {
+      await admin.destroy();
+      await rm(appRoot, { recursive: true, force: true });
+    }
+  });
+  // Hexadecimal, so safe inline: CREATE ROLE takes no bound parameters.
+  await admin.raw(`CREATE ROLE ?? LOGIN CREATEDB PASSWORD '${password}'`, [role]);
+  // A role signs in with its password over TCP: a server reached through its socket directory takes it on 127.0.0.1.
+  const host = String(process.env.DB_HOST || "").startsWith("/") ? "127.0.0.1" : process.env.DB_HOST;
+  const environment = { ...server, DB_HOST: host, DB_USER: role, DB_PASSWORD: password, TEST_DB_NAME: name };
+  const knexConfig = createKnexMigrationConfig({ client: "pg", environment, appRoot });
+  const run = await testDatabaseRun({ knexConfig, environment, count: 16, appRoot });
+  try {
+    assert.deepEqual([run.concurrency, run.shortfall], [16, ""]);
+    const settings = JSON.parse(await readFile(path.join(run.env.JSKIT_TEST_DATABASES, RUN_SETTINGS_FILE), "utf8"));
+    assert.deepEqual(settings.databases, [name, ...copies]);
+    await context.test("a package test in the run's sixteenth file", async (t) => {
+      const db = await createPackageTestKnex(t, { environment: { ...environment, DB_NAME: copies[14], TEST_DB_NAME: copies[14] } });
+      assert.equal((await db.raw("SELECT current_database() AS name")).rows[0].name, copies[14]);
+      await db.schema.createTable("notes", (table) => table.increments());
+      assert.deepEqual(await db("notes").select(), []);
+    });
+  } finally {
+    assert.equal(await run.cleanup(), "dropped the run's 15 numbered test database(s)");
+  }
 });
