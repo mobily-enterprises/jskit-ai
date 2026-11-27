@@ -138,9 +138,11 @@ async function stopAndExit(code) {
   for (const file of runFiles) rmSync(file, { force: true });
   process.exit(code);
 }
-process.once("SIGINT", () => stopAndExit(130));
-process.once("SIGTERM", () => stopAndExit(143));
-process.once("SIGHUP", () => stopAndExit(129));
+// Kept for every signal, not once: a host's stop signals more than once (Vibe64's wrapper SIGTERM, its terminal's
+// SIGHUP, then the process group's SIGTERM), and a signal with no handler left would kill the launcher mid-stop.
+process.on("SIGINT", () => stopAndExit(130));
+process.on("SIGTERM", () => stopAndExit(143));
+process.on("SIGHUP", () => stopAndExit(129));
 // Its servers' output passes through its own, which can go before its stop does: a write that fails there stops it like
 // a signal, never as an uncaught error that would end it before its copies are dropped.
 for (const output of [process.stdout, process.stderr]) output.on("error", () => stopAndExit(1));
