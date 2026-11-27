@@ -224,6 +224,7 @@ Exports
 - `retainAssistantConversation`
 Local functions
 - `turnMatchesOptimisticMessage(turn = {}, optimistic = {})`
+- `acceptedReceipt(messageId, turnId)`
 
 ### `src/client/conversation/retainedConversation.js`
 Exports
