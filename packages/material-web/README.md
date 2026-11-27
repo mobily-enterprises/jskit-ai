@@ -97,7 +97,7 @@ export const theme = {
   character counters, radio group labels, checkbox, radio and switch
   descriptions, and list item and card subtitles in on-surface-variant
   at full strength (an invalid field's counter in error, as its messages),
-  one-line labels that
+  one-line button and chip labels that
   end in an ellipsis, 12dp card corners, 28dp dialogs on
   `surface-container-high` at level 3 and bottom sheets with a square card on
   `surface-container-low`, square full-screen dialogs on `surface`, a 48dp touch target on clickable chips,

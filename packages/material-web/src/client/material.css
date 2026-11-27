@@ -215,6 +215,17 @@
     text-overflow: ellipsis;
   }
 
+  /* So does a chip's: a chip is at most as wide as its container and its label stays on one line, but Vuetify's
+     inline-flex content cannot shrink, so a longer label was cut mid-word at the chip's edge (or drawn past it on a
+     chip you press, which the touch target unclips). A label holding elements of its own (an icon or avatar in the
+     chip's default slot) keeps Vuetify's inline-flex content, which lays them out. */
+  .v-chip > .v-chip__content:not(:has(> *)) {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* Outlined buttons and outlined chips draw the outline role. */
   .v-btn--variant-outlined:not([class*=" text-"]) {
     border-color: rgb(var(--v-theme-outline));
