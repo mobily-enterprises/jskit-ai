@@ -1,7 +1,9 @@
 // Preloaded (`--import`) by `jskit test --databases` into every test file's process. When the run has disposable
 // databases (JSKIT_TEST_DATABASES names the run's directory, from testDatabaseRun() in testDatabases.js), the file takes
 // one no other file is using, for as long as it runs, as both DB_NAME and TEST_DB_NAME, with the connection it was
-// restored on (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD): it never reaches the developer's database. The run's designated
+// restored on (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD) and the client the app's knexfile.js names (DB_CLIENT, so a
+// package data test in the file, createPackageTestKnex(), claims its scratch database on the same server): it never
+// reaches the developer's database. The run's designated
 // database, whose numbered copies the others are, stays named in JSKIT_DESIGNATED_TEST_DB_NAME: a package data test on
 // MySQL or MariaDB claims its lettered copies (mysqlPackageTestDatabase.js), not a copy's own. Every file starts
 // from the snapshot, rows included: a database an earlier file of the run used is restored before the next file takes
@@ -75,6 +77,7 @@ if (isMainThread && process.env.NODE_TEST_CONTEXT && directory) {
   }
   const { host, port, user, password } = knexConfig.connection;
   Object.assign(process.env, {
+    DB_CLIENT: knexConfig.client,
     DB_HOST: String(host),
     DB_PORT: String(port),
     DB_USER: String(user),

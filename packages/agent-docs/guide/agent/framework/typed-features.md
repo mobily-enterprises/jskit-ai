@@ -1094,7 +1094,9 @@ its own app server.**
   replaces a shared dependency cache under servers still reading it), and no
   writes into the source tree. Files that collide are isolated, never
   serialised. A database test file gets its own copy of `TEST_DB_NAME` from
-  `jskit test --databases`
+  `jskit test --databases`, and a scratch database beside it from
+  `createPackageTestKnex()`; a run whose databases let fewer files run at
+  once than the budget says why and fails
   ([integration test databases](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#integration-test-databases)).
 - An application's `playwright.config.mjs` is
   `defineConfig(browserTestConfig({ testDir: "./tests/e2e" }))` from
@@ -1290,10 +1292,15 @@ Why: a comment that narrates history is wrong the day after it is written.
 ### Running the checks
 
 `npm run lint` runs ESLint with `@jskit-ai/config-eslint`, and `npm run
-verify` runs `jskit check` (the package graph, navigation, [data
-access](/guide/framework/data-access#exceptions), [test
-runs](#test-run-rules) and [package manifests](#package-manifest)), lint, the
-tests and the build. The foundations'
+verify` is the whole suite, each section once: `jskit check` (the package
+graph, navigation, [data access](/guide/framework/data-access#exceptions),
+[test runs](#test-run-rules) and [package manifests](#package-manifest)),
+lint, the Node tests (`npm test`), the client tests (`npm run test:client`)
+and the browser suite (`npm run test:e2e`), which builds the production
+frontend it serves, so no separate build runs. Each section takes its
+concurrency from the machine's test budget and ends with its slowest files.
+A host's Verification declares the same sections, each as its own entry. The
+foundations'
 `eslint.config.mjs` already holds a new
 application's code to every check:
 

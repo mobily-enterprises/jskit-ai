@@ -172,7 +172,7 @@ For example:
 ```json
 {
   "scripts": {
-    "verify": "npm run jskit:check && npm run lint && npm test && npm run build"
+    "verify": "npm run jskit:check && npm run lint && npm test && npm run test:client && npm run test:e2e"
   }
 }
 ```

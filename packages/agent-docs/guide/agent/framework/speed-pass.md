@@ -48,9 +48,15 @@ database time, apply that page to the path.
   that runs files one at a time ([test-run rules](/guide/framework/typed-features#test-run-rules)).
 - Files that collide are isolated, never run one at a time: a port from
   `listen(0)`, a directory from `mkdtemp`, the database `jskit test --databases`
-  gives each file, and a Vite `cacheDir` of its own. The
+  gives each file, a scratch database from
+  `createPackageTestKnex(t, { environment: process.env })` for a test that
+  needs an empty one (or several), and a Vite `cacheDir` of its own. The
   `// jskit-test: alone - <reason>` marker is only for a file that holds a
   resource of the whole machine.
+- A `jskit test --databases` run whose databases let fewer files run at once
+  than the budget (no `TEST_DB_NAME`, or copies the database user may not
+  create) says why at its start and end and fails: give the user its copies
+  ([Integration test databases](/guide/app-setup/database-layer#integration-test-databases)).
 - `jskit test --databases` restores each file's database from a snapshot
   rebuilt only when the migrations' digest changes. A file that runs
   `knex.migrate.latest()` itself replays the whole history for every file:

@@ -425,6 +425,7 @@ Local functions
 - `aloneDestination(destination)`
 - `aloneRunOptions(options)`
 - `aloneShard(files, options)`
+- `databaseShortfall(databases, asked)`
 - `runNode(args, env)`
 
 ### `scripts/test-databases.mjs`

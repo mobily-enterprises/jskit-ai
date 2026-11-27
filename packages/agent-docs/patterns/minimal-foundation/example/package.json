@@ -29,7 +29,7 @@
     "test:e2e": "playwright test tests/e2e",
     "jskit:update": "npx --yes @jskit-ai/jskit-catalog@latest update",
     "jskit:check": "jskit check",
-    "verify": "npm run jskit:check && npm run lint && npm run test && npm run test:client && npm run build"
+    "verify": "npm run jskit:check && npm run lint && npm run test && npm run test:client && npm run test:e2e"
   },
   "dependencies": {
     "@local/main": "0.1.0",
