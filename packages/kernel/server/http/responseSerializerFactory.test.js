@@ -7,7 +7,7 @@ import fastJsonStringify from "fast-json-stringify";
 import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "../../shared/support/deepFreeze.js";
 import { resolveSchemaTransportSchemaDefinition } from "../../shared/validators/index.js";
-import { createCachedResponseSerializerFactory, schemaCacheKey } from "./responseSerializerFactory.js";
+import { branchValidator, createCachedResponseSerializerFactory, schemaCacheKey } from "./responseSerializerFactory.js";
 
 const linkSchema = {
   anyOf: [{ type: "string", minLength: 1 }, { type: "object", additionalProperties: true }]
@@ -578,4 +578,47 @@ test("a branch that names another schema, or sits under an escaped name, is vali
   for (const value of values) {
     assert.deepEqual(outcome(serialize, value), outcome(native, value), JSON.stringify(value));
   }
+});
+
+// fast-json-stringify before 7.3.6 generates code that calls validator.validate(ref, data) for each value; 7.3.6 and
+// later ask validator.getSchemaValidator(ref) once for the branch's function and keep it (a validator answering only
+// validate failed every union response: "validator.getSchemaValidator is not a function"). The kernel allows ^7.0.1,
+// so an application may resolve either; the lock holds the newest, so the tests above run the second way, and this one
+// checks both answers against fast-json-stringify's own validator.
+test("branchValidator answers validate(ref, data) and getSchemaValidator(ref) as fast-json-stringify's own validator does", () => {
+  const schema = {
+    type: "object",
+    properties: {
+      id: { anyOf: [{ type: "string", minLength: 1 }, { type: "number" }] },
+      record: { anyOf: [{ type: "null" }, { allOf: [{ $ref: "#/definitions/record" }] }] },
+      "c~d": { anyOf: [{ type: "integer" }, { type: "null" }] }
+    },
+    definitions: {
+      record: { type: "object", required: ["id"], properties: { id: { anyOf: [{ type: "string", minLength: 1 }, { type: "number" }] } } }
+    }
+  };
+  const { code, validator } = fastJsonStringify(structuredClone(schema), { mode: "debug" });
+  const refs = [...new Set([...code.matchAll(/validator\.getSchemaValidator\(("(?:[^"\\]|\\.)*")\)/gu)]
+    .map(([, ref]) => JSON.parse(ref)))];
+  assert.ok(refs.length >= 4, `the refs the serializer asks for: ${JSON.stringify(refs)}`);
+
+  const compiledBranches = new Map();
+  const branches = branchValidator(validator, compiledBranches);
+  const values = [null, 0, 1.5, -2, "", "one", true, [], {}, { id: 1 }, { id: "" }, { id: null }, new Date(0)];
+  for (const ref of refs) {
+    const own = validator.getSchemaValidator(ref);
+    const asked = branches.getSchemaValidator(ref);
+    assert.equal(branches.getSchemaValidator(ref), asked, `${ref}: one function for the branch`);
+    for (const value of values) {
+      const expected = own(value);
+      assert.equal(asked(value), expected, `${ref} getSchemaValidator: ${JSON.stringify(value)}`);
+      assert.equal(branches.validate(ref, value), expected, `${ref} validate: ${JSON.stringify(value)}`);
+    }
+  }
+  // A branch that names nothing outside itself is compiled on its own, once; one that names another schema, or sits
+  // under an escaped name, is fast-json-stringify's own function.
+  const delegated = refs.filter((ref) => branches.getSchemaValidator(ref) === validator.getSchemaValidator(ref));
+  assert.ok(delegated.length > 0 && delegated.length < refs.length, JSON.stringify({ refs, delegated }));
+  assert.equal(compiledBranches.size, new Set(refs.filter((ref) => !delegated.includes(ref))
+    .map((ref) => JSON.stringify(branches.getSchemaValidator(ref).schema))).size);
 });
