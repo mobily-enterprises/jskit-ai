@@ -19,6 +19,11 @@ import {
   resolveMaterialDrawerWidth
 } from "../support/drawerWidth.js";
 
+// How long the drawer waits for the page's fonts as the shell settles, before it fits in the fallback font: the longest
+// block period the CSS Fonts spec recommends for font-display: swap (Chromium's is none). material-web asks for its
+// typefaces as the app boots, so they are usually in by then.
+const FONT_WAIT_MS = 100;
+
 // VNavigationDrawer has no root element of its own to reach through a template ref.
 function navigationDrawerElement() {
   return document.getElementById("jskit-shell-drawer");
@@ -49,6 +54,8 @@ function useShellDrawer({ props, hasDrawer, modalLayout, viewportWidth, navigati
   const measuredDrawerWidth = ref(DEFAULT_SHELL_DRAWER_WIDTH);
   let drawerContentObserver = null;
   let drawerMeasurementFrame = null;
+  // Ends the settle's wait for the page's fonts while it lasts.
+  let endFontWait = null;
   let shellMounted = false;
 
   const drawerPresentation = computed(() => resolveShellDrawerPresentation({
@@ -113,6 +120,9 @@ function useShellDrawer({ props, hasDrawer, modalLayout, viewportWidth, navigati
     drawerContentObserver?.disconnect();
     drawerContentObserver = null;
     cancelDrawerWidthMeasurement();
+    if (endFontWait) {
+      endFontWait();
+    }
   }
 
   function handleDrawerOpenChange(open) {
@@ -190,8 +200,9 @@ function useShellDrawer({ props, hasDrawer, modalLayout, viewportWidth, navigati
 
   /**
    * Fits the drawer to its content now, as the shell settles (useShellSettled), instead of at the next frame, so the
-   * page first shows beside the drawer's final width rather than sliding to it. It measures once the fonts the page
-   * is loading have arrived: labels measured in the fallback font would refit the drawer, and move the page, then.
+   * page first shows beside the drawer's final width rather than sliding to it. It measures once the fonts the page is
+   * loading have arrived, or after FONT_WAIT_MS in the fallback font: labels measured in the fallback would refit the
+   * drawer, and move the page, when the font came, and a slow font must not keep the page unseen.
    */
   async function settleDrawerWidth() {
     observeDrawerContent();
@@ -200,12 +211,28 @@ function useShellDrawer({ props, hasDrawer, modalLayout, viewportWidth, navigati
     }
     // Laying the page out asks for the fonts its text uses, so `ready` waits for them.
     navigationDrawerElement()?.getBoundingClientRect();
-    await document.fonts.ready;
+    await fontsOrFontWait();
     if (!drawerFitsContentNow()) {
       return;
     }
     cancelDrawerWidthMeasurement();
     updateMeasuredDrawerWidth();
+  }
+
+  // Resolves when the page's fonts are in, after FONT_WAIT_MS, or when the shell unmounts, whichever comes first.
+  function fontsOrFontWait() {
+    return new Promise((resolve) => {
+      const timer = window.setTimeout(end, FONT_WAIT_MS);
+      function end() {
+        window.clearTimeout(timer);
+        if (endFontWait === end) {
+          endFontWait = null;
+        }
+        resolve();
+      }
+      endFontWait = end;
+      void document.fonts.ready.then(end);
+    });
   }
 
   function updateMeasuredDrawerWidth() {
