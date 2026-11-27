@@ -401,7 +401,9 @@ the application's `knexfile.js`:
   or a write rolled back, counts), a trigger on it, rows whose `CHECKSUM
   TABLE` is not the snapshot's, and tables missing or added; each replaced
   table is made on the server, its definition and then its rows copied from
-  the snapshot database (`INSERT ... SELECT`), so no row passes through Node.
+  the snapshot database (`INSERT ... SELECT`), so no row passes through Node;
+  a preparation fills up to eight tables at once, each on a connection of its
+  own, shared between the databases it restores at once.
   The tables it fills are then sampled for the planner in one `ANALYZE TABLE`:
   InnoDB keeps the statistics it took of the empty table until it samples it
   again, and the planner would read a filled table as empty.

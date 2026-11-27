@@ -26,6 +26,10 @@ import { MYSQL_DATABASE_OPTIONS } from "./mysqlPackageTestDatabase.js";
 // The database a PostgreSQL connection uses to create, drop and copy the test databases.
 const POSTGRES_MAINTENANCE_DATABASE = "postgres";
 const MYSQL_SNAPSHOT_SUFFIX = "_0";
+// How many tables the restores of one preparation fill at once, each on a connection of its own, shared between the
+// databases it restores at once: four 250,000-row tables filled in 19 s in turn and in 9.5 s at once (MariaDB 11.4, a
+// busy test machine), and a fill past what the server's cores and disk can take only queues.
+const MYSQL_FILL_CONNECTIONS = 8;
 const MYSQL_LABEL_TABLE = "jskit_test_snapshot";
 const MYSQL_ACCESS_DENIED = new Set(["ER_DBACCESS_DENIED_ERROR", "ER_ACCESS_DENIED_ERROR", "ER_SPECIFIC_ACCESS_DENIED_ERROR"]);
 const POSTGRES_INSUFFICIENT_PRIVILEGE = "42501";
@@ -76,9 +80,9 @@ const POSTGRES_DEFINITIONS = `
 const ledgerOf = (knexConfig) => knexConfig.migrations?.tableName || "knex_migrations";
 
 /** A Knex on `database`; a MySQL `session` statement runs on each connection it opens, after the configuration's own. */
-function knexOn(knexConfig, database, connectionOptions = {}, session = "") {
+function knexOn(knexConfig, database, connectionOptions = {}, session = "", connections = 1) {
   // The configuration's own pool settings stay, such as a PostgreSQL session's UTC time zone.
-  const pool = { ...knexConfig.pool, min: 0, max: 1 };
+  const pool = { ...knexConfig.pool, min: 0, max: connections };
   if (session) {
     const own = knexConfig.pool?.afterCreate;
     const run = (connection, done) => connection.query(session, (error) => done(error, connection));
@@ -186,12 +190,13 @@ const mysql = {
 
   /**
    * Drops the tables `names` lists that `database` holds, then creates those of them the snapshot has, from its
-   * definitions, and copies their rows from the snapshot database on the server (INSERT ... SELECT, generated columns
-   * left to the server), then samples those that hold rows (analyze()). Runs on the pool's one connection, so
-   * FOREIGN_KEY_CHECKS applies to every statement: a table another one's foreign key references is dropped and created
-   * again, and the key holds again once it is.
+   * definitions, on the pool's one connection, so FOREIGN_KEY_CHECKS applies to every statement: a table another one's
+   * foreign key references is dropped and created again, and the key holds again once it is. Then copies their rows
+   * from the snapshot database on the server (INSERT ... SELECT, generated columns left to the server), up to
+   * `connections` tables at once, each on a connection of its own without foreign key checks, and samples those that
+   * hold rows (analyze()).
    */
-  async replaceTables(knex, database, names, snapshot) {
+  async replaceTables(knexConfig, knex, database, names, snapshot, connections = MYSQL_FILL_CONNECTIONS) {
     const [[actual]] = await knex.raw("SELECT DATABASE() AS name");
     if (actual.name !== database) throw new Error(`A test database restore requires a connection to ${database}.`);
     const existing = new Set(await mysql.tables(knex, database));
@@ -200,12 +205,19 @@ const mysql = {
     try {
       for (const name of names) if (existing.has(name)) await knex.raw("DROP TABLE ??", [name]);
       for (const { create } of replaced) await knex.raw(create);
-      for (const { name, columns } of replaced) {
-        const list = columns.map(() => "??").join(", ");
-        await knex.raw(`INSERT INTO ?? (${list}) SELECT ${list} FROM ??.??`, [name, ...columns, ...columns, snapshot.database, name]);
-      }
     } finally {
       await knex.raw("SET FOREIGN_KEY_CHECKS = 1");
+    }
+    if (replaced.length < 1) return;
+    // The pool opens a connection for each table it fills at once, and queues the rest.
+    const fill = knexOn(knexConfig, database, {}, "SET FOREIGN_KEY_CHECKS = 0", Math.min(connections, replaced.length));
+    try {
+      await settleAll(replaced.map(({ name, columns }) => {
+        const list = columns.map(() => "??").join(", ");
+        return fill.raw(`INSERT INTO ?? (${list}) SELECT ${list} FROM ??.??`, [name, ...columns, ...columns, snapshot.database, name]);
+      }));
+    } finally {
+      await fill.destroy();
     }
     // An empty table's CHECKSUM TABLE is 0, and its statistics, taken when it was created, already hold.
     await mysql.analyze(knex, replaced.filter(({ checksum }) => checksum !== "0").map(({ name }) => name));
@@ -368,7 +380,8 @@ const mysql = {
   /** Empties `database`, every table of it dropped, and creates it when missing. */
   async clear(knexConfig, database) {
     await mysql.createDatabase(knexConfig, database);
-    await withKnex(knexConfig, database, async (knex) => mysql.replaceTables(knex, database, await mysql.tables(knex, database), null));
+    await withKnex(knexConfig, database, async (knex) =>
+      mysql.replaceTables(knexConfig, knex, database, await mysql.tables(knex, database), null));
   },
 
   /**
@@ -380,13 +393,16 @@ const mysql = {
     return changed.filter((name) => name !== ledgerOf(knexConfig));
   },
 
-  /** Replaces the tables of `database` that differ from the snapshot's (changedTables()), and answers their names. */
-  async restore(knexConfig, database, snapshot) {
+  /**
+   * Replaces the tables of `database` that differ from the snapshot's (changedTables()), filling up to `connections` at
+   * once, and answers their names.
+   */
+  async restore(knexConfig, database, snapshot, connections = MYSQL_FILL_CONNECTIONS) {
     // A test may have dropped the whole database; one the user may not create but that exists is restored in place.
     await mysql.createDatabase(knexConfig, database);
     return withKnex(knexConfig, database, async (knex) => {
       const changed = await mysql.changedTables(knex, database, snapshot.definitions);
-      await mysql.replaceTables(knex, database, changed, snapshot);
+      await mysql.replaceTables(knexConfig, knex, database, changed, snapshot, connections);
       return changed;
     });
   },
@@ -403,7 +419,9 @@ const mysql = {
       if (!(await mysql.createDatabase(knexConfig, database)) && index > 0) break;
       provided.push(database);
     }
-    const replaced = await settleAll(provided.map((database) => mysql.restore(knexConfig, database, snapshot)));
+    // The databases restored at once share the fill's connections.
+    const connections = Math.max(1, Math.floor(MYSQL_FILL_CONNECTIONS / provided.length));
+    const replaced = await settleAll(provided.map((database) => mysql.restore(knexConfig, database, snapshot, connections)));
     return { databases: provided, restored: replaced.reduce((sum, tables) => sum + tables.length, 0) };
   },
 
