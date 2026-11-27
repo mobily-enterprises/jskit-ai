@@ -55,6 +55,7 @@ import {
   POSTGRES_INSUFFICIENT_PRIVILEGE,
   dialectOf,
   ledgerOf,
+  rowDifference,
   settleAll,
   withKnex
 } from "./testDatabaseSnapshots.js";
@@ -270,7 +271,10 @@ async function restoreTestDatabase(knexConfig, database, snapshot) {
  * into TEST_DB_NAME; requires a second pass of the migrations to find none left; and compares what was built with the
  * snapshot the tests run on: on MySQL and MariaDB as a restore compares, on PostgreSQL each table's columns,
  * constraints, indexes and rows, each view and each sequence; all but the migration ledger's rows, which hold when each
- * migration ran. Passing or failing, it leaves TEST_DB_NAME as the snapshot. It uses no database a test run does not.
+ * migration ran. Rows filled from the clock match: on MySQL and MariaDB the replay runs on the snapshot's own stopped
+ * clock, and on PostgreSQL each build's dates and times inside its own window compare as the clock's (see
+ * testDatabaseSnapshots.js). A failure names the rows that differ, as read, and why. Passing or failing, it leaves
+ * TEST_DB_NAME as the snapshot. It uses no database a test run does not.
  * @param {object} options
  * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig The application's Knex
  *   migration configuration (its knexfile.js).
@@ -287,10 +291,11 @@ async function proveMigrationHistory({ knexConfig, environment, schema = {}, app
   const build = schema.build ?? ((knex) => knex.migrate.latest());
   const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, root, build);
   const failure = (reason) => new Error(`The migration history proof: ${reason}`);
+  let restored = false;
   try {
     await dialect.clear(knexConfig, name);
     const started = performance.now();
-    const left = await withKnex(knexConfig, name, async (knex) => {
+    const { result: left, window } = await dialect.replay(knexConfig, name, snapshot, async (knex) => {
       await build(knex);
       return (await knex.migrate.latest())[1];
     });
@@ -299,18 +304,26 @@ async function proveMigrationHistory({ knexConfig, environment, schema = {}, app
       throw failure(`a second pass over ${name} applied ${left.length} migration(s) the ${schema.build ? "schema build" : "first"} ` +
         `left: ${left.join(", ")}. The tests run on what the first pass built, without them: build the whole schema in one.`);
     }
-    const differing = await dialect.differences(knexConfig, name, snapshot);
+    const differing = await dialect.differences(knexConfig, name, snapshot, window);
     if (differing.length > 0) {
-      throw failure(`${name}, built from empty, differs from the test snapshot in ${differing.join(", ")}: a migration builds ` +
-        "something else on each replay (from the clock, a random value or what the server holds), so the tests run on a schema " +
-        "the history does not build. Make each migration build the same definitions and rows every time.");
+      // The rows each side holds, the snapshot's read from TEST_DB_NAME restored to it.
+      const shown = differing.slice(0, 3);
+      const built = await dialect.rows(knexConfig, name, shown, window);
+      await restoreTestDatabase(knexConfig, name, snapshot);
+      restored = true;
+      const captured = await dialect.rows(knexConfig, name, shown, snapshot.window);
+      const more = differing.length > shown.length ? `; and ${differing.length - shown.length} more` : "";
+      throw failure(`${name}, built from empty, differs from the test snapshot in ${differing.join(", ")}: ` +
+        `${shown.map((table) => rowDifference(table, built.get(table), captured.get(table))).join("; ")}${more}. A migration ` +
+        `builds something else on each replay (${dialect.unstopped}), so the tests run on a schema the history does not ` +
+        "build. Make each migration build the same definitions and rows every time.");
     }
     return {
       summary: `${schema.build ? "schema built" : `${migrations.length} migrations replayed`} from empty into ${name} in ${replayMs}ms, ` +
         `nothing left for a second pass, the same tables, definitions and rows as the test snapshot (${snapshot.tables.length} tables)`
     };
   } finally {
-    await restoreTestDatabase(knexConfig, name, snapshot);
+    if (!restored) await restoreTestDatabase(knexConfig, name, snapshot);
   }
 }
 
