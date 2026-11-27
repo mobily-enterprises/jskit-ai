@@ -1,14 +1,19 @@
 <script setup>
 import { computed, inject, mergeProps, ref, useSlots, watch } from "vue";
+import { useShellPageActionsFold } from "../composables/useShellPageActionsFold.js";
+import { useShellWindowSizeClass } from "../composables/useShellWindowSizeClass.js";
 import { useJskitText } from "../i18n.js";
 import { SHELL_PAGE_ACTIONS_ID } from "../support/navigationPresentation.js";
 import { NO_SHELL_PAGE_ACTIONS_REGISTRY, SHELL_PAGE_ACTIONS_REGISTRY_KEY } from "../support/pageActions.js";
 
 // Where the current page's ShellPageActions show: after the page title in the top app bar, followed by the bar's
-// overflow menu (Material 3's trailing "More actions" menu) when an action goes there. Its `menu` slot adds the
-// bar's own items that don't fit (on a phone, ShellLayout's top-right items) below the actions. The menu keeps the slot
-// mounted while it is closed, so an item there that does more than draw a button keeps working. ShellLayout's bar has
-// it; a layout that draws its own top app bar renders it once there and calls useShellAppBar().
+// overflow menu (Material 3's trailing "More actions" menu) when an action goes there. On medium and expanded windows
+// the actions that don't fit beside the whole title go there, the last first (useShellPageActionsFold), and until
+// they have the actions' box clips them, so the menu button and the bar's items after it stay on screen. Its `menu`
+// slot adds the bar's own items that don't fit (on a phone, ShellLayout's top-right items) below the actions. The menu
+// keeps the slot mounted while it is closed, so an item there that does more than draw a button keeps working.
+// ShellLayout's bar has it; a layout that draws its own top app bar renders it once there, as an item of the bar's
+// row, and calls useShellAppBar().
 const props = defineProps({
   // Whether the `menu` slot holds items now. A layout that moves its items in and out of the slot keeps it and says
   // when it holds any: with none, the menu shows only the page's actions, or no menu button without them.
@@ -25,11 +30,16 @@ const menuEntries = registry.menuEntries;
 const moreLabel = computed(() => t("jskit.shell.actions.more"));
 const slots = useSlots();
 const menuOpen = ref(false);
+const actionsBox = ref(null);
+const { isCompact } = useShellWindowSizeClass();
+const folds = computed(() => !isCompact.value);
 
 // Read as the menu renders, since slots are not reactive.
 function showsItems() {
   return props.menuItems && Boolean(slots.menu);
 }
+
+useShellPageActionsFold({ enabled: folds, registry, target: actionsBox, ownMenu: showsItems });
 
 function showsMenu() {
   return menuEntries.value.length > 0 || showsItems();
@@ -61,7 +71,12 @@ function itemProps(entry) {
 </script>
 
 <template>
-  <div :id="SHELL_PAGE_ACTIONS_ID" class="shell-page-actions-target" />
+  <div
+    :id="SHELL_PAGE_ACTIONS_ID"
+    ref="actionsBox"
+    class="shell-page-actions-target"
+    :class="{ 'shell-page-actions-target--folds': folds }"
+  />
   <v-menu v-if="menuEntries.length > 0 || slots.menu" v-model="menuOpen" location="bottom end" :eager="Boolean(slots.menu)">
     <template #activator="{ props: menuProps }">
       <v-tooltip v-if="showsMenu()" :text="moreLabel" location="bottom">
@@ -112,6 +127,12 @@ function itemProps(entry) {
   display: flex;
   flex: 0 0 auto;
   min-width: 0;
+}
+
+/* Beside a title that leaves too little room, the actions that don't fit yet are clipped, not the items after them. */
+.shell-page-actions-target--folds {
+  flex: 0 1 auto;
+  overflow-x: clip;
 }
 
 .shell-page-actions-target:empty {

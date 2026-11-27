@@ -216,6 +216,13 @@ Exports
 Exports
 - `useShellOutletPlacements(target, context = {})`
 
+### `src/client/composables/useShellPageActionsFold.js`
+Exports
+- `useShellPageActionsFold({ enabled, registry, target, ownMenu })`
+Local functions
+- `actionsRoom(row, target, menuButton)`
+- `widthOfChildren(element)`
+
 ### `src/client/composables/useShellPageClose.js`
 Exports
 - `useShellPageClose({ label, close })`
@@ -237,8 +244,6 @@ Exports
 ### `src/client/composables/useShellTopRightOverflow.js`
 Exports
 - `useShellTopRightOverflow({ enabled, placements, pageActions, row, headline, items, menuId })`
-Local functions
-- `wholeTitleWidth(title)`
 
 ### `src/client/composables/useShellWindowSizeClass.js`
 Exports
@@ -604,6 +609,13 @@ Local functions
 Exports
 - `useShellLayoutStore`
 
+### `src/client/support/appBarWidths.js`
+Exports
+- `ICON_BUTTON_WIDTH`
+- `contentWidth(element)`
+- `wholeTitleWidth(title)`
+- `widthInRow(element)`
+
 ### `src/client/support/drawerPresentation.js`
 Exports
 - `DESKTOP_DRAWER_CLOSED_MODES`
@@ -670,12 +682,14 @@ Exports
 - `NO_SHELL_PAGE_ACTIONS_REGISTRY`
 - `SHELL_PAGE_ACTIONS_REGISTRY_KEY`
 - `createShellPageActionsRegistry({ isCompact })`
-- `overflowEntries(entries, compact)`
+- `overflowEntries(entries, compact, folded = 0)`
+- `resolveFoldedPageActions({ room, fixed, actions, menuButton, menuShown })`
 - `type ShellPageActionState`
 - `type ShellPageActionEntry`
 - `type ShellPageActionsRegistry`
 Local functions
 - `documentOrder(left, right)`
+- `isFoldable(entry)`
 
 ### `src/client/support/primaryNavigation.js`
 Exports
@@ -809,6 +823,10 @@ Exports
 - None
 Local functions
 - `press(name)`
+
+### `fixtures/adaptive-shell/src/LongActionsPage.vue`
+Exports
+- None
 
 ### `fixtures/adaptive-shell/src/main.js`
 Exports

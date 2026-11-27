@@ -451,8 +451,9 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
 }
 
+/* The title's box takes the room the bar's items leave, and gives it up before the page actions are clipped. */
 .shell-layout__headline {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   padding-inline: 12px 4px;
 }

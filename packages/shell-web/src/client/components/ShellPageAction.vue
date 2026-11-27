@@ -8,7 +8,8 @@ import { NO_SHELL_PAGE_ACTIONS_REGISTRY, SHELL_PAGE_ACTIONS_REGISTRY_KEY } from 
 // One page action in the top app bar. On compact windows a secondary action shows as an icon button named by its
 // label; the page's primary action (`primary`, at most one) keeps its label as a filled button. In a bar that owns its
 // actions (ShellLayout, or a layout that calls useShellAppBar()), an `overflow` action is an item of the bar's
-// overflow menu, and on compact windows every action but the primary one joins it.
+// overflow menu; on compact windows every action but the primary one joins it, and on wider ones the last of those
+// that don't fit beside the whole title.
 // Attributes such as `type="submit"` and `form` (so an app bar Save can submit the page's form), `target`,
 // `data-testid` or `aria-*` land on the button, or on the menu item, in every form.
 // While its action runs (`pending`, or `loading` with Vuetify's progress indicator in place of the label) the button

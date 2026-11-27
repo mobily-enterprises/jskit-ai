@@ -1510,6 +1510,11 @@ async function foldedByWidth(page, { bar, widths, at }) {
   return folded;
 }
 
+// A long action in the bar, not its item in More actions, which a menu that keeps its content mounted has too.
+function barAction(page, testId) {
+  return page.locator(".shell-page-actions-target").getByTestId(testId);
+}
+
 // The long actions page at `path`, opened at 1280 px for each action's width in a bar that shows them all, then the
 // same page at 768 px: it folds some actions and keeps others, and a folded one runs from the menu; at 1280 px again
 // every action is back in the bar, and at 768 px the same ones fold again.
@@ -1517,7 +1522,7 @@ async function checkMediumFold(browser, t, { baseURL, path }) {
   const wide = await browser.newPage({ baseURL, viewport: { width: 1280, height: 900 } });
   t.after(() => wide.close());
   await wide.goto(path);
-  await expect(wide.getByTestId("fixture-long-action-tags")).toBeVisible();
+  await expect(barAction(wide, "fixture-long-action-tags")).toBeVisible();
   const { widths, inBar } = await readLongActionsBar(wide);
   assert.deepEqual(inBar, LONG_ACTIONS, `${path} at 1280px shows every action`);
 
@@ -1525,7 +1530,7 @@ async function checkMediumFold(browser, t, { baseURL, path }) {
   t.after(() => page.close());
   await page.goto(path);
   await expect(page.getByTestId("jskit-shell-page-title")).toHaveText("Hosted service");
-  await expect(page.getByTestId("fixture-long-action-size")).toBeVisible();
+  await expect(barAction(page, "fixture-long-action-size")).toBeVisible();
   const bar = await readLongActionsBar(page);
   const folded = await foldedByWidth(page, { bar, widths, at: `${path} at 768px` });
   assert.ok(folded.length > 0 && bar.inBar.length > 0, `${path} at 768px: some actions fold and some stay (${bar.inBar.join(", ")})`);
@@ -1535,10 +1540,10 @@ async function checkMediumFold(browser, t, { baseURL, path }) {
   await expect(page.getByTestId("fixture-action-log")).toHaveText(folded[0].replace("fixture-long-action-", ""));
 
   await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(page.getByTestId("fixture-long-action-tags")).toBeVisible();
+  await expect(barAction(page, "fixture-long-action-tags")).toBeVisible();
   assert.deepEqual(await foldedByWidth(page, { bar: await readLongActionsBar(page), widths, at: `${path} widened to 1280px` }), []);
   await page.setViewportSize({ width: 768, height: 1024 });
-  await expect(page.getByTestId(folded[0])).toHaveCount(0);
+  await expect(barAction(page, folded[0])).toHaveCount(0);
   assert.deepEqual(await foldedByWidth(page, { bar: await readLongActionsBar(page), widths, at: `${path} at 768px again` }), folded);
 }
 
@@ -1567,7 +1572,7 @@ test("an expanded window's bar keeps every page action that fits beside the titl
   t.after(() => page.close());
 
   await page.goto("/home/long-actions?topRight=3");
-  await expect(page.getByTestId("fixture-long-action-tags")).toBeVisible();
+  await expect(barAction(page, "fixture-long-action-tags")).toBeVisible();
   const ordinary = await readLongActionsBar(page);
   assert.deepEqual(await foldedByWidth(page, { bar: ordinary, widths: ordinary.widths, at: "1280px" }), []);
 
