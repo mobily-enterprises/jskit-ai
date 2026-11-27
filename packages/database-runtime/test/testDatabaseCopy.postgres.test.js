@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import knexFactory from "knex";
 import { createKnexMigrationConfig } from "../src/server/knexMigrationConfig.js";
-import { RUN_SETTINGS_FILE, claimTestDatabaseCopy, testDatabaseRun } from "../src/server/testDatabases.js";
+import { RUN_SETTINGS_FILE, claimTestDatabaseCopy, resetTestDatabase, testDatabaseRun } from "../src/server/testDatabases.js";
 
 // claimTestDatabaseCopy() on PostgreSQL. Runs beside the PostgreSQL test database: run with DB_NAME set to TEST_DB_NAME
 // (and the usual DB_HOST, DB_PORT, DB_USER and DB_PASSWORD), DB_CLIENT unset or pg, and a database user that may
@@ -102,4 +102,10 @@ test("on PostgreSQL claimTestDatabaseCopy() outside a jskit test --databases run
   const scratch = teardown();
   await assert.rejects(claimTestDatabaseCopy(scratch.context, { environment: { ...process.env, JSKIT_TEST_DATABASE_SETTINGS: "" } }),
     /claimTestDatabaseCopy\(\) copies the snapshot of a `jskit test --databases` run/u);
+});
+
+test("on PostgreSQL resetTestDatabase() refuses mid-file, naming the ways a test starts from the snapshot", { skip: SKIP }, async (context) => {
+  const { fileEnvironment } = await runFile(context, "reset1");
+  await assert.rejects(resetTestDatabase({ environment: fileEnvironment }), new RegExp("^Error: resetTestDatabase\\(\\) restores " +
+    "a MySQL or MariaDB copy in place; on PostgreSQL .*claimTestDatabaseCopy\\(\\)", "u"));
 });

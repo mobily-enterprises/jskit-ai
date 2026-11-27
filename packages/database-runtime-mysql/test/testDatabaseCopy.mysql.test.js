@@ -5,7 +5,12 @@ import path from "node:path";
 import test from "node:test";
 import knex from "knex";
 import { createKnexMigrationConfig } from "@jskit-ai/database-runtime/server/knexMigrationConfig";
-import { RUN_SETTINGS_FILE, claimTestDatabaseCopy, testDatabaseRun } from "@jskit-ai/database-runtime/server/testDatabases";
+import {
+  RUN_SETTINGS_FILE,
+  claimTestDatabaseCopy,
+  resetTestDatabase,
+  testDatabaseRun
+} from "@jskit-ai/database-runtime/server/testDatabases";
 
 // A file of a `jskit test --databases` run that needs more than its own TEST_DB_NAME copy (two tenants, a second
 // server) claims more databases holding the run's snapshot, each its own, dropped in the test's teardown.
@@ -99,4 +104,27 @@ test("claimTestDatabaseCopy() outside a jskit test --databases run fails, naming
   const scratch = teardown();
   await assert.rejects(claimTestDatabaseCopy(scratch.context, { environment: { ...process.env, JSKIT_TEST_DATABASE_SETTINGS: "" } }),
     /claimTestDatabaseCopy\(\) copies the snapshot of a `jskit test --databases` run/u);
+});
+
+test("resetTestDatabase() restores a file's own copy to the run's snapshot mid-file, replacing only the tables written since", {
+  skip: SKIP
+}, async (context) => {
+  const { file, admin, fileEnvironment } = await runFile(context, "reset1");
+  // An earlier test of the file wrote a book and left a table of its own; its server still holds a connection.
+  const db = knex({ client: "mysql2", connection: { host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: file }, pool: { min: 1, max: 1 } });
+  try {
+    await db("books").insert({ title: "Written by an earlier test" });
+    await db.schema.createTable("scratch", (table) => table.increments("id"));
+    assert.deepEqual(await resetTestDatabase({ environment: fileEnvironment }), ["books", "scratch"]);
+    assert.deepEqual(await db("books").pluck("title"), ["Written by the migration"]);
+    assert.equal(await db.schema.hasTable("scratch"), false);
+    // Nothing written since: nothing replaced.
+    assert.deepEqual(await resetTestDatabase({ environment: fileEnvironment }), []);
+    assert.deepEqual(await admin(`${file}.knex_migrations`).pluck("name"), ["20200101000000_books.cjs"]);
+  } finally {
+    await db.destroy();
+  }
+  await assert.rejects(resetTestDatabase({ environment: { ...process.env, JSKIT_TEST_DATABASE_SETTINGS: "" } }),
+    /resetTestDatabase\(\) restores the snapshot of a `jskit test --databases` run/u);
 });
