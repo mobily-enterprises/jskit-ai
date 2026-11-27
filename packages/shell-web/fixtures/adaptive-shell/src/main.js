@@ -465,4 +465,10 @@ app.provide(SHELL_WEB_REFRESH_RUNTIME_KEY, {
 });
 useShellLayoutStore(pinia).setDrawerDefaultOpen(true);
 await router.isReady();
+// The moment the shell mounts, and where the page's Roboto Flex faces stand then, which the late-navigation test
+// compares with the font file's request.
+window.__fixtureMount = {
+  at: performance.now(),
+  robotoFlex: [...document.fonts].filter((face) => face.family.includes("Roboto Flex")).map((face) => face.status)
+};
 app.mount("#app");

@@ -22,8 +22,23 @@ function mountDrawer(t, { compact = false, drawn = true, fontsReady = Promise.re
   const fontListeners = new Set();
   // The drawer's element is on the page while the shell draws it.
   const hasDrawer = ref(drawn);
+  // The page's live timers, each run by the test's clock (mocked where the test mocks it).
+  const timers = new Map();
+  let lastTimer = 0;
   const page = installPage(t, {
     window: {
+      setTimeout(callback, delay) {
+        const id = ++lastTimer;
+        timers.set(id, globalThis.setTimeout(() => {
+          timers.delete(id);
+          callback();
+        }, delay));
+        return id;
+      },
+      clearTimeout(id) {
+        globalThis.clearTimeout(timers.get(id));
+        timers.delete(id);
+      },
       requestAnimationFrame(callback) {
         frames.push(callback);
         return frames.length;
@@ -103,9 +118,13 @@ function mountDrawer(t, { compact = false, drawn = true, fontsReady = Promise.re
     observers,
     page,
     result,
+    timers,
     viewportWidth
   };
 }
+
+// Lets every promise reaction run; a mocked clock leaves setImmediate alone.
+const settlePromises = () => new Promise((resolve) => setImmediate(resolve));
 
 async function runFrames(frames) {
   await nextTick();
@@ -250,21 +269,56 @@ test("settling the drawer fits it at once, in place of the frame its measurement
   app.unmount();
 });
 
-test("settling the drawer waits for the fonts the page is loading, then fits it", async (t) => {
+test("settling the drawer waits for the fonts the page is loading, then fits it and releases its wait's timer", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
   let fontsArrive = () => {};
   const fontsReady = new Promise((resolve) => {
     fontsArrive = resolve;
   });
-  const { app, result } = mountDrawer(t, { fontsReady, props: { drawerWidth: "content" } });
+  const { app, result, timers } = mountDrawer(t, { fontsReady, props: { drawerWidth: "content" } });
 
   const settled = result.settleDrawerWidth();
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  t.mock.timers.tick(30);
+  await settlePromises();
   assert.equal(result.resolvedDrawerWidth.value, 248);
 
   fontsArrive();
   await settled;
   assert.equal(result.resolvedDrawerWidth.value, 16 + LABEL_TEXT_WIDTH + 12 + 1);
+  assert.equal(timers.size, 0);
   app.unmount();
+});
+
+test("settling the drawer waits at most 100 ms for a slow font, then fits it in the fallback font", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { app, result, timers } = mountDrawer(t, { fontsReady: new Promise(() => {}), props: { drawerWidth: "content" } });
+
+  void result.settleDrawerWidth();
+  await settlePromises();
+  t.mock.timers.tick(99);
+  await settlePromises();
+  assert.equal(result.resolvedDrawerWidth.value, 248);
+
+  t.mock.timers.tick(1);
+  await settlePromises();
+  assert.equal(result.resolvedDrawerWidth.value, 16 + LABEL_TEXT_WIDTH + 12 + 1);
+  assert.equal(timers.size, 0);
+  app.unmount();
+});
+
+test("a shell unmounted while its drawer waits for a font releases the wait's timer and measures nothing", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { app, result, timers } = mountDrawer(t, { fontsReady: new Promise(() => {}), props: { drawerWidth: "content" } });
+
+  void result.settleDrawerWidth();
+  await settlePromises();
+  assert.equal(timers.size, 1);
+
+  app.unmount();
+  assert.equal(timers.size, 0);
+  t.mock.timers.tick(100);
+  await settlePromises();
+  assert.equal(result.resolvedDrawerWidth.value, 248);
 });
 
 test("settling a drawer of fixed width measures nothing", async (t) => {
