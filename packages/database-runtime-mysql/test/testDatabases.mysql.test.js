@@ -6,20 +6,24 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import Fastify from "fastify";
 import knex from "knex";
+import mysql from "mysql2/promise";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { DatabaseProvider } from "@jskit-ai/database-runtime/server/providers/DatabaseProvider";
 import { createKnexMigrationConfig } from "@jskit-ai/database-runtime/server/knexMigrationConfig";
 import {
   RUN_SETTINGS_FILE,
+  RUN_SETTINGS_VARIABLE,
   countQueries,
   countRuntimeQueries,
   createPackageTestKnex,
   matchesSnapshot,
   prepareTestDatabases,
+  resetTestDatabase,
   restoreTestDatabase,
   testDatabaseRun
 } from "@jskit-ai/database-runtime/server/testDatabases";
@@ -249,6 +253,114 @@ test("a copy, a restore and a seed leave the planner the statistics of the rows 
   assert.ok((await restoreTestDatabase(knexConfig, databases[1], snapshot)).includes("parts"));
   const restored = await distinct(databases[1]);
   assert.ok(restored.parts >= 250, JSON.stringify(restored));
+});
+
+const SIX_TABLES = `exports.up = async (knex) => {
+  for (const name of ["t1", "t2", "t3", "t4", "t5", "t6"]) {
+    await knex.schema.createTable(name, (table) => { table.increments("id"); table.string("note"); });
+    await knex(name).insert({ note: "Written by the migration" });
+  }
+};
+exports.down = () => {};
+`;
+const SIX = ["t1", "t2", "t3", "t4", "t5", "t6"];
+
+/**
+ * An application of six tables whose test databases are named after `suffix`, with what a test needs to hold its
+ * restores' fills: lock(), which locks the snapshot database's six tables for writing on a connection of the test's
+ * own, so each fill from them waits on the server holding its connection, as a large table's fill does, until the
+ * unlock it answers; and fillsWaiting(databases), how many fills into `databases` the server holds.
+ * @param {import("node:test").TestContext} context
+ * @param {string} suffix
+ */
+async function sixTables(context, suffix) {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), `jskit-test-databases-mysql-${suffix}-`));
+  await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
+  await writeFile(path.join(appRoot, "migrations", "20200101000000_six.cjs"), SIX_TABLES);
+  const name = `${process.env.TEST_DB_NAME}_${suffix}`;
+  const environment = { ...process.env, DB_NAME: `${process.env.TEST_DB_NAME}_application`, DATABASE_URL: "", TEST_DB_NAME: name };
+  const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment, appRoot });
+  const server = { ...knexConfig.connection, database: undefined };
+  const admin = knex({ client: "mysql2", connection: server });
+  const left = async () => admin("information_schema.schemata").where("schema_name", "like", `${name.replaceAll("_", "\\_")}%`)
+    .pluck("schema_name");
+  context.after(async () => {
+    for (const database of new Set([name, `${name}_0`, ...await left()])) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    await admin.destroy();
+    await rm(appRoot, { recursive: true, force: true });
+  });
+  for (const database of [name, `${name}_0`, ...await left()]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+  const lock = async () => {
+    const holder = await mysql.createConnection(server);
+    try {
+      await holder.query(`LOCK TABLES ${SIX.map(() => "??.?? WRITE").join(", ")}`, SIX.flatMap((table) => [`${name}_0`, table]));
+    } catch (error) {
+      await holder.end();
+      throw error;
+    }
+    return async () => {
+      try {
+        await holder.query("UNLOCK TABLES");
+      } finally {
+        await holder.end();
+      }
+    };
+  };
+  const fillsWaiting = async (databases) => Number((await admin("information_schema.PROCESSLIST").whereIn("DB", databases)
+    .where("INFO", "like", "INSERT INTO%").count({ count: "*" }))[0].count);
+  const until = async (check, what) => {
+    for (const end = Date.now() + 30_000; Date.now() < end; await delay(50)) if (await check()) return;
+    throw new Error(`The server never held ${what}.`);
+  };
+  return { appRoot, name, environment, knexConfig, admin, lock, fillsWaiting, until };
+}
+
+test("a preparation's restores fill their tables on as many connections as they hold, none queued in a pool, where knex gives up after its acquireConnectionTimeout", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const { appRoot, environment, knexConfig, admin, lock, fillsWaiting, until } = await sixTables(context, "fill");
+  const { databases } = await prepareTestDatabases({ knexConfig, environment, count: 5, appRoot });
+  // The files of an earlier run wrote every table of every copy.
+  for (const database of databases) for (const table of SIX) await admin(`${database}.${table}`).insert({ note: "Written by a file" });
+  // Five copies share eight connections, one each: each copy's first fill waits on the server, as a large table's
+  // does, past the time knex lets a query wait for a connection (one second here, 60 s by default).
+  const unlock = await lock();
+  let prepared;
+  try {
+    prepared = prepareTestDatabases({ knexConfig: { ...knexConfig, acquireConnectionTimeout: 1000 }, environment, count: 5, appRoot });
+    prepared.catch(() => {});
+    await until(async () => (await fillsWaiting(databases)) >= 5, "a fill of each copy");
+    await delay(2000);
+  } finally {
+    await unlock();
+  }
+  assert.match((await prepared).summary, /: stored snapshot, restore \d+ms of 30 table\(s\)$/u);
+});
+
+test("a test file's restore fills on its share of eight connections by the run's files at once, so they never fill on more together", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const { appRoot, name, environment, knexConfig, admin, lock, fillsWaiting, until } = await sixTables(context, "share");
+  // A run of four files at once: each file's restore fills on two connections.
+  const run = await testDatabaseRun({ knexConfig, environment, count: 4, appRoot });
+  context.after(() => run.cleanup());
+  const file = `${name}_1`;
+  for (const table of SIX) await admin(`${file}.${table}`).insert({ note: "Written by an earlier test" });
+  const unlock = await lock();
+  let reset;
+  let held;
+  try {
+    reset = resetTestDatabase({ environment: { ...environment, TEST_DB_NAME: file,
+      [RUN_SETTINGS_VARIABLE]: path.join(run.env.JSKIT_TEST_DATABASES, RUN_SETTINGS_FILE) } });
+    reset.catch(() => {});
+    await until(async () => (await fillsWaiting([file])) >= 1, "a fill of the file's copy");
+    await delay(500);
+    held = await fillsWaiting([file]);
+  } finally {
+    await unlock();
+  }
+  assert.deepEqual(await reset, SIX);
+  assert.equal(held, 2, "the fills the server held at once for the file's restore");
 });
 
 test("a jskit test --databases run on MySQL or MariaDB keeps its copies for the next run, whatever its count, which copies again only the tables a file changed", {
