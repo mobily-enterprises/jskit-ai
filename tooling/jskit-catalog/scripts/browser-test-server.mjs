@@ -5,7 +5,8 @@
 // database patterns, prepared once for every worker), the test-only `env` and APP_ENV=test, on the host's address in
 // place of the run's own ports. The host's suite then runs against them as a managed target (PLAYWRIGHT_BASE_URL, and
 // PLAYWRIGHT_WORKER_TARGETS for several), signed in with the login state its host supplies, so these servers sign
-// nothing in. The host and port come from the arguments, else HOST and PORT; workers, from 1 to 64, from the third
+// nothing in; with the port in PLAYWRIGHT_PORT, each of its workers takes its own server's prepared environment, its
+// DB_NAME among them, from the worker environments these servers leave in the app (browserTestConfig()). The host and port come from the arguments, else HOST and PORT; workers, from 1 to 64, from the third
 // argument, else 1. The servers' output also reaches this command's own; stopping the command stops them.
 import { existsSync } from "node:fs";
 import path from "node:path";

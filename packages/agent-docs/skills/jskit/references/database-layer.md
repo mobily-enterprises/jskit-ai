@@ -539,6 +539,20 @@ address. The JSKIT Stack piece declares that target as `test-app`, so
 suite against its own test database from the first commit, one Playwright worker
 per server: the host lists them in `PLAYWRIGHT_WORKER_TARGETS`, and
 `browserTestConfig()` gives each worker its own server and signed-in state and
-refuses another worker count. The target signs nothing in; the host supplies
-each worker's login state through the target's Preview identity, the same
-command as the normal target's.
+refuses another worker count. The host names `<port>` in `PLAYWRIGHT_PORT`, so
+each worker's process takes its own server's prepared environment, its
+`DB_NAME` among them, as a local run's worker does
+(`node_modules/.cache/jskit-browser-tests/workers-<port>.json`), however the
+target's URL reaches that server; the suite runs in the app the target serves.
+Without `PLAYWRIGHT_PORT` a worker opens no database. The target signs nothing
+in; the host supplies each worker's login state through the target's Preview
+identity, the same command as the normal target's.
+
+A process a test run gave its databases opens no other: in a `jskit test
+--databases` file (its copy, and the lettered copies its package data tests
+claim) and in a browser run's Playwright worker (its own server's), the app's
+knexfile settings (`createKnexMigrationConfig()`) and its runtime's database
+refuse any other name before connecting, naming `DB_NAME` or `DATABASE_URL`
+and the fix, so a test never reaches a development or production database
+whatever its environment holds. The processes such a process starts inherit
+the rule (`JSKIT_TEST_DATABASE_GUARD`).

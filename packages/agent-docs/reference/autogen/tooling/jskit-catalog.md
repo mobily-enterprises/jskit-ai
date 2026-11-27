@@ -59,6 +59,7 @@ Exports
 Exports
 - `SETTINGS_VARIABLE`
 - `browserTestConfig({ testDir = "./tests/e2e", port = 0, server = "node ./bin/server.js", build = "npm run build", prepare = "", signIn = "", env = {}, health = "/api/health", globalTimeout, actionTimeout = ACTION_TIMEOUT_MS, navigationTimeout = NAVIGATION_TIMEOUT_MS, environment = process.env, cwd = process.cwd(), availableMemory = systemAvailableMemory } = {})`
+- `browserTestServerPeakBytes({ cwd = process.cwd() } = {})`
 - `browserTestWorkers({ env = process.env, argv = process.argv, cwd = process.cwd(), availableMemory = systemAvailableMemory } = {})`
 Local functions
 - `positiveInteger(value)`
@@ -72,6 +73,7 @@ Local functions
 - `listen(port)`
 - `freeConsecutivePorts(host, count)`
 - `preparedWorkerEnvironment(file, index)`
+- `workerEnvironment({ managed, servedPort, workerEnvironments, workerIndex })`
 
 ### `scripts/build-catalog.mjs`
 Exports

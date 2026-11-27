@@ -2,6 +2,7 @@ import diagnosticsChannel from "node:diagnostics_channel";
 import { normalizeDatabaseClient, toKnexClientId } from "../shared/databaseClient.js";
 import { resolveKnexConnectionFromEnvironment, resolveKnexPool } from "../shared/databaseConnection.js";
 import { loadKnexFactory } from "./knexFactory.js";
+import { refuseNonTestDatabase } from "./testDatabaseGuard.js";
 
 // The diagnostics channel that carries each statement the shared Knex sends (Knex's `query` event: its `sql`,
 // `bindings` and method), for observers in the process that booted the runtime, such as countRuntimeQueries().
@@ -18,7 +19,8 @@ function resolveDriverDialectId(driver) {
 
 /**
  * The database connection every feature shares: the installed driver and its Knex client. Table work opens its
- * transactions through its handle's withTransaction.
+ * transactions through its handle's withTransaction. In a process a test run gave its databases, it refuses any other
+ * (testDatabaseGuard.js).
  * @param {object} dependencies
  * @param {import("./types.js").RuntimeDatabaseDriver} dependencies.driver
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
@@ -31,14 +33,16 @@ function createDatabase({ driver, env }) {
   }
 
   const pool = resolveKnexPool(dialectId);
+  const connection = resolveKnexConnectionFromEnvironment(env, {
+    client: dialectId,
+    defaultPort: dialectId === "pg" ? 5432 : 3306,
+    context: "database runtime"
+  });
+  refuseNonTestDatabase(env, connection.database);
   /** @type {import("./types.js").RuntimeKnex} */
   const knex = loadKnexFactory()({
     client: toKnexClientId(dialectId),
-    connection: resolveKnexConnectionFromEnvironment(env, {
-      client: dialectId,
-      defaultPort: dialectId === "pg" ? 5432 : 3306,
-      context: "database runtime"
-    }),
+    connection,
     ...(pool ? { pool } : {})
   });
   const statements = diagnosticsChannel.channel(RUNTIME_QUERY_CHANNEL);

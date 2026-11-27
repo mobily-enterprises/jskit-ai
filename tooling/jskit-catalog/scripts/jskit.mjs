@@ -106,7 +106,8 @@ function usage() {
     "               playwright.config.mjs browserTestConfig(), worker i on port+i, on the production build, each with",
     "               the database its prepare module gives that worker, its test-only env and APP_ENV=test. The",
     "               host's suite runs against them with PLAYWRIGHT_BASE_URL (and PLAYWRIGHT_WORKER_TARGETS for",
-    "               several) and the login state the host supplies. It runs until it is stopped.",
+    "               several), [port] in PLAYWRIGHT_PORT, so each worker opens only its own server's database, and",
+    "               the login state the host supplies. It runs until it is stopped.",
     "",
     "<locale> is a BCP 47 language tag, such as fr or pt-BR."
   ].join("\n");

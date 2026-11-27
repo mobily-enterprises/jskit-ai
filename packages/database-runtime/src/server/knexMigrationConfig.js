@@ -7,9 +7,11 @@ import {
   toKnexClientId
 } from "../shared/databaseClient.js";
 import { resolveKnexConnectionFromEnvironment, resolveKnexPool } from "../shared/databaseConnection.js";
+import { refuseNonTestDatabase } from "./testDatabaseGuard.js";
 
 /**
- * The Knex configuration for migrating the database the application's environment names.
+ * The Knex configuration for migrating the database the application's environment names. In a process a test run
+ * gave its databases, it refuses any other (testDatabaseGuard.js).
  * @param {object} options
  * @param {string} options.client The dialect id: "mysql2" or "pg".
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.environment The application's environment, such as `process.env`.
@@ -37,14 +39,16 @@ function createKnexMigrationConfig({
   // no constraints/ until it has a constraint; Knex refuses a missing directory.
   const applicationConstraintsDirectory = path.join(resolvedMigrationsDirectory, "constraints");
   const pool = resolveKnexPool(dialectId);
+  const connection = resolveKnexConnectionFromEnvironment(environment, {
+    client: dialectId,
+    defaultPort: dialectId === "pg" ? 5432 : 3306,
+    context: "knex migrations"
+  });
+  refuseNonTestDatabase(environment, connection.database);
 
   return {
     client: toKnexClientId(dialectId),
-    connection: resolveKnexConnectionFromEnvironment(environment, {
-      client: dialectId,
-      defaultPort: dialectId === "pg" ? 5432 : 3306,
-      context: "knex migrations"
-    }),
+    connection,
     ...(pool ? { pool } : {}),
     migrations: {
       // Packages create the tables application migrations build on; package constraints

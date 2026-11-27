@@ -39,6 +39,11 @@ const WORKER_ENVIRONMENTS = path.join("node_modules", ".cache", "jskit-browser-t
 // stop (browser-test-servers.mjs).
 const SERVER_MEMORY = "server-memory.json";
 const GIB = 1024 ** 3;
+// The variables that name a worker's own test database, which its tests may open.
+const DATABASE_VARIABLES = Object.freeze(["DB_NAME", "TEST_DB_NAME", "BROWSER_TEST_DB_NAME"]);
+// The databases a test process may open, and how it reaches one: @jskit-ai/database-runtime's testDatabaseGuard.js
+// reads it, and the app's knexfile settings and runtime refuse any other database.
+const TEST_DATABASE_GUARD = "JSKIT_TEST_DATABASE_GUARD";
 
 const positiveInteger = (value) => (/^[1-9]\d*$/u.test(String(value ?? "").trim()) ? Number(String(value).trim()) : 0);
 
@@ -102,15 +107,27 @@ function systemAvailableMemory() {
 }
 
 /**
+ * The peak resident memory, in bytes, the largest app server of the last browser run in `cwd` reached, or 0 when none
+ * is recorded. Its launcher records it as its servers stop (on Linux), a local run's and `jskit browser-test-server`'s
+ * alike, so a host sizing a managed run by its servers' memory reads it here.
+ * @param {{ cwd?: string }} [options]
+ * @returns {number}
+ */
+function browserTestServerPeakBytes({ cwd = process.cwd() } = {}) {
+  const file = path.resolve(cwd, WORKER_ENVIRONMENTS, SERVER_MEMORY);
+  if (!existsSync(file)) return 0;
+  const peak = Number(JSON.parse(readFileSync(file, "utf8")).serverPeakBytes);
+  return peak > 0 ? peak : 0;
+}
+
+/**
  * The local workers the available memory holds at the peak the last run's largest app server reached, at most
  * `budgeted`, with why when fewer; `budgeted` when no run has recorded its servers' peak yet. Only the app servers are
  * measured, not the browsers or Playwright's own processes, and the reason says so.
  */
 function memoryWorkers(budgeted, { cwd, availableMemory }) {
-  const file = path.resolve(cwd, WORKER_ENVIRONMENTS, SERVER_MEMORY);
-  if (!existsSync(file)) return { workers: budgeted, memory: "" };
-  const peak = Number(JSON.parse(readFileSync(file, "utf8")).serverPeakBytes);
-  if (!(peak > 0)) return { workers: budgeted, memory: "" };
+  const peak = browserTestServerPeakBytes({ cwd });
+  if (!peak) return { workers: budgeted, memory: "" };
   const available = availableMemory();
   const held = Math.max(1, Math.floor(available / peak));
   if (held >= budgeted) return { workers: budgeted, memory: "" };
@@ -200,6 +217,32 @@ function preparedWorkerEnvironment(file, index) {
 }
 
 /**
+ * A Playwright worker's environment: the one prepare gave its server, from the run's worker environments, and the
+ * databases its tests may open, that server's own (TEST_DATABASE_GUARD). A managed run's worker reads it when its host
+ * names PLAYWRIGHT_PORT, the port it started `jskit browser-test-server` on; otherwise it may open no database, since
+ * its environment's DB_NAME is the host's own, such as a development database.
+ */
+function workerEnvironment({ managed, servedPort, workerEnvironments, workerIndex }) {
+  const given = "this Playwright worker was given";
+  if (managed && !servedPort) {
+    const fix = "A managed run's worker reaches its own server's database when the host names PLAYWRIGHT_PORT, the port it " +
+      "started `jskit browser-test-server` on, beside PLAYWRIGHT_BASE_URL and PLAYWRIGHT_WORKER_TARGETS.";
+    return { [TEST_DATABASE_GUARD]: JSON.stringify({ databases: [], given, fix }) };
+  }
+  if (managed && !existsSync(workerEnvironments)) {
+    throw new Error(`PLAYWRIGHT_PORT names ${servedPort}, the port this managed run's \`jskit browser-test-server\` was started ` +
+      `on, but its servers' environments (${workerEnvironments}) are not here: run the suite in the app those servers ` +
+      "serve, while they run.");
+  }
+  const prepared = preparedWorkerEnvironment(workerEnvironments, workerIndex);
+  const databases = [...new Set(DATABASE_VARIABLES.map((name) => String(prepared[name] || "").trim()).filter(Boolean))];
+  const fix = databases.length > 0
+    ? "Open the database through this worker's environment (process.env), which holds its own server's copy."
+    : "This run's servers have no database of their own: browserTestConfig()'s prepare module answers each worker's DB_NAME.";
+  return { ...prepared, [TEST_DATABASE_GUARD]: JSON.stringify({ databases, given, fix }) };
+}
+
+/**
  * The Playwright configuration of an application's browser tests.
  * @param {object} [options]
  * @param {string} [options.testDir] Where the specs are.
@@ -209,7 +252,9 @@ function preparedWorkerEnvironment(file, index) {
  * @param {string} [options.build] The command that builds the production frontend into the folder the server serves.
  * @param {string} [options.prepare] An app module, run once before the servers start, whose default export
  *   `({ workers, baseUrls })` returns each worker's server environment, such as its own DB_NAME. The worker's own
- *   process gets it too, so a test that opens the database itself reaches its own server's copy.
+ *   process gets it too, so a test that opens the database itself reaches its own server's copy, and none other: the
+ *   app's knexfile settings and runtime refuse any other database there. A managed run's worker gets it when its host
+ *   names PLAYWRIGHT_PORT, the port it started `jskit browser-test-server` on; without it, it opens no database.
  * @param {string} [options.signIn] An app module whose default export `({ request, baseURL, workerIndex, env })` signs
  *   `request`, a Playwright APIRequestContext on one worker's server (`env` is that server's environment), in once,
  *   such as with `loginRequestAsExistingUser()` from @jskit-ai/auth-web/test/playwright. Each of that worker's tests
@@ -254,10 +299,10 @@ function browserTestConfig({
   const { workers, memory } = workersOf({ env: environment, argv: process.argv, cwd, availableMemory });
   // A host serving the managed target several app servers: this worker's own, and its signed-in state.
   const workerTargets = managed ? managedWorkerTargets(environment) : null;
-  const managedIndex = Number.parseInt(String(environment.TEST_PARALLEL_INDEX || "0"), 10) || 0;
-  const workerTarget = workerTargets ? workerTargets[managedIndex] : null;
+  const workerIndex = Number.parseInt(String(environment.TEST_PARALLEL_INDEX || "0"), 10) || 0;
+  const workerTarget = workerTargets ? workerTargets[workerIndex] : null;
   if (workerTargets && !workerTarget) {
-    throw new Error(`PLAYWRIGHT_WORKER_TARGETS has no app server for Playwright worker ${managedIndex}.`);
+    throw new Error(`PLAYWRIGHT_WORKER_TARGETS has no app server for Playwright worker ${workerIndex}.`);
   }
   const runTimeout = globalTimeout ?? Math.max(MIN_GLOBAL_TIMEOUT_MS, Math.ceil(WORKER_MINUTES_MS / workers));
   let basePort = positiveInteger(environment.PLAYWRIGHT_PORT) || port;
@@ -270,9 +315,11 @@ function browserTestConfig({
     environment.PLAYWRIGHT_PORT = String(basePort);
   }
   // A Playwright worker loads this config again, with its own TEST_PARALLEL_INDEX, and reaches its own server; its
-  // process takes the environment prepare gave that server, such as its DB_NAME, before any test file loads.
-  const workerIndex = managed ? 0 : Number.parseInt(String(environment.TEST_PARALLEL_INDEX || "0"), 10) || 0;
-  const workerEnvironments = path.resolve(cwd, WORKER_ENVIRONMENTS, `workers-${basePort}.json`);
+  // process takes the environment prepare gave that server, such as its DB_NAME, before any test file loads. A managed
+  // run's servers are `jskit browser-test-server`'s, worker i's on the port its host started it on plus i, which the
+  // host names in PLAYWRIGHT_PORT: the targets' URLs may reach them through other ports.
+  const servedPort = managed ? positiveInteger(environment.PLAYWRIGHT_PORT) : basePort;
+  const workerEnvironments = path.resolve(cwd, WORKER_ENVIRONMENTS, `workers-${servedPort || basePort}.json`);
   // A login state the host supplies is used as it is; the servers sign in only when there is none. A worker of a
   // project that depends on another (a setup project) inherits the environment that project's workers changed,
   // including the state this harness gave them, so one of this harness's own states is never taken for the host's.
@@ -280,8 +327,8 @@ function browserTestConfig({
   const suppliedState = String(environment.PLAYWRIGHT_STORAGE_STATE || "").trim();
   const hostState = suppliedState.startsWith(`${ownStates}-`) ? "" : suppliedState;
   const signedInStates = signIn && !managed && !hostState ? ownStates : "";
-  if (!managed && environment.TEST_PARALLEL_INDEX !== undefined) {
-    Object.assign(environment, preparedWorkerEnvironment(workerEnvironments, workerIndex));
+  if (environment.TEST_PARALLEL_INDEX !== undefined) {
+    Object.assign(environment, workerEnvironment({ managed, servedPort, workerEnvironments, workerIndex }));
     if (signedInStates) environment.PLAYWRIGHT_STORAGE_STATE = `${signedInStates}-${workerIndex}.json`;
   }
   const storageState = workerTarget ? workerTarget.storageState : String(environment.PLAYWRIGHT_STORAGE_STATE || "").trim();
@@ -322,4 +369,4 @@ function browserTestConfig({
   };
 }
 
-export { SETTINGS_VARIABLE, browserTestConfig, browserTestWorkers };
+export { SETTINGS_VARIABLE, browserTestConfig, browserTestServerPeakBytes, browserTestWorkers };

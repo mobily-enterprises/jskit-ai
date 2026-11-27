@@ -59,6 +59,7 @@ Exports
 - `MYSQL_DATABASE_OPTIONS`
 - `claimLetteredCopy(on, base, { timeoutMs = CLAIM_TIMEOUT_MS } = {})`
 - `createMysqlPackageTestKnex(context, { knexFactory, environment, testDatabase, pool })`
+- `letteredCopies(base)`
 Local functions
 - `copiesOf(environment, testDatabase)`
 - `grantHint(base)`
@@ -101,6 +102,13 @@ Exports
 Local functions
 - `isRunning(pid)`
 - `claimDatabase(directory, databases)`
+
+### `src/server/testDatabaseGuard.js`
+Exports
+- `TEST_DATABASE_GUARD`
+- `refuseNonTestDatabase(environment, database)`
+Local functions
+- `shown(databases)`
 
 ### `src/server/testDatabases.js`
 Exports

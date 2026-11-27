@@ -31,6 +31,11 @@ function copiesOf(environment, testDatabase) {
   return numbered ? designated : testDatabase;
 }
 
+/** The 26 lettered copies of `base`, `<base>_a` to `_z`, in the order a test claims them. */
+function letteredCopies(base) {
+  return [...COPY_LETTERS].map((letter) => `${base}_${letter}`);
+}
+
 /** The 26 names a test claims, and the grant that gives a database user all of them. */
 function grantHint(base) {
   const pattern = `${base.replace(/[\\_%]/gu, "\\$&")}\\__`;
@@ -48,7 +53,7 @@ function grantHint(base) {
  */
 async function claimLetteredCopy(on, base, { timeoutMs = CLAIM_TIMEOUT_MS } = {}) {
   const deadline = Date.now() + timeoutMs;
-  let granted = [...COPY_LETTERS].map((letter) => `${base}_${letter}`);
+  let granted = letteredCopies(base);
   for (;;) {
     for (const [index, database] of granted.entries()) {
       const [[{ claimed }]] = await on("SELECT GET_LOCK(?, 0) AS claimed", [database]);
@@ -123,4 +128,4 @@ async function createMysqlPackageTestKnex(context, { knexFactory, environment, t
   return knex;
 }
 
-export { DESIGNATED_TEST_DATABASE, MYSQL_DATABASE_OPTIONS, claimLetteredCopy, createMysqlPackageTestKnex };
+export { DESIGNATED_TEST_DATABASE, MYSQL_DATABASE_OPTIONS, claimLetteredCopy, createMysqlPackageTestKnex, letteredCopies };
