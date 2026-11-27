@@ -138,3 +138,26 @@ test("a refused code shows beside its field, any other failure is reported, and 
   assert.equal(proof.pending.value, false);
   assert.equal(reports.length, 1);
 });
+
+test("reset starts a proof form afresh for the next prompt: the authenticator's code, nothing typed, no refusal", async () => {
+  const app = createApp({});
+  app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, { report: () => 0, dismiss: () => 0 });
+  const proof = app.runWithContext(() => useSecondFactorProof({
+    async submit() {
+      throw httpError(400, "auth.local.secondFactor.codeInvalid", "That recovery code is not right.");
+    },
+    onDone: () => assert.fail("nothing is proved")
+  }));
+  proof.code.value = "123";
+  proof.toggleRecoveryCode();
+  proof.recoveryCode.value = "abcd0-efgh0";
+  await proof.submitProof();
+  assert.equal(proof.fieldError.value, "That recovery code is not right.");
+
+  proof.reset();
+  assert.deepEqual(
+    { usingRecoveryCode: proof.usingRecoveryCode.value, code: proof.code.value, recoveryCode: proof.recoveryCode.value,
+      fieldError: proof.fieldError.value, canSubmit: proof.canSubmit.value },
+    { usingRecoveryCode: false, code: "", recoveryCode: "", fieldError: "", canSubmit: false }
+  );
+});
