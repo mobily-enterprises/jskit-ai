@@ -293,10 +293,19 @@ function sharedBrowserFixture(viteOptions) {
   async function open(t) {
     const { vite, browser } = await prepare();
     const contexts = new Set();
-    const close = () => Promise.all([...contexts].map((context) => context.close()));
+    // A route handler still running when the test ends (a re-read the app started, a fetched response not yet read)
+    // would meet the context closed under it and throw after the test, failing the file with no test to own the error:
+    // unroute every page's and the context's handlers first, so those still running end without an error, then close.
+    // Errors a handler throws during the test still fail it.
+    const close = () => Promise.all([...contexts].map(async (context) => {
+      await Promise.all([context, ...context.pages()].map((owner) => owner.unrouteAll({ behavior: "ignoreErrors" })));
+      await context.close();
+    }));
     t.after(close);
     const track = (context) => {
       contexts.add(context);
+      // A context the test closed itself has nothing left to unroute or close.
+      context.once("close", () => contexts.delete(context));
       return context;
     };
     return Object.freeze({
