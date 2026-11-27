@@ -1,0 +1,151 @@
+---
+title: "Recipe: reminders, scheduled emails and digests"
+description: Send reminders, scheduled emails and daily or weekly digests from a JSKIT app, each once, in the person's time zone and language, with APP_ENV deciding what really goes out.
+---
+
+# Send reminders, scheduled emails and digests from `<APP_NAME>`
+
+`<APP_NAME>` sends people what they need at the right time: a reminder before
+something is due, an email the app scheduled, and a daily or weekly digest of
+what changed. Each goes exactly once, at a sensible hour in the person's own
+time zone and language, skips itself when there is nothing to say, and every
+email has a one-click way to stop that kind. Outside production nothing
+reaches anyone: development and test log each one, and staging sends only to
+its testers' inbox.
+
+## When to propose it
+
+- "Remind people", "send a reminder the day before", "follow up
+  automatically".
+- "A weekly summary", "a daily digest", "email me when", "send a report every
+  Monday".
+- "People forget to come back."
+
+## How to answer the person
+
+Propose the simple way first: "A small job inside `<APP_NAME>` checks every
+minute for what is due and sends it by email, each one once, at a sensible
+local hour. People choose which ones they get in Settings, and every email has
+an unsubscribe link. Nothing real is sent until the app runs in production."
+
+Then say: "There are other options if you want to discuss." They are push
+notifications to phones (the [installable app](/guide/recipes/installable-app)),
+text messages (the same delivery rules, through the SMS channel), a hosted
+workflow service that runs the schedule (JSKIT's
+[event delivery pattern](/patterns/connectors/event-delivery) sends it events;
+the schedules stay that service's), and a mailing-list tool for newsletters to
+everyone.
+
+## Product decisions (defaults)
+
+- Reminders: one, 24 hours before the due time; none for something already
+  done or deleted.
+- Digest: weekly, Monday at 08:00 in the person's saved time zone, only when
+  there is something in it.
+- Nothing sends between 21:00 and 08:00 local time; it waits for the morning.
+- Language and time zone: the person's saved `locale` and `timeZone`, else
+  English and UTC.
+- Each kind has a switch in Settings, on by default; every email's
+  unsubscribe link turns its kind off without signing in.
+- A failed send is retried 3 times over an hour, then marked failed where an
+  administrator can see it; it is never sent twice.
+- In a workspace app, someone who left the workspace gets nothing more from it.
+
+## Make a careful saved plan first
+
+Write a careful saved plan first, then implement it item by item, proving each
+one:
+
+1. A table of scheduled sends, one row per message to go, unique on what makes
+   it one (person, kind, subject record, occurrence).
+2. Where each reminder's record is created, changed or deleted, write, move or
+   remove its scheduled send in the same transaction.
+3. A job that runs every minute in every server copy, claims due rows and
+   sends them, in batches.
+4. Digests: a job that, per person or workspace, builds the digest in one batch
+   of reads and schedules its send.
+5. The app's mailer, behind JSKIT's delivery rules, and the messages in the
+   people's languages.
+6. Settings switches per kind, and signed unsubscribe links.
+7. The unsubscribe secret in the environment, required in staging and
+   production.
+
+## Technical details
+
+JSKIT ships no scheduler and no mail transport. It owns the delivery rules by
+`APP_ENV`, background work's contexts and row claiming; the timer, the
+scheduled-sends table and the mailer are the app's own, built on them.
+
+- **The table:** a table resource with ownership `user` (or
+  `workspace_user`), fields for kind, subject id, `sendAfter`, `claimedAt`,
+  `sentAt`, attempts and the last error, and a unique index on the keys that
+  make one send; writers upsert with
+  `createMany(rows, { ...options, onConflict: { keys, action: "ignore" } })`
+  so a send is scheduled once
+  ([Layer 3](/guide/framework/data-access#layer-3-many-rows-at-once)).
+- **The job:** a feature that declares `systemScope` and whose `boot()` starts
+  `setInterval(runOnce, 60_000).unref()`; `shutdown()` clears it and awaits a
+  run in progress, and tests call `runOnce()` itself
+  ([Owned state](/guide/framework/typed-features#owned-state)). Every server
+  runs the timer, so a run takes due rows with
+  `claim({ filters, sort, take }, txOptions)`, which skips rows another copy
+  holds, marks them claimed in that transaction, sends after it commits and
+  marks each sent; a row claimed long ago without being sent is due again
+  ([Scheduled work](/guide/app-setup/more-than-one-server#scheduled-work),
+  [Background work](/guide/framework/data-access#background-work)). It takes
+  batch after batch until a batch comes back short.
+- **Whom it is for:** work for one person runs in
+  `systemContext(reason).forUser(id)` (or `forWorkspaceUser`); a digest per
+  workspace pages through the `workspaces` owner API's
+  `listForSystem({ afterId, limit }, { context })`; a
+  job finds its people with an `aggregate` grouped by the ownership field
+  ([Background work](/guide/framework/data-access#background-work)). Saved
+  time zones and languages come from users-core's `users.settings`
+  (`listByUserIds(userIds, options)`), one read per batch.
+- **Sending:** every email goes through `deliverMessage()` from
+  `@jskit-ai/kernel/server/runtime/appEnvironment`, with
+  `channel: "email"`, `to`, `summary`, `details` and a `send` function that
+  uses `markStagingEmail`
+  in `send`; production sends, staging sends to `STAGING_EMAIL_TO` or logs,
+  development and test log
+  ([The application's own side effects](/guide/framework/environments#the-application-s-own-side-effects)).
+  The `send` function is the app's mailer: its email provider's client, with
+  the provider's key in the environment.
+- **Words and dates:** the email's text comes from the app's catalog in the
+  person's language through `createServerI18n` from
+  `@jskit-ai/kernel/server/i18n`, and its dates through `Intl` in their time
+  zone ([Emails](/guide/framework/translation#emails)).
+- **Settings:** users-core's notification settings hold JSKIT's own three
+  switches; the app's kinds get their own settings table and an
+  `account-settings:sections` placement
+  ([account settings pattern](/patterns/users/account-settings)).
+- **Unsubscribe:** each email links a public page with a token signed (HMAC)
+  with the app's unsubscribe secret over the person and the kind; the page
+  turns that kind off and says so. Add the `List-Unsubscribe` and
+  `List-Unsubscribe-Post` headers for one-click unsubscribe in mail apps. The
+  route declares a `rateLimit`
+  ([Routes](/guide/framework/typed-features#routes)).
+
+## Proof
+
+Prove each behaviour at the cheapest level, never against development data
+and never through a real email service.
+
+- **Server tests** (`jskit test`, on `TEST_DB_NAME`, with a fixed clock):
+  `runOnce()` sends what is due and nothing else; two runners at once send
+  each row once; a reminder moves with its record and goes with its deletion;
+  the night hold and the 08:00 digest in two time zones, across a daylight
+  saving change; an empty digest is skipped; retries stop after 3; a tampered
+  unsubscribe token is refused and a good one turns the kind off; production
+  sends through a fake transport (`APP_ENV: "production"`), staging only to
+  `STAGING_EMAIL_TO`, development logs. A batch takes the same number of
+  queries at 10 and 1,000 due rows (`expectFlatQueries()`).
+- **Browser tests** (`npm run test:e2e`): the Settings switches, and the
+  unsubscribe page signed out.
+
+## Leftovers for the person
+
+- The email provider account, a verified sending domain (SPF, DKIM, DMARC)
+  and its key in staging and production.
+- Reading real reminders and digests in their own inbox on staging
+  (`STAGING_EMAIL_TO`) before production.

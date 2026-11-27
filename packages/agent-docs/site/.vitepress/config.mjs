@@ -78,6 +78,19 @@ export default defineConfig({
             { text: "Translating an App", link: "/guide/framework/translation" },
             { text: "Source Patterns", link: "/patterns/" }
           ]
+        },
+        {
+          text: "Recipes",
+          items: [
+            { text: "Install from the Website", link: "/guide/recipes/installable-app" },
+            { text: "Offline Study", link: "/guide/recipes/offline-study" },
+            { text: "Usefulness Study", link: "/guide/recipes/usefulness-study" },
+            { text: "Payments and Subscriptions", link: "/guide/recipes/payments-and-subscriptions" },
+            { text: "Inviting People with Roles", link: "/guide/recipes/invite-people-with-roles" },
+            { text: "File Uploads and Images", link: "/guide/recipes/file-uploads-and-images" },
+            { text: "Reminders and Digests", link: "/guide/recipes/reminders-and-digests" },
+            { text: "Another Language", link: "/guide/recipes/another-language" }
+          ]
         }
       ],
       "/patterns/": [
