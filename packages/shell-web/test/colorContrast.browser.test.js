@@ -151,13 +151,42 @@ test("a menu mounted while closed covers nothing, and still opens and closes wit
   await expect(items).toBeAttached();
 });
 
+// An open menu lies over the page only where its content is. Vuetify holds the content in an overlay root that spans
+// the whole window, transparent and taking no clicks, and axe read every text of the page under that root as
+// undecided (bgOverlap): 36 texts on mobilynet's page with its "Add to project" menu open.
+test("an open menu leaves every text beside it judged: only the menu's content lies over the page", {
+  skip: SKIP,
+  timeout: 60_000
+}, async (t) => {
+  const { vite, browser } = await open(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+  t.after(() => page.close());
+  await page.goto("/home/components");
+  await expect(page.getByTestId("jskit-shell-page-title")).toBeVisible();
+  await expectJudged(page, "components at 1280", []);
+
+  // Each menu opened with the mouse, which stays over its button: Vuetify draws the button as active while its menu is
+  // open, and the label is read against the layers it then shows, once the click's ripple has gone (as the button
+  // contrast tests wait for it: a released press leaves it fading out for a moment).
+  await page.getByRole("button", { name: "Rich menu" }).click();
+  await expect(page.getByTestId("fixture-menu-panel")).toBeVisible();
+  await expect(page.locator(".v-ripple__container")).toHaveCount(0);
+  await expectJudged(page, "components at 1280 with a text button's menu open", []);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("fixture-menu-panel")).toBeHidden();
+
+  await page.getByRole("button", { name: "Filled menu" }).click();
+  await expect(page.getByTestId("fixture-filled-menu-list")).toBeVisible();
+  await expect(page.locator(".v-ripple__container")).toHaveCount(0);
+  await expectJudged(page, "components at 1280 with a filled button's menu open", []);
+});
+
 // A state layer lies under the label, so a hovered, focused or pressed button's label is read against its container
 // with the layer over it. Material 3's layers (hover 8%, focus and pressed 10%) keep every label at 4.5:1: a filled
-// button's on-colour over its colour, a tonal button's on-container colour over its tint.
-test("every button's label keeps 4.5:1 at rest, hovered, focused and pressed, in each colour, variant and theme", {
-  skip: SKIP,
-  timeout: 180_000
-}, async (t) => {
+// button's on-colour over its colour, a tonal button's on-container colour over its tint. An active button shows one
+// layer at a time over it too, as Material 3 does: Vuetify added its activated layer to the others, 18% or 20% of a
+// text button's colour under its label, which took a primary label to 4.13:1.
+async function expectEveryStateReadable(t, prefix) {
   const { vite, browser } = await open(t);
   const failures = [];
   let judged = 0;
@@ -172,7 +201,7 @@ test("every button's label keeps 4.5:1 at rest, hovered, focused and pressed, in
     await page.goto(`/home/button-contrast?theme=${theme}`);
     await expect(page.getByTestId("jskit-shell-page-title")).toHaveText("Button contrast");
     await page.addScriptTag({ path: AXE_PATH });
-    const buttons = await page.locator("[data-testid^=contrast-]").all();
+    const buttons = await page.locator(`[data-testid^=${prefix}-]`).all();
     assert.equal(buttons.length, 35, "seven colours in five variants");
     for (const button of buttons) {
       const name = await button.getAttribute("data-testid");
@@ -212,4 +241,14 @@ test("every button's label keeps 4.5:1 at rest, hovered, focused and pressed, in
   }
   assert.equal(judged, 280, "every button judged in four states and two themes");
   assert.deepEqual(failures, [], "every label at 4.5:1 or more in every state");
-});
+}
+
+test("every button's label keeps 4.5:1 at rest, hovered, focused and pressed, in each colour, variant and theme", {
+  skip: SKIP,
+  timeout: 180_000
+}, (t) => expectEveryStateReadable(t, "contrast"));
+
+test("an active button's label keeps 4.5:1 at rest, hovered, focused and pressed, in each colour, variant and theme", {
+  skip: SKIP,
+  timeout: 180_000
+}, (t) => expectEveryStateReadable(t, "active"));

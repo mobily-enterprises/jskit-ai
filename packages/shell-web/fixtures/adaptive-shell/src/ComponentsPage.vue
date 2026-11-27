@@ -116,6 +116,15 @@ function jumpToLastBooking() {
           </v-list>
         </v-card>
       </v-menu>
+      <!-- A filled button's menu: Vuetify draws the button as active while its menu is open. -->
+      <v-menu>
+        <template #activator="{ props: menu }">
+          <v-btn color="primary" v-bind="menu">Filled menu</v-btn>
+        </template>
+        <v-list data-testid="fixture-filled-menu-list">
+          <v-list-item title="Second" />
+        </v-list>
+      </v-menu>
     </div>
 
     <v-btn disabled data-testid="fixture-disabled-button">Update password</v-btn>
