@@ -46,6 +46,7 @@ Exports
 - `warmRecognizer(recognizer)`
 Local functions
 - `ignoreRecognizedText()`
+- `createDither()`
 - `decodeAvailable(recognizer, stream, vocabulary)`
 
 ### `src/recognitionWorker.js`

@@ -220,6 +220,10 @@ and finalization. An explicit positive value up to 0.1 gates the initial input;
 recognizer until the utterance ends. With a floor enabled, finalizing an utterance
 that never reached the floor returns no words without feeding native lookahead.
 This is an input-level check, not a classifier for speech versus noise.
+Every sample fed to the recognizer, the lookahead included, gets noise of at
+most one 16-bit step (a dither, from a fixed sequence, so the same recording
+gives the same words): exact zeros, a muted microphone's digital silence, made
+the default pack hear words that were never said.
 
 The synthesis worker has a separate 60-second operation watchdog for model load
 and generation. A timeout fails the operation and releases the worker process;
