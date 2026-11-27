@@ -16,6 +16,8 @@ new RuleTester().run("jskit/request-recovery-label", requestRecoveryLabel, {
     "useView({ resource, requestRecovery: options.recovery, requestRecoveryLabel: \"Site\" });",
     // What a spread holds is not known here; the call itself still refuses a label without the banner.
     "useAddEdit({ ...options, requestRecoveryLabel: \"Site\" });",
+    // A screen composable passing its caller's label on: the read under it checks what the caller gave.
+    "function useSitesScreen({ resource, requestRecoveryLabel }) { return useCrudList({ resource, requestRecoveryLabel }); }",
     "useCrudList({ resource });",
     "useEndpointResource({ path, requestRecoveryLabel: \"Feed\" });",
     "translate({ requestRecoveryLabel: \"Sites\" });"

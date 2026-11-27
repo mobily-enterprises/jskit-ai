@@ -544,6 +544,27 @@ row past that page.
 const visible = computed(() => list.items.filter((service) => service.name.includes(search.value)));
 ```
 
+### Screen read failures
+
+**A list's, record's or form's read (`useList`, `useView`, `useAddEdit` and
+the CRUD composables built on them) shows its failure on its own screen as
+`loadError`, so shell-web's request recovery banner leaves it out. Only a read
+whose screen shows no `loadError`, such as a lookup's options, asks for the
+banner with `requestRecovery: true`, and only that read names it with
+`requestRecoveryLabel`.**
+
+Why: the banner would report the same failure a second time, and a label
+without the banner names nothing: the call refuses it with a TypeError when
+the screen loads, so lint names it first.
+
+```js
+// good: a lookup's options, whose failure no screen shows, ask for the banner
+const sites = useList({ resource: sitesResource, requestRecovery: true, requestRecoveryLabel: "Sites" });
+
+// bad: a CRUD screen shows loadError, and its label names nothing
+const contacts = useCrudListScreen({ resource: contactsResource, requestRecoveryLabel: "Contacts" });
+```
+
 ## Helpers and sizes
 
 ### One helper per package
@@ -613,6 +634,7 @@ client-only rules below. The server's action and error rules do not apply.
 | `jskit/no-module-state` | a module-level `let`, `ref()` or `reactive()` | [Module state](#module-state) |
 | `jskit/selection-field` | a `v-select`, `v-autocomplete` or `v-combobox` whose items are not fixed, and a `SelectField` whose items are not fixed that binds no `loading` | [Selection fields](#selection-fields) |
 | `jskit/search-on-server` | a `computed()` that filters a list composable's items by a search ref; an autocomplete over a list's items or a lookup's options without `no-filter` or an `update:search` handler | [Search on the server](#search-on-the-server) |
+| `jskit/request-recovery-label` | `requestRecoveryLabel` given to a screen read (`useList`, `useView`, `useAddEdit`, the CRUD composables) without `requestRecovery: true` | [Screen read failures](#screen-read-failures) |
 | `vue/require-prop-types`, `vue/require-default-prop`, `vue/require-valid-default-prop`, `vue/no-required-prop-with-default` | a prop without a type, optional without a default, or both | [Collaborator props](#collaborator-props) |
 | `vue/require-explicit-emits` | an emitted event the component does not declare | [Declared emits](#declared-emits) |
 

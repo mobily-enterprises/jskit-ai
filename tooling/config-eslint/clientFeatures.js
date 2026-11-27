@@ -15,7 +15,8 @@ const TEST_FILES = Object.freeze([
 // templates; injected values take an exported key, a type and no empty default; props a component calls are required
 // and typed by their contract; results keep the shape they are built with and hold Vue state unfrozen; whatever client
 // code starts it releases; no module-level mutable state; a selection whose options are not fixed is SelectField with
-// loading; a search over a list's records runs on the server; one copy of each helper per package; files under 750
+// loading; a search over a list's records runs on the server; a screen read names the request recovery banner only
+// when it asks for it; one copy of each helper per package; files under 750
 // lines and functions under 600. The server's action and error rules have no client counterpart, and a composable's
 // result is never held to Object.freeze.
 function clientFeaturesRules(severity) {
@@ -43,6 +44,7 @@ function clientFeaturesRules(severity) {
     "jskit/no-frozen-vue-state": severity,
     "jskit/selection-field": severity,
     "jskit/search-on-server": severity,
+    "jskit/request-recovery-label": severity,
     ...sizeLimitRules(severity)
   });
 }

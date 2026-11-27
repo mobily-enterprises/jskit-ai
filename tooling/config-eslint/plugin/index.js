@@ -28,6 +28,7 @@ import { oneLineAction } from "./rules/oneLineAction.js";
 import { onePropertyPerLine } from "./rules/onePropertyPerLine.js";
 import { playwrightLoginUnchanged } from "./rules/playwrightLoginUnchanged.js";
 import { releasedListeners } from "./rules/releasedListeners.js";
+import { requestRecoveryLabel } from "./rules/requestRecoveryLabel.js";
 import { requiredCollaborators } from "./rules/requiredCollaborators.js";
 import { selectionField } from "./rules/selectionField.js";
 import { searchOnServer } from "./rules/searchOnServer.js";
@@ -73,6 +74,7 @@ const jskitPlugin = Object.freeze({
     "no-frozen-vue-state": noFrozenVueState,
     "selection-field": selectionField,
     "search-on-server": searchOnServer,
+    "request-recovery-label": requestRecoveryLabel,
     "playwright-login-unchanged": playwrightLoginUnchanged,
     "no-direct-knex": noDirectKnex,
     "no-transaction-reader": noTransactionReader,
