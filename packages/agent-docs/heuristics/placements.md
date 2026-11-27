@@ -83,6 +83,7 @@ Authoring and inspection:
 
 Rules:
 
+- Page and surface extension goes through placements. Do not invent another page-extension seam (a custom registry, tags, an injection-only hook, a provider-owned section system) unless the person asks for a new pattern.
 - In JSKIT, tab-like links and shell/menu entries are often placement-owned, not page-owned.
 - When asked to change a tab or menu icon, inspect placement metadata before editing page components.
 - Look at placement `props`, especially fields such as `icon`, `prependIcon`, `appendIcon`, or props passed into the linked component token.

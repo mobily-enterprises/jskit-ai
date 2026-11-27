@@ -36,7 +36,7 @@
 - Default.
 - Mode: `interactive`
 - Runtimes: `nodejs`
-- Run `Develop`: `npm` `run` `docs:dev` `--` `--host` `0.0.0.0` `--port` `3000`
+- Run `Develop`: `npm` `run` `docs:dev` `--` `--host` `{host}` `--port` `{port}`
 
 #### Presentation
 
@@ -76,13 +76,16 @@
 
 - Adapter: `npm`
 - Manifest: `package.json`
+- Manifest: `packages/agent/package.json`
 - Manifest: `packages/agent-docs/package.json`
+- Manifest: `packages/agent-runtime/package.json`
 - Manifest: `packages/architecture-inspector/package.json`
 - Manifest: `packages/assistant-core/package.json`
 - Manifest: `packages/assistant-runtime/package.json`
 - Manifest: `packages/assistant-voice/package.json`
 - Manifest: `packages/assistant-voice-sherpa/package.json`
 - Manifest: `packages/auth-core/package.json`
+- Manifest: `packages/auth-pass/package.json`
 - Manifest: `packages/auth-provider-local-core/package.json`
 - Manifest: `packages/auth-provider-local-db-core/package.json`
 - Manifest: `packages/auth-provider-oidc-core/package.json`
@@ -102,6 +105,7 @@
 - Manifest: `packages/http-web/package.json`
 - Manifest: `packages/resource-runtime/package.json`
 - Manifest: `packages/kernel/package.json`
+- Manifest: `packages/material-web/package.json`
 - Manifest: `packages/mobile-capacitor/package.json`
 - Manifest: `packages/oidc-issuer-core/package.json`
 - Manifest: `packages/payments-core/package.json`
@@ -122,6 +126,7 @@
 - Manifest: `tooling/config-eslint/package.json`
 - Manifest: `tooling/jskit-catalog/package.json`
 - Manifest: `tooling/jskit-release/package.json`
+- Manifest: `tooling/testUtils/package.json`
 - Package root: `node_modules`
 
 ## Workspace setup
