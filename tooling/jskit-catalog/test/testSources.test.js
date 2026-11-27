@@ -62,6 +62,7 @@ const SERVER_TEST = [
   "  await Promise.race([work(), new Promise((_, reject) => setTimeout(() => reject(new Error(\"hung\")), 5000))]);",
   "  await new Promise((r) => { setTimeout(r, 20); });",
   "  await scheduler.wait(30);",
+  "  await setTimeout(40, \"value\");",
   "});",
   ""
 ].join("\n");
@@ -85,7 +86,8 @@ test("test/fixed-sleep names each fixed wait in an app's test files, and a fixed
       "tests/server/jobs.test.js:7 test/fixed-sleep",
       "tests/server/jobs.test.js:8 test/fixed-sleep",
       "tests/server/jobs.test.js:10 test/fixed-sleep",
-      "tests/server/jobs.test.js:11 test/fixed-sleep"
+      "tests/server/jobs.test.js:11 test/fixed-sleep",
+      "tests/server/jobs.test.js:12 test/fixed-sleep"
     ]);
     const result = await checkTestSources({ projectRoot: root });
     const message = (file, line) => result.findings.find((finding) => finding.file === file && finding.line === line)?.message;
@@ -226,7 +228,7 @@ test("jskit check fails on a test-source finding and names its rule, line and gu
     const result = await checkTestSources({ projectRoot: root });
     assert.equal(result.ok, true);
     assert.equal(formatTestSourcesReport(result),
-      "JSKIT test sources: no fixed waits, test database names of their own or generated files in src (1 test file(s) read).");
+      "JSKIT test sources: no fixed waits, pinned test database names or generated files in src (1 test file(s) read).");
     const { stdout } = await execFileAsync(process.execPath, [CLI_PATH, "check", "--root", root]);
     assert.match(stdout, /^JSKIT test sources: no fixed waits/mu);
   });
