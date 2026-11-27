@@ -430,6 +430,17 @@
     visibility: visible;
   }
 
+  /* An overlay ranks by its own z-index for axe as it does on screen. Vuetify places every dialog, menu, tooltip and
+     snackbar in an overlay container with `contain: layout` and `display: contents`: it draws no box, so for the
+     browser it contains nothing and makes no stacking context. axe-core 4.14 counts `contain: layout` as a stacking
+     context whatever the element draws, so it ranked the container at the page's base level and every overlay in it
+     under any of the page's content with a z-index of 1 or more; over such content it found the page over a dialog's
+     text and judged none of it (color-contrast incomplete, bgOverlap), on mobilynet's dialogs. The container's
+     `contain` is none, which the browser draws the same. */
+  .v-overlay-container {
+    contain: none;
+  }
+
   /* Segmented buttons (v-btn-toggle): a 40dp pill in the outline role whose segments share its width, each with a 48dp
      touch target. An unselected segment has no container; the selected one is secondary-container and leads with a
      check, which takes the place of its icon. */
