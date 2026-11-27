@@ -71,7 +71,8 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
      [data pass](references/data-pass.md),
      [security pass](references/security-pass.md),
      [user experience pass](references/ux-pass.md),
-     [speed pass](references/speed-pass.md).
+     [speed pass](references/speed-pass.md),
+     [test pass](references/test-pass.md).
    - Before writing a list, save, batch or test, a refactor, or calling work
      done, read [sanity checks](references/sanity-checks.md).
 
