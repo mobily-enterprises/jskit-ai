@@ -247,7 +247,7 @@ test("a jskit test --databases run whose database user may create only some numb
     assert.match(run.summary, new RegExp(`^2 of 3 test database\\(s\\) from ${base} ready in \\d+ms: `, "u"));
     assert.ok(run.summary.endsWith(`; the database user may not create ${base}_2`), run.summary);
   } finally {
-    assert.equal(await run.cleanup(), "dropped the run's 1 numbered test database(s)");
+    await run.cleanup();
   }
 });
 
@@ -308,6 +308,6 @@ test("a jskit test --databases run of 16 files at once on MySQL or MariaDB needs
       assert.equal((await databaseOf(db)).name, `${base}_a`);
     });
   } finally {
-    assert.equal(await run.cleanup(), "dropped the run's 15 numbered test database(s)");
+    await run.cleanup();
   }
 });
