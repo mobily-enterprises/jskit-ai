@@ -655,6 +655,36 @@ test("jskit browser-test-server stops its servers and drops its database copies 
   });
 });
 
+// A target's output can go before its stop does: a host's pseudo-terminal answers EIO once it has hung up, and a pipe
+// whose reader has gone answers EPIPE. Its servers' output still reaches the launcher's own, and a write that failed
+// there killed the launcher before its stop dropped the copies (Vibe64's two-size check left them at four workers).
+test("jskit browser-test-server whose output has gone still stops its servers and drops its database copies", async () => {
+  const loggingServer = APP_SERVER.replace("http.createServer((request, response) => {",
+    "http.createServer((request, response) => {\n  console.log(`the app server answers ${request.url}`);");
+  await withProject({
+    ...LAUNCHER_APP,
+    "server.mjs": loggingServer,
+    "tests/e2e/databases.mjs": PREPARE_WITH_COPIES,
+    "tests/e2e/sign-in.mjs": SIGN_IN,
+    "playwright.config.mjs": TARGET_CONFIG
+  }, async (root) => {
+    const port = await freeConsecutivePorts(3);
+    const target = serveTarget(root, ["127.0.0.1", String(port), "3"]);
+    try {
+      await outputMatches(target, [/^jskit browser tests: 3 server\(s\) ready/mu]);
+      // Its output's reader goes, and a server then writes through the launcher's output.
+      target.child.stdout.destroy();
+      target.child.stderr.destroy();
+      assert.equal((await fetch(`http://127.0.0.1:${port}/output-gone`)).status, 200);
+      assert.equal(await exitOf(target.child), 1, "a target whose output has gone stops");
+      for (const index of [0, 1, 2]) assert.equal(await answers(port + index), false);
+      assert.deepEqual(JSON.parse(await readFile(path.join(root, "dropped.json"), "utf8")), ["app_browser_1", "app_browser_2"]);
+    } finally {
+      if (target.child.exitCode === null) process.kill(-target.child.pid, "SIGKILL");
+    }
+  });
+});
+
 test("jskit browser-test-server serves as many app servers as a host asks, each on its own port and prepared database, prepared once", async () => {
   await withProject({
     ...LAUNCHER_APP,
