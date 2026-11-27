@@ -6,8 +6,9 @@
 // for its worker. Each server's output goes to test-results/browser-test-servers/worker-<n>.log; a server that stops
 // ends the run. A port that already answers is refused before anything is built or started: a server left there by an
 // earlier run would answer for this run's. Stopped by Playwright (SIGTERM), by Ctrl-C, by its terminal's hang-up (SIGHUP,
-// which a host such as Vibe64 sends a target's command first) or by the end of the stdin pipe Playwright gives its
-// webServer (a Playwright that ended without stopping it), the launcher stops its servers and waits for them, then
+// which a host such as Vibe64 sends a target's command first), by the end of the stdin pipe Playwright gives its
+// webServer (a Playwright that ended without stopping it) or by a write its output refused (a hung-up terminal answers
+// EIO, a pipe without a reader EPIPE), the launcher stops its servers and waits for them, then
 // drops the numbered database copies the prepare module made, within Playwright's grace, before it exits; it drops
 // them too when its start fails. `jskit browser-test-server` (browser-test-server.mjs) runs it
 // for one server a host starts, with `terminal`: that server's output also reaches the launcher's own. A run takes free
@@ -140,6 +141,9 @@ async function stopAndExit(code) {
 process.once("SIGINT", () => stopAndExit(130));
 process.once("SIGTERM", () => stopAndExit(143));
 process.once("SIGHUP", () => stopAndExit(129));
+// Its servers' output passes through its own, which can go before its stop does: a write that fails there stops it like
+// a signal, never as an uncaught error that would end it before its copies are dropped.
+for (const output of [process.stdout, process.stderr]) output.on("error", () => stopAndExit(1));
 // Only a pipe ends when Playwright does; a launcher started without one (stdin ignored, /dev/null) would end at once.
 const input = fstatSync(0);
 if (input.isFIFO() || input.isSocket()) {
