@@ -86,18 +86,53 @@ main-menu destinations show no arrow, a reload keeps the trail, and Save or
 Cancel never leaves the form in it. Find a field by its exact label:
 `page.getByLabel("Email", { exact: true })`.
 
-Where the host provides a managed browser runner, every Playwright suite runs
-through it from the first run, never through `npx playwright test`,
-`playwright test` or a package script such as `npm run test:e2e`. The host owns
-its browser and may provide `PLAYWRIGHT_STORAGE_STATE`; never print or commit
-that value, bypass it, or install another browser. If tests run signed out
-despite that state, report the host defect with evidence and stop; never
-rewrite its cookies or add a login.
+Where the host provides a managed browser runner, such as Vibe64's, every
+Playwright suite runs through it from the first run, on a declared test target:
+give the runner the package script (on Vibe64,
+`vibe64-helper playwright --target test-app npm-run test:e2e`), and never start
+`npx playwright test`, `playwright test` or `npm run test:e2e` yourself. Specs
+that write run only on a test target with its own database, never on the
+person's development target or database. The host owns its browser and may
+provide `PLAYWRIGHT_STORAGE_STATE`; never print or commit that value, bypass
+it, or install another browser. If tests run signed out despite that state,
+report the host defect with evidence and stop; never rewrite its cookies or add
+a login.
+
+A test target runs `jskit browser-test-server` on the host's ports: `{workers}`
+servers of the app's own `browserTestConfig()`, each with the production build,
+the database its `prepare` module gives that worker and `APP_ENV=test`. Keep
+`BROWSER_TEST_DB_NAME` distinct from `TEST_DB_NAME`, which the Node tests'
+copies come from. A Vibe64 project declares it in `genesis/stack.md`'s
+`## Outputs` (Genesis's `jskit` Stack piece writes it into a new project); one
+without it adds:
+
+```md
+### Target `test-app`: Test Preview
+
+- Mode: `interactive`
+- Data: `test`
+- Runtimes: `nodejs`
+- Run `Serve on the test database`: `node_modules/.bin/jskit` `browser-test-server` `{host}` `{port}` `{workers}`
+
+#### Presentation
+
+- Kind: `web`
+- URL path: `/`
+- Ready when: `GET` `/api/health` returns `200`
+```
+
+The build and the snapshot are reused while their sources are unchanged, so a
+focused check never rebuilds them. After a change to the browser-test setup,
+run the suite twice: the second run says `Frontend build unchanged, reused` and
+passes the same tests.
+
 For explicitly enabled direct-local auth, use
 `loginAsExistingUser()` from `@jskit-ai/auth-web/test/playwright`; never expose
 the exchange secret to browser code, URLs, or client environment.
 
-Without a managed runner, run the narrow test directly:
+Without a managed runner, `npm run test:e2e` runs the whole suite locally,
+each worker on its own server, port and database; run the narrow test
+directly:
 
 ```bash
 npx playwright test <test-file> -g "<changed behavior>"

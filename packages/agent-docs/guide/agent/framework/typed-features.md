@@ -1069,7 +1069,8 @@ its own app server, and no more than the memory available holds at the peak
 the last run's largest app server reached.**
 
 - The budget is `V64_TEST_CONCURRENCY` when it is a positive whole number (a
-  test runner that hands out slots exports it for each run), otherwise half of
+  host's variable, not JSKIT's: the budget a host or test runner sets for the
+  machine's test slots, read when set), otherwise half of
   the CPUs the process may use, rounded down and at least 1: a 2-vCPU VPS runs
   one file at a time, an 8-thread machine four, and a container or slice whose
   cgroup `cpu.max` quota gives it 3 CPUs of a 16-thread machine one
@@ -1134,6 +1135,17 @@ the last run's largest app server reached.**
   `// jskit-test: alone - <reason>`. `jskit test` runs it after the others,
   one such file at a time, and fails on a marker without a reason or below the
   first line.
+- Tests never reach an outside service, even when a developer's real keys sit
+  in the environment they inherit. Every Node process `jskit test` and the
+  browser test servers start, and every one those start, connects only to
+  loopback, `localhost`, unix sockets and the database host the environment
+  names (`DB_HOST`, `DATABASE_URL`); any other connection fails before its
+  name is looked up, with `JSKIT_TEST_NETWORK_REFUSED` naming the host. Stub
+  the service at the seam the app already uses: an injected client or provider
+  double, or a test-only env value pointing at a local fake. A test file that
+  must reach one says why on its first line,
+  `// jskit-test: network - <reason>`, and `jskit test` runs it without the
+  guard, after the others; a marker without a reason fails the run.
 - `jskit test` ends with its 10 slowest test files and tests, records each
   file's time in `node_modules/.cache/jskit-test/file-times.json`, and fails
   when a file takes more than 10 minutes or the whole command more than 45:
@@ -1408,12 +1420,63 @@ that must run alone says so on its own first line instead.
 | `test/playwright-isolation` | a Playwright webServer every worker shares, without `browserTestConfig()` | [Test files run in parallel](#test-files-run-in-parallel) |
 | `test/playwright-global-timeout` | a Playwright config without a `globalTimeout` (or `browserTestConfig()`), or with `globalTimeout: 0` | [Test files run in parallel](#test-files-run-in-parallel) |
 | `test/vitest-workers` | `--maxWorkers`, `--minWorkers` or `--no-file-parallelism` passed to Vitest, or its config without `maxWorkers: testConcurrency()` or with `fileParallelism: false` | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/script-files` | a script that gives `jskit test` files or globs (`jskit test --databases tests/*.test.js`), so `npm test -- <file>` runs every file and that one; drop them, as `jskit test` finds test files by node's default pattern | [Test files run in parallel](#test-files-run-in-parallel) |
 
 The rules see shapes, not intent. Feature files, owned state beyond
 registries, shutdown, loggers, shared action fields, strict inputs, the action
 policy, request context, validated input, one reader per fact, routes,
 internal failures, swallowed failures, test doubles, tests as callers, data
 modules and names are checked by reading.
+
+### Test-source rules
+
+`jskit check` also reads an application's test files (`*.test.*`,
+`*.spec.*` and every file under a `test` or `tests` folder), its test
+scripts, its Playwright and Vitest configs, its CI workflows and its root
+Vite config, and reports what makes a test run slow, fragile or unsafe.
+
+| Rule | Reports | Fix |
+| --- | --- | --- |
+| `test/fixed-sleep` | in a test file, `page.waitForTimeout(…)`, a `new Promise` that resolves on `setTimeout(…, <ms>)`, or an awaited `setTimeout`, `sleep`, `delay`, `wait` or `pause` of a number of milliseconds | wait for the condition: a web-first assertion (`await expect(locator).toBeVisible()`), `expect.poll()`, the event itself, or a fake clock (`mock.timers`, `vi.useFakeTimers()`, `page.clock`) |
+| `test/fixed-database-name` | a test script that sets `TEST_DB_NAME`, `BROWSER_TEST_DB_NAME` or `DB_NAME`; a test file or runner config that falls back to or assigns a name for one (`process.env.TEST_DB_NAME \|\| "shop_test"`); a runner config that names one (`DB_NAME: "shop_e2e"`) | drop the name: the run's test-only env file or the host names the database, `jskit test --databases` gives each test file its own copy of `TEST_DB_NAME`, and `browserTestConfig()`'s `prepare` module derives each worker's from `BROWSER_TEST_DB_NAME` |
+| `test/test-database-is-app-database` | a CI workflow whose `TEST_DB_NAME` or `BROWSER_TEST_DB_NAME` is its `DB_NAME`, by value or as an `env.DB_NAME` expression | give it a name of its own, such as `<DB_NAME>_test`: a test run replaces its test databases from the snapshot, and JSKIT refuses to run one on `DB_NAME` |
+| `test/generated-into-src` | a `dts` path under `src/` in the root `vite.config.*`, such as vue-router's `src/typed-router.d.ts` or a components declaration file | write it outside `src`, such as `dts: "types/typed-router.d.ts"`, and move the file and its `.gitignore` line: a file written into `src` while the frontend builds keeps the browser tests from reusing that build (`not kept for reuse, as src changed while it ran`) |
+
+A 0 ms timer yields a turn and is not reported. The one fixed wait a test
+needs is a window that proves nothing happens, such as no second read within
+it, and it says so on the line before, with its reason; a marker without a
+reason is a finding itself, and no other comment excuses these rules:
+
+```js
+// jskit-test: fixed-wait - the window in which the list must make no second read
+await page.waitForTimeout(2000);
+```
+
+Why: a fixed sleep makes every run as slow as its longest guess and fails on
+a loaded machine; a test database name in the project makes two runs wipe
+each other's rows; a test database that is the application's own is replaced
+from the snapshot; and a build that writes into its own sources is never
+reused.
+
+### Agent instructions
+
+`npx jskit agents` writes JSKIT's app guidance, the guide's links and the
+rules no check enforces, in the app's `AGENTS.md`, between these markers:
+
+```md
+<!-- jskit:begin app guidance (written by npx jskit agents; edit outside this block) -->
+<!-- jskit:end app guidance -->
+```
+
+It replaces what lies between them and leaves the text outside as it is; in a
+file without them it puts the block at the top, and it makes the file when
+there is none. `npm run jskit:update` writes it after updating the packages, so
+commit `AGENTS.md` with the manifests. Write the app's own rules outside the
+block.
+
+| Rule | Reports | Section |
+| --- | --- | --- |
+| `agents/jskit-block` | an app whose `package.json` declares `@jskit-ai/jskit-catalog` without that catalog's block in `AGENTS.md`, or with the block changed | [Agent instructions](#agent-instructions) |
 
 ### Exceptions
 

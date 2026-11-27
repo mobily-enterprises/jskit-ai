@@ -56,9 +56,12 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [User experience pass](/guide/framework/ux-pass): navigation, the next
   action, form defaults, where a save lands, undo and the words people read,
   each main task walked before and after
-- [Speed pass](/guide/framework/speed-pass): test suite time, parallel files and
-  preparation once per run, first-load chunks, requests per screen and route
-  times, each measured before and after
+- [Speed pass](/guide/framework/speed-pass): first-load chunks, requests per
+  screen and route times, each measured before and after
+- [Test pass](/guide/framework/test-pass): the command, file or check that
+  proves each item of a test pass: test rules, parallel runs, per-file
+  databases, refused outside connections, browser tests on the built app and
+  what a JSKIT update breaks
 - [Sanity checks](/guide/framework/sanity-checks): JSKIT's own pitfalls, and
   the JSKIT calls that check data access, tests, a refactor, a screen or a
   deployment before calling it done
@@ -121,4 +124,5 @@ documents and examples, but no agent host is required to install it.
 There are no source-generator chapters. Package-owned patterns replace their
 useful source examples; questionnaire, mutation, and provenance machinery is
 not part of JSKIT. The supported `jskit update` and `jskit check` commands own
-only dependency manifests and lockfile conformance.
+only dependency manifests, lockfile conformance and the JSKIT block of the
+app's `AGENTS.md`.

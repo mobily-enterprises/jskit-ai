@@ -11,6 +11,7 @@ import {
   formatCheckReport,
   formatExportSummary
 } from "./i18n.mjs";
+import { checkAgentsBlock, formatAgentsBlockReport, formatAgentsBlockWrite, writeAgentsBlock } from "./agents-block.mjs";
 import { serveBrowserTestTarget } from "./browser-test-server.mjs";
 import { checkDataAccess, formatDataAccessReport } from "./data-access.mjs";
 import { checkManifestCapabilities, formatManifestCapabilitiesReport } from "./manifest-capabilities.mjs";
@@ -20,6 +21,7 @@ import { checkProject, updateProject } from "./project-packages.mjs";
 import { runTests } from "./test-command.mjs";
 import { runMigrationHistory } from "./test-databases.mjs";
 import { checkTestRuns, formatTestRunsReport } from "./test-runs.mjs";
+import { checkTestSources, formatTestSourcesReport } from "./test-sources.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
@@ -32,6 +34,7 @@ function usage() {
     "  jskit update [--root <path>] [--no-install] [--manifest <path> ...]",
     "  jskit check [--root <path>] [--manifest <path> ...]",
     "  jskit check m3 [<path> ...] [--root <path>]",
+    "  jskit agents [--root <path>]",
     "  jskit i18n export <locale> [--root <path>]",
     "  jskit i18n check <locale> [--root <path>]",
     "  jskit package nix [--root <path>]",
@@ -41,7 +44,8 @@ function usage() {
     "  jskit browser-test-server [host] [port] [workers]",
     "",
     "Commands:",
-    "  update       Align root and workspace @jskit-ai/* declarations to this published catalog, then run npm install.",
+    "  update       Align root and workspace @jskit-ai/* declarations to this published catalog, run npm install, and",
+    "               write this catalog's JSKIT block in AGENTS.md (jskit agents).",
     "  check        Fail when manifests or package-lock.json contain stale, mixed, or private singleton JSKIT stacks,",
     "               or when application source breaks a rule of the JSKIT Material 3 guide: a navigation rule (nav/*),",
     "               such as history or window.location navigation, a hand-built in-app path, a back control other than",
@@ -56,8 +60,14 @@ function usage() {
     "               budget, as each worker drives a browser and often its own app server). A Playwright",
     "               config with a webServer uses browserTestConfig() of @jskit-ai/jskit-catalog/browser-tests (one",
     "               production-build server and database per worker), never a development server, and every one",
-    "               has a globalTimeout. It fails when two table resources (defineTableResource) of the app and its",
-    "               installed JSKIT packages share a table or a name (data/one-resource-per-table), or when a system",
+    "               has a globalTimeout. It fails on the app's test sources (test/*): a test file that waits a fixed",
+    "               time (waitForTimeout, a setTimeout promise, an awaited sleep) without `// jskit-test: fixed-wait -",
+    "               <reason>` on the line before, a test script, runner config or test file that names the test",
+    "               database itself, a script that gives jskit test its files (so npm test -- <file> would run them",
+    "               all), a CI workflow whose TEST_DB_NAME or BROWSER_TEST_DB_NAME is its DB_NAME, and a root Vite",
+    "               config whose dts writes a generated file into src. It fails when two table resources",
+    "               (defineTableResource) of the app and its installed JSKIT packages share a table or a name",
+    "               (data/one-resource-per-table), or when a system",
     "               scope (a feature's systemScope, a systemContext() call) gives no literal reason (data/system-scope),",
     "               and it lists every system scope and every file the infrastructure exception lifts past the",
     "               data-access lint rules for review. It fails when an application package's manifest",
@@ -68,10 +78,14 @@ function usage() {
     "               that jskit package nix wrote, it fails when that file is not the one this release writes",
     "               (package/nix-current), when package.json lacks what the package needs (package/nix-manifest), or",
     "               when package-lock.json names a dependency a build with no network cannot fetch by its hash",
-    "               (package/nix-offline).",
+    "               (package/nix-offline). In an app whose package.json declares @jskit-ai/jskit-catalog, it fails when",
+    "               AGENTS.md lacks this catalog's JSKIT block, or its block differs (agents/jskit-block).",
     "  check m3     Check application UI source against the JSKIT Material 3 guide alone, with each finding's guide",
     "               section and every exception: the whole app, or only the given files and directories (a section,",
     "               or a task's changed files). Plain jskit check applies the same rules to the whole app.",
+    "  agents       Write this catalog's JSKIT app guidance (the guide's links and the rules no check enforces) in",
+    "               AGENTS.md: between its JSKIT markers, or at the top of a file without them, made if absent. Text",
+    "               outside the markers stays as it is.",
     "  i18n export  Write the English messages of the installed JSKIT packages to src/locales/<locale>/jskit.json",
     "               for translators, keeping existing translations and extra keys.",
     "  i18n check   Compare src/locales/<locale>/jskit.json with the installed packages' English; fail on missing keys,",
@@ -86,7 +100,10 @@ function usage() {
     "  test         Run node --test with these arguments, test files in parallel within the machine's test budget:",
     "               V64_TEST_CONCURRENCY when it is a positive whole number, otherwise half of the machine's CPUs",
     "               (at least 1). A file whose first line is `// jskit-test: alone - <reason>` runs after the others,",
-    "               on its own. With --databases, each file running at once gets its own copy of TEST_DB_NAME,",
+    "               on its own. Test files, and the processes they start, connect only to loopback, unix sockets and",
+    "               the database host (DB_HOST, DATABASE_URL): any other connection fails with",
+    "               JSKIT_TEST_NETWORK_REFUSED, unless the file's first line is `// jskit-test: network - <reason>`.",
+    "               With --databases, each file running at once gets its own copy of TEST_DB_NAME,",
     "               restored from a schema snapshot (the app's knexfile.js and @jskit-ai/database-runtime), rows",
     "               included, before each file, with the app's DB_CLIENT. With no usable TEST_DB_NAME, the files",
     "               run one at a time on the connected database; a run that gets fewer databases than its budget",
@@ -178,6 +195,15 @@ function parseArgs(argv = []) {
   }
   if (command === "check" && positionals.length > 0) {
     return parseMaterial3Args(options, positionals);
+  }
+  if (command === "agents") {
+    if (options.additionalManifests) {
+      throw new Error("--manifest is only valid with jskit update and jskit check.");
+    }
+    if (!options.install) {
+      throw new Error("--no-install is only valid with jskit update.");
+    }
+    return { command, projectRoot: options.projectRoot };
   }
   if (command !== "update" && command !== "check") {
     throw new Error(usage());
@@ -323,6 +349,10 @@ async function main(argv = process.argv.slice(2)) {
     await serveBrowserTestTarget(options.args);
     return;
   }
+  if (options.command === "agents") {
+    process.stdout.write(`${formatAgentsBlockWrite(await writeAgentsBlock(options))}\n`);
+    return;
+  }
 
   const catalog = await readCatalog();
   if (options.command === "update") {
@@ -364,6 +394,7 @@ async function main(argv = process.argv.slice(2)) {
         "before the app serves requests.\n"
       );
     }
+    process.stdout.write(`${formatAgentsBlockWrite(await writeAgentsBlock(options))}\n`);
     return;
   }
 
@@ -375,9 +406,11 @@ async function main(argv = process.argv.slice(2)) {
   });
   const ui = await checkMaterial3({ projectRoot: options.projectRoot });
   const tests = await checkTestRuns({ projectRoot: options.projectRoot, manifests: result.manifests });
+  const sources = await checkTestSources({ projectRoot: options.projectRoot });
   const data = await checkDataAccess({ projectRoot: options.projectRoot });
   const capabilities = await checkManifestCapabilities({ projectRoot: options.projectRoot, manifests: result.manifests });
   const nixPackage = await checkPackageNix({ projectRoot: options.projectRoot });
+  const agents = await checkAgentsBlock({ projectRoot: options.projectRoot });
   // The data rules first: a graph that fails on many pin versions would otherwise bury them.
   const reports = [
     formatDataAccessReport(data),
@@ -387,10 +420,12 @@ async function main(argv = process.argv.slice(2)) {
       : `JSKIT project graph is inconsistent:\n- ${result.issues.join("\n- ")}`,
     formatMaterial3Report(ui),
     formatTestRunsReport(tests),
+    formatTestSourcesReport(sources),
     formatManifestCapabilitiesReport(capabilities),
-    formatPackageNixReport(nixPackage)
+    formatPackageNixReport(nixPackage),
+    formatAgentsBlockReport(agents)
   ];
-  if (!result.ok || !ui.ok || !tests.ok || !data.ok || !capabilities.ok || !nixPackage.ok) {
+  if (!result.ok || !ui.ok || !tests.ok || !sources.ok || !data.ok || !capabilities.ok || !nixPackage.ok || !agents.ok) {
     throw new Error(reports.join("\n"));
   }
   process.stdout.write(`${reports.join("\n")}\n`);

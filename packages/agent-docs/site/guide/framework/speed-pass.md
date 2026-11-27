@@ -1,11 +1,11 @@
 ---
 title: Speed pass
-description: Where a JSKIT app's tests, screens and server spend their time, the JSKIT tools that measure each wait, and the fixes each one takes.
+description: Where a JSKIT app's screens and server spend their time, the JSKIT tools that measure each wait, and the fixes each one takes.
 ---
 
 # Speed pass
 
-A speed pass makes an app and its tests take the time their work needs.
+A speed pass makes an app take the time its work needs.
 Genesis's speed pass skill (`genesis-speed-pass`) holds the method: measure
 each wait first on a realistic build at realistic sizes, fix its cause, measure
 again the same way, and never raise a time limit, add retries, or shrink
@@ -16,97 +16,8 @@ are already in [Typed features](/guide/framework/typed-features),
 [Data access](/guide/framework/data-access) and the
 [sanity checks](/guide/framework/sanity-checks). Query counts, narrowing and
 indexes belong to the [data pass](/guide/framework/data-pass): when a wait is
-database time, apply that page to the path.
-
-## Test speed
-
-### Measure
-
-- `jskit test` starts by saying how many test files it runs at a time and
-  where that number came from (`V64_TEST_CONCURRENCY`, or half of the
-  machine), and ends with its 10 slowest test files and tests; each file's time
-  is kept in `node_modules/.cache/jskit-test/file-times.json`. Time the whole
-  command too (`time npm test`): a wall time close to the sum of the files'
-  times means they ran one after another
-  ([Test files run in parallel](/guide/framework/typed-features#test-files-run-in-parallel)).
-- Test database preparation reports each phase and its duration
-  ([Test databases are prepared once](/guide/framework/typed-features#test-databases-are-prepared-once)).
-  Read them: slow preparation otherwise hides inside the first test that waits
-  for it.
-- Every Playwright run through `browserTestConfig()` ends with its 10 slowest
-  tests. Compare a slow spec's time with the time of the app's requests it
-  makes, so you know whether the test or the app is slow.
-- Take the baseline from one whole run of each part (the database tests, the
-  browser tests), its files in parallel at the real `V64_TEST_CONCURRENCY`:
-  its per-file times are the baseline table. After a batch of fixes, run the
-  part again for the times after, and compare per file and in total. A
-  single-file run (`npm test -- <file>`) is for one change's red and green,
-  never the way to take a baseline or a before-and-after table, and never one
-  of serial runs queued one after another. Run where the project's test
-  machine runs (inside Vibe64, `vibe64-helper check`), not on a shared
-  development host; a time taken while other work loads the machine is
-  reported as such and never used as a baseline.
-
-### Fix
-
-- Scripts run `jskit test` (`jskit test --databases` for database tests), and
-  Playwright and Vitest take their workers from `testConcurrency()`. `jskit
-  check` reports a script that runs `node --test` directly, passes a fixed
-  concurrency or pins `V64_TEST_CONCURRENCY`, and a Playwright or Vitest config
-  that runs files one at a time ([test-run rules](/guide/framework/typed-features#test-run-rules)).
-- Files that collide are isolated, never run one at a time: a port from
-  `listen(0)`, a directory from `mkdtemp`, the database `jskit test --databases`
-  gives each file, a scratch database from
-  `createPackageTestKnex(t, { environment: process.env })` for a test that
-  needs an empty one (or several), another copy of the snapshot, rows
-  included, from `claimTestDatabaseCopy(t, { environment: process.env })` for
-  a test that needs a second one, and a Vite `cacheDir` of its own. On MySQL
-  and MariaDB, `resetTestDatabase({ environment: process.env })` gives a test
-  its file's copy afresh mid-file, replacing only the tables written since;
-  never build global-setup slots of your own. The
-  `// jskit-test: alone - <reason>` marker is only for a file that holds a
-  resource of the whole machine.
-- A `jskit test --databases` run whose databases let fewer files run at once
-  than the budget (no `TEST_DB_NAME`, or copies the database user may not
-  create) says why at its start and end and fails: give the user its copies
-  ([Integration test databases](/guide/app-setup/database-layer#integration-test-databases)).
-- `jskit test --databases` restores each file's database from a snapshot
-  rebuilt only when the migrations' digest changes. A file that runs
-  `knex.migrate.latest()` itself replays the whole history for every file:
-  remove it, and let the full history run once in its own check,
-  `jskit migration-history`.
-- A fixture every file only reads (a built app, a composed project, a
-  generated tree) is made once, before any file starts, by a global setup
-  module: `jskit test --test-global-setup=tests/helpers/globalSetup.js`
-  (`jskit test` passes its arguments to `node --test`). Its `globalSetup()`
-  makes the fixture and puts its location in an environment variable the test
-  processes inherit; its `globalTeardown()` removes it. A file run on its own
-  makes the fixture itself when the variable is absent, and a test that writes
-  into the fixture makes its own copy.
-- `browserTestConfig()` builds the production frontend once and gives each
-  worker its own server, port and seeded database; with a `signIn` module
-  each worker signs in once. A check of what a component shows belongs in a
-  Vitest component test, and a new browser check is an assertion in the spec
-  that already reaches that screen.
-- Wait for the condition, never for time: Playwright's web-first assertions
-  (`await expect(locator).toBeVisible()`, `await expect(page).toHaveURL(...)`)
-  instead of `page.waitForTimeout()`. The app's own delays (retry backoff,
-  debounce, polling) run on a fake clock: `mock.timers` in `node:test`,
-  `vi.useFakeTimers()` in Vitest and `page.clock` in Playwright.
-- A file imports what it needs at its top level, so loading counts against the
-  file, not against a test's time limit. `jskit test` keeps Node's compile
-  cache in `node_modules/.cache/jskit-node-compile-cache`, so each file's
-  process loads the modules the files before it compiled.
-- The bounds stay: `jskit test`'s 10 minutes a file and 45 a run,
-  `browserTestConfig()`'s `actionTimeout` (15 s), `navigationTimeout` (30 s)
-  and `globalTimeout`. A bound in `test-time-bounds.json` rises only with a
-  measurement of the work's real need; a file that got slow is fixed instead.
-
-### Prove
-
-Run the whole suite before and after on the project's test machine with the
-same `V64_TEST_CONCURRENCY`, and report the wall time, each preparation phase, the
-slowest files and the test counts, which stay the same.
+database time, apply that page to the path. The test suite's time belongs to
+the [test pass](/guide/framework/test-pass).
 
 ## Client speed
 
@@ -211,4 +122,5 @@ Report each main route's time before and after, with its statement count, at
 the realistic size, the first after boot and later ones. Keep an
 `expectFlatQueries()` test for each path whose count you changed.
 
-Then run `npx jskit check` and `npm run verify`.
+Then run `npx jskit check`. `npm run verify`, the whole run, runs once, at the
+end, only with the person's OK.

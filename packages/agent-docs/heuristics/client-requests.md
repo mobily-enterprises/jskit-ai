@@ -11,10 +11,12 @@ Use when:
 Rules:
 
 - Prefer the highest-level JSKIT runtime that matches the UI interaction.
-- Do not hand-roll local AJAX helpers when an existing JSKIT runtime already fits.
+- Do not hand-roll local AJAX helpers or bespoke command flows when an existing JSKIT runtime already fits.
 - Do not use raw `fetch(...)` for normal app work.
 - Use `usePaths().api(...)` from `@jskit-ai/shell-web/client/navigation/usePaths` for custom scoped API paths instead of concatenating route params into URLs by hand.
 - Drop to `httpWebClient.request(...)` only for exceptional low-level cases.
+- A screen on these runtimes ends as one slim `use<Name>()` call plus its template, with at most one or two small local helpers. Do not build a local orchestration layer around them.
+- For a collection, use the standard list and add/edit runtimes when they fit, not a custom command that submits the whole list.
 
 Choose the function like this:
 

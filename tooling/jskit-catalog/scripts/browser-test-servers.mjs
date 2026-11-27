@@ -13,7 +13,8 @@
 // (database-runtime's prepareTestDatabases()). `jskit browser-test-server` (browser-test-server.mjs) runs it
 // for one server a host starts, with `terminal`: that server's output also reaches the launcher's own. A run takes free
 // ports of its own, so its worker environments and signed-in states have names of their own; the launcher removes them
-// when it stops, so they never pile up in the cache, nor outlive the sessions they hold.
+// when it stops, so they never pile up in the cache, nor outlive the sessions they hold. Each app server, and what it
+// starts, reaches only this machine and the test database (test-network-guard.mjs).
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createWriteStream, fstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
@@ -24,6 +25,7 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { buildFrontend } from "./browser-test-build.mjs";
 import { useTestAppEnvironment } from "./test-environment.mjs";
+import { networkGuardEnvironment } from "./test-network-guard.mjs";
 
 const SETTINGS_VARIABLE = "JSKIT_BROWSER_TESTS";
 const LOG_DIRECTORY = path.join("test-results", "browser-test-servers");
@@ -240,15 +242,18 @@ try {
   mkdirSync(path.dirname(workerEnvironmentsFile), { recursive: true });
   writeFileSync(workerEnvironmentsFile, JSON.stringify(workerEnvironments.slice(0, workers)), { mode: 0o600 });
   const [program, ...args] = words(server);
-  const serverEnvironments = workerEnvironments.slice(0, workers).map((workerEnvironment, index) => ({
-    ...baseEnvironment,
-    ...env,
-    ...workerEnvironment,
-    HOST: host,
-    PORT: String(basePort + index),
-    TEST_PARALLEL_INDEX: String(index),
-    APP_ENV: "test"
-  }));
+  const serverEnvironments = workerEnvironments.slice(0, workers).map((workerEnvironment, index) => {
+    const serverEnvironment = {
+      ...baseEnvironment,
+      ...env,
+      ...workerEnvironment,
+      HOST: host,
+      PORT: String(basePort + index),
+      TEST_PARALLEL_INDEX: String(index),
+      APP_ENV: "test"
+    };
+    return { ...serverEnvironment, ...networkGuardEnvironment(serverEnvironment, "jskit browser tests") };
+  });
   await Promise.all(serverEnvironments.map((serverEnvironment, index) => {
     const baseUrl = baseUrls[index];
     const name = `The browser test server of worker ${index} (${baseUrl})`;

@@ -83,6 +83,11 @@ installation, or validation fails, it restores the previous manifests,
 lockfile, and installed tree before reporting the failure. Resolve the reported
 registry or real peer problem and rerun `npm run jskit:update`.
 
+The updater then writes the catalog's JSKIT block in `AGENTS.md`, as
+`npx jskit agents` does ([Agent instructions](/guide/framework/typed-features#agent-instructions)):
+commit it with the manifests. Delete any JSKIT guidance the app copied into
+`AGENTS.md` from a foundation or starter, which the block now carries.
+
 When the install brings package migrations the application has not had, the
 updater lists each one (`<package>: <file>`) and says to run
 `npm run db:migrate`. Run it, on every database the application uses, before
@@ -288,9 +293,14 @@ application:
 5. Proves it with a timed full run: `npm test` and the whole Playwright suite,
    every test passing, the time of each before and after recorded, and the
    slowest tests the run lists read. Where the host provides a managed browser
-   runner, every Playwright suite runs through it from the first run, never
-   through `npx playwright test`, `playwright test` or a package script such
-   as `npm run test:e2e`. Elsewhere the suite is `npx playwright test`.
+   runner, such as Vibe64's, every Playwright suite runs through it from the
+   first run, on a declared test target: give the runner the package script (on
+   Vibe64, `vibe64-helper playwright --target test-app npm-run test:e2e`), and
+   never start `npx playwright test`, `playwright test` or `npm run test:e2e`
+   yourself. Specs that write run only on a test target with its own database,
+   never on the person's development target or database.
+   [Browser verification](/guide/framework/ui-operations#browser-verification)
+   shows the target. Elsewhere the suite is `npm run test:e2e`.
 
 ## Cache built assets for good
 

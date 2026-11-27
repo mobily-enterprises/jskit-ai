@@ -14,6 +14,17 @@ Use this on demand; do not load the full index at startup.
 
 ### scripts
 
+### `scripts/agents-block.mjs`
+Exports
+- `checkAgentsBlock({ projectRoot })`
+- `formatAgentsBlockReport(result)`
+- `formatAgentsBlockWrite({ version, placed, changed })`
+- `writeAgentsBlock({ projectRoot })`
+Local functions
+- `readOptional(file)`
+- `catalogBlock()`
+- `locateBlock(text)`
+
 ### `scripts/browser-test-build.mjs`
 Exports
 - `buildFrontend({ appRoot = process.cwd(), build = "npm run build", run = runToCompletion } = {})`
@@ -430,10 +441,10 @@ Exports
 Local functions
 - `findTestFiles(patterns, cwd)`
 - `missedTestFiles(defaultFiles, cwd)`
-- `readAloneFiles(files, cwd)`
-- `aloneDestination(destination)`
-- `aloneRunOptions(options)`
-- `aloneShard(files, options)`
+- `readMarkedFiles(files, cwd)`
+- `markedDestination(destination, kind)`
+- `markedRunOptions(options, kind)`
+- `markedShard(files, options)`
 - `databaseShortfall(databases, asked)`
 - `runNode(args, env)`
 - `listTestFiles(args)`
@@ -459,6 +470,25 @@ Exports
 - `STOPPED_PREFIX`
 - `STOPS_VARIABLE`
 
+### `scripts/test-network-guard-preload.mjs`
+Exports
+- None
+
+### `scripts/test-network-guard.mjs`
+Exports
+- `NETWORK_GUARD_PRELOAD`
+- `NETWORK_GUARD_VARIABLE`
+- `NETWORK_REFUSED_CODE`
+- `installNetworkGuard({ env = process.env, command = env[NETWORK_GUARD_VARIABLE] || "jskit test", stderr = process.stderr } = {})`
+- `isAllowedTestHost(host, env)`
+- `networkGuardEnvironment(env, command)`
+- `withoutNetworkGuard(nodeOptions)`
+Local functions
+- `hostName(host)`
+- `databaseHosts(env)`
+- `refusal(command, host, port)`
+- `connectTarget(args)`
+
 ### `scripts/test-runs.mjs`
 Exports
 - `checkTestRuns({ projectRoot, manifests })`
@@ -476,6 +506,26 @@ Local functions
 - `checkPlaywrightIsolation({ file, source, report })`
 - `checkLoggerLevel({ root, report })`
 - `checkRunnerConfig({ root, configPath, directory, runner, report })`
+
+### `scripts/test-sources.mjs`
+Exports
+- `checkTestSources({ projectRoot })`
+- `formatTestSourcesReport(result)`
+Local functions
+- `listFiles(root, relative = "")`
+- `listWorkflows(root)`
+- `isTestFile(file)`
+- `asNumber(literal)`
+- `fixedWait(line)`
+- `checkFixedWaits(file, lines, report)`
+- `checkDatabaseNames(file, lines, { configFile }, report)`
+- `lineOf(contents, needle, after = "")`
+- `jskitTestFiles(script)`
+- `checkScripts(file, contents, report)`
+- `unquoted(value)`
+- `workflowPairs(lines)`
+- `checkWorkflow(file, lines, report)`
+- `checkViteConfig(file, contents, report)`
 
 ### `scripts/test-time-report.mjs`
 Exports

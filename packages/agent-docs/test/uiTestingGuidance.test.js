@@ -83,6 +83,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "sanity-checks.md",
     "security-pass.md",
     "speed-pass.md",
+    "test-pass.md",
     "translation.md",
     "typed-features.md",
     "ui-operations.md",
@@ -217,26 +218,60 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(uxReference, /action: \{ label, handler \}/u);
   assert.match(skill, /\[user experience pass\]\(references\/ux-pass\.md\)/u);
   const speedReference = passReference("speed-pass.md");
-  assert.match(speedReference, /`V64_TEST_CONCURRENCY`/u);
-  assert.match(speedReference, /`jskit test --test-global-setup=/u);
   assert.match(speedReference, /never a limit to\s+raise with `build\.chunkSizeWarningLimit`/u);
   assert.match(speedReference, /\[Provider subpaths\]\(client-features\.md#provider-subpaths\)/u);
   assert.match(speedReference, /`filter\[id\]`/u);
   assert.match(speedReference, /\[data pass\]\(data-pass\.md\)/u);
-  // Timings come from whole parallel runs on the test machine, never from single files run in turn; a file that needs a
-  // second copy of the snapshot, or its own afresh, has a supported way to get it. Matched across line breaks.
+  // The suite's speed moved to the test pass, which one pass owns; the speed pass keeps the app's client and server,
+  // runs its whole check only with the person's OK, and names no host's own command.
+  assert.doesNotMatch(speedReference, /^## Test speed$/mu);
+  assert.doesNotMatch(speedReference, /`V64_TEST_CONCURRENCY`|`jskit test --test-global-setup=|vibe64-helper/u);
+  assert.match(speedReference, /\[test pass\]\(test-pass\.md\)/u);
+  assert.match(speedReference, /`npm run verify`[^.]*only with the person's OK/u);
+  const testReference = passReference("test-pass.md");
+  for (const heading of [
+    "## Run the checks first", "## Map and measure the suite", "## Each test proves a behavior", "## Each file owns what it uses",
+    "## Each run takes the time its work needs", "## Every run reports every failure", "## The guidance says how the suite runs",
+    "## After a JSKIT update"
+  ]) {
+    assert.match(testReference, new RegExp(`^${heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}$`, "mu"), heading);
+  }
+  // Each item names the command, file or check that proves it, matched across line breaks.
   for (const phrase of [
+    "`npx jskit check`",
+    "[Test-run rules](typed-features.md#test-run-rules)",
+    "`jskit test --list`",
     "Take the baseline from one whole run of each part",
     "its files in parallel at the real `V64_TEST_CONCURRENCY`",
     "A single-file run (`npm test -- <file>`) is for one change's red and green, never the way to take a baseline",
     "never one of serial runs queued one after another",
-    "Run where the project's test machine runs (inside Vibe64, `vibe64-helper check`)",
+    "on the host's test machine, when the host offers one",
     "a time taken while other work loads the machine is reported as such and never used as a baseline",
+    "The pass's own measurement, one run of each part before the work and one after, is part of the pass",
+    "`npm run verify`, the whole run, runs once, at the end, only with the person's OK",
+    "`jskit test --databases`",
     "`claimTestDatabaseCopy(t, { environment: process.env })`",
-    "`resetTestDatabase({ environment: process.env })`"
+    "`resetTestDatabase({ environment: process.env })`",
+    "`createPackageTestKnex(t, { environment: process.env })`",
+    "`JSKIT_TEST_NETWORK_REFUSED`",
+    "`// jskit-test: network - <reason>`",
+    "`// jskit-test: fixed-wait - <reason>`",
+    "`jskit migration-history`",
+    "`SET TIMESTAMP`",
+    "`jskit test --test-global-setup=",
+    "`types/typed-router.d.ts`",
+    "`LOG_LEVEL=warn`",
+    "`getByRole`",
+    "`expectFlatQueries()`",
+    "`PLAYWRIGHT_PORT`",
+    "`browserTestWorkers()`",
+    "`genesis skills sync`"
   ]) {
-    assert.match(speedReference, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&").replaceAll(" ", "\\s+"), "u"), phrase);
+    assert.match(testReference, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&").replaceAll(" ", "\\s+"), "u"), phrase);
   }
+  // The snapshot stays on the database server, where npm ci cannot empty it; no test database lives in node_modules.
+  assert.doesNotMatch(testReference, /node_modules\/\.cache\/jskit-test-databases|vibe64-helper check/u);
+  assert.match(skill, /\[test pass\]\(references\/test-pass\.md\)/u);
   assert.match(skill, /\[speed pass\]\(references\/speed-pass\.md\)/u);
   assert.doesNotMatch(operationalSource, /@jskit-ai\/create-app|crud-server-generator|crud-ui-generator|ui-generator/u);
   assert.doesNotMatch(operationalSource, /\.jskit\/APP_BLUEPRINT|\.jskit\/WORKBOARD/u);
@@ -256,9 +291,11 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   // top-level; 66 KiB since the skill routes the identity, quality and data passes to their own references; 43 KiB
   // since it also routes the speed pass and Nix packaging; 67 KiB since CRUD says a user table's rows reach only the
   // signed-in user on every route and keeps its default visibility; 68 and 44 KiB since a control's own loading line
-  // stays, apart from ad-hoc spinners, and spinners are counted by what renders).
-  assert.ok(Buffer.byteLength(operationalSource) <= 68 * 1024);
-  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 44 * 1024);
+  // stays, apart from ad-hoc spinners, and spinners are counted by what renders; 70 and 46 KiB since a managed
+  // browser run names its declared test target, with the target's declaration, keeps specs that write off the
+  // development target, and Application operations keeps verification output small).
+  assert.ok(Buffer.byteLength(operationalSource) <= 70 * 1024);
+  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 46 * 1024);
 });
 
 test("the published JSKIT skill remains self-contained after relocation", async (t) => {
@@ -297,12 +334,18 @@ test("UI testing guidance uses private local exchange support and managed storag
   }
 });
 
-test("a managed browser runner runs every Playwright suite, said before any direct Playwright command", async () => {
-  const managedRunnerRule = new RegExp(
-    "Where the host provides a managed browser runner, every Playwright suite runs through it from the first run, " +
-      "never through `npx playwright test`, `playwright test` or a package script such as `npm run test:e2e`\\.",
-    "u"
-  );
+// A managed browser runner (Vibe64's, for one) runs the app's own package script on a declared test target, so specs
+// that write never reach the person's development target or database: four projects' agents read "never npm run
+// test:e2e" as "run it somewhere else" and wrote fixtures into the person's development database.
+const escaped = (text) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&").replaceAll(" ", "\\s+");
+const MANAGED_RUNNER_RULE = "Where the host provides a managed browser runner, such as Vibe64's, every Playwright suite runs " +
+  "through it from the first run, on a declared test target: give the runner the package script (on Vibe64, " +
+  "`vibe64-helper playwright --target test-app npm-run test:e2e`), and never start `npx playwright test`, " +
+  "`playwright test` or `npm run test:e2e` yourself.";
+const WRITING_SPECS_RULE = "Specs that write run only on a test target with its own database, never on the person's " +
+  "development target or database.";
+
+test("a managed browser runner runs every Playwright suite on a declared test target, said before any direct Playwright command", async () => {
   const relativePaths = [
     "heuristics/ui-testing.md",
     "skills/jskit/references/heuristics/ui-testing.md",
@@ -317,19 +360,46 @@ test("a managed browser runner runs every Playwright suite, said before any dire
     "patterns/shell-foundation/example/AGENTS.md",
     "skills/jskit/references/patterns/app/minimal-foundation/example/AGENTS.md",
     "skills/jskit/references/patterns/app/shell-foundation/example/AGENTS.md",
+    // The block `npx jskit agents` writes in every app's AGENTS.md.
+    "../../tooling/jskit-catalog/app-guidance/AGENTS.block.md",
   ];
 
   for (const relativePath of relativePaths) {
-    const source = (await readFile(path.join(packageRoot, relativePath), "utf8")).replace(/\s+/gu, " ");
-    const rule = source.match(managedRunnerRule);
-    assert.ok(rule, `${relativePath} must say a managed browser runner runs every Playwright suite.`);
+    const source = await readFile(path.join(packageRoot, relativePath), "utf8");
+    const rule = source.match(new RegExp(escaped(MANAGED_RUNNER_RULE), "u"));
+    assert.ok(rule, `${relativePath} must say a managed browser runner runs every Playwright suite on a declared test target.`);
+    assert.match(source, new RegExp(escaped(WRITING_SPECS_RULE), "u"), `${relativePath} must keep specs that write off the development target.`);
+    assert.doesNotMatch(source, /never through `npx playwright test`, `playwright test` or a package script/u, relativePath);
     // The rule itself names `npx playwright test`, so any earlier match is a direct command shown before it.
-    assert.ok(source.search(/playwright test/u) > rule.index, `${relativePath} shows direct Playwright before the rule.`);
+    assert.ok(source.search(/playwright\s+test/u) > rule.index, `${relativePath} shows direct Playwright before the rule.`);
   }
 
   const heuristic = (await readFile(path.join(packageRoot, "heuristics/ui-testing.md"), "utf8")).replace(/\s+/gu, " ");
   assert.match(heuristic, /Only a machine with no managed browser runner runs Playwright directly/u);
   assert.doesNotMatch(heuristic, /=\S+ \\ (?:npx )?playwright test/u, "No example launches Playwright with a host's variables.");
+});
+
+test("the browser verification guide shows a host's declared test target: the production build through jskit browser-test-server with {workers}", async () => {
+  for (const relativePath of [
+    "site/guide/framework/ui-operations.md",
+    "guide/agent/framework/ui-operations.md",
+    "skills/jskit/references/ui-operations.md",
+  ]) {
+    const source = await readFile(path.join(packageRoot, relativePath), "utf8");
+    const section = source.slice(source.indexOf("## Browser verification"));
+    assert.match(section, /^### Target `test-app`: Test Preview$/mu, relativePath);
+    assert.match(section, /^- Data: `test`$/mu, relativePath);
+    assert.match(
+      section,
+      /^- Run `Serve on the test database`: `node_modules\/\.bin\/jskit` `browser-test-server` `\{host\}` `\{port\}` `\{workers\}`$/mu,
+      relativePath
+    );
+    assert.match(section, /^- Ready when: `GET` `\/api\/health` returns `200`$/mu, relativePath);
+    // Every worker's server is the production build on its own copy of BROWSER_TEST_DB_NAME, with APP_ENV=test.
+    assert.match(section.replace(/\s+/gu, " "), /the production build, the database its `prepare` module gives that worker and `APP_ENV=test`/u, relativePath);
+    // A change to the browser-test setup is proved by a repeated start that reuses the build and the snapshot.
+    assert.match(section.replace(/\s+/gu, " "), /run the suite twice: the second run says `Frontend build unchanged, reused`/u, relativePath);
+  }
 });
 
 test("app-owned baseline tests are customizable but remain verified", async () => {

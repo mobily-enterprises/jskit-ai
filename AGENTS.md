@@ -1,110 +1,77 @@
 # Repository Notes
 
-## Ownership Extractions
+These notes cover working on JSKIT's own repository. How JSKIT applications are
+built is in the guide (`packages/agent-docs/site/guide/`): link to it instead of
+repeating it here.
 
-NO REIMPLEMENTATION FROM SCRATCH. An ownership move starts from the existing
-implementation and its behavioral tests. Classify each piece before extracting:
-move to the shared owner, stay in the application, or supply as a host facility.
-Changes in how the code works are allowed when necessary to keep ownership
-correct; identify that necessity explicitly. Preserve established process sharing,
-account isolation, recovery and lifecycle guarantees. Do not build a parallel
-implementation and use new tests to justify replacing the original. Keep genuine
-new facilities that have no existing counterpart. Preserve a reviewable reference
-and current work before corrective extraction.
+## Git, releases and publishing
 
-The user-confirmed production implementation is the reference: it has been used,
-tested and tuned over days. Smaller replacement code is not evidence of parity.
-For this conversation-runtime extraction, enforce all seven requirements:
+- Work on a branch (`feat/<topic>` or `fix/<topic>`) and commit there; a
+  behaviour fix usually lands as a `Red:` commit (the failing test), then a
+  `Green:` commit (the fix). The branch reaches `main` through a merge commit.
+  Never force-push, and never rewrite a commit already pushed.
+- Release and publish to npm (`npm run release`, `npm run npm-publish`,
+  `npm run release:prepare`) only when the person asks. README's Publishing
+  section says what each one does.
 
-1. Inventory original functions, callers, state and tests before editing; mark
-   each behavior as moving, staying application-owned, or becoming a host facility.
-   Admission, checkpoints, Git, worktrees, attachment storage, renewal UX and
-   Senior/Junior orchestration remain host responsibilities.
-2. Define the session-store, managed-execution, project-tooling-shim and
-   provider-selection cut lines. Prefer existing small facilities such as
-   `host.execution` and `host.commandWrapper`. JSKIT imports no host or project
-   tooling; standalone defaults must work without them. Do not replace imports
-   with a large callback bag.
-3. Preserve Codex's shared app-server per account/runtime isolation scope.
-   Conversations own threads, not one server each. Preserve independent stop,
-   account/helper-token refresh, process identity, locks, socket limits, hook trust
-   and recovery. Any host scope choice uses the same implementation.
-4. Move the host's existing assistant consumer onto the extracted backend through
-   its common API. Preserve its conversation identity and existing storage upgrade.
-5. Retain genuinely new direct-API, local-execution, file-storage, application-tool
-   and storage-contract facilities that have no host counterpart.
-6. Verify the frozen baseline and WIP local Git references before extraction.
-   Preserve unrelated work and staging; do not reset or publish the WIP refs.
-7. Compare original and moved behavior for shared reuse, independent stop,
-   account refresh, restart and recovery. Move original tests for the other cases;
-   do not weaken their assertions or duplicate the full suite.
+## Tests
 
-For each extraction, record the original source, destination, necessary ownership
-adaptation and original test evidence before calling it complete. A new test suite
-cannot replace that evidence. Discuss any material redesign before implementing it.
+- `npm run verify` is what CI's verify job runs after `npm ci` and the audit:
+  lint, the repository checks, every package's tests, then the SQLite run.
+  README's Common commands names the database settings data tests need (without
+  `TEST_DB_NAME` a data test fails; it never skips), and the PostgreSQL and
+  browser runs.
+- One package: `npm test -w packages/<name>` runs its `test` script,
+  `jskit test`, which runs its files in parallel within the machine's test
+  budget ([test files run in parallel](packages/agent-docs/site/guide/framework/typed-features.md#test-files-run-in-parallel)).
+- One file: `npx jskit test <file>` in the package's directory.
 
-When moving a consumer onto shared code, move the coordination that consumer
-relied on at the same time, and check every other user of the same resource.
+## Ownership extractions
 
+Moving code from an application or a host into a JSKIT package follows the
+Ownership Extractions requirements in public Vibe64's `AGENTS.md`, which owns
+them.
 
-## New File Discipline
+## New files
 
-- Create new files only when they are required by the current task, produced by documented tooling, or part of an agreed implementation, test, or documentation change.
-- Before adding repo-level guardrail files, persistence files, or durable architecture records by hand, confirm the user approved that lane.
-- For generated outputs, run the documented generator or build command and review the generated diff instead of hand-creating files.
+- Create a file only when the task needs it, documented tooling produces it, or
+  it is part of an agreed implementation, test or documentation change.
+- Before adding a repository-level guardrail file, a persistence file or a
+  durable architecture record by hand, confirm the person approved it.
 
-## Distributed Agent Docs
+## Distributed agent docs
 
-- The human guide under `packages/agent-docs/site/guide/` is the source of truth.
-- The VitePress site root lives under `packages/agent-docs/site/`.
-- The distributed agent-docs package lives under `packages/agent-docs/`.
-- Generated package outputs under these paths are build artifacts:
-  - `packages/agent-docs/reference/autogen/`
-  - `packages/agent-docs/guide/agent/`
-  - `packages/agent-docs/site/patterns/`
-  - `packages/agent-docs/skills/jskit/references/app-operations.md`
-  - `packages/agent-docs/skills/jskit/references/crud-operations.md`
-  - `packages/agent-docs/skills/jskit/references/material-3.md`
-  - `packages/agent-docs/skills/jskit/references/ui-operations.md`
-  - `packages/agent-docs/skills/jskit/references/pattern-index.md`
-  - `packages/agent-docs/skills/jskit/references/existing-application-migration.md`
-  - `packages/agent-docs/skills/jskit/references/patterns/`
-  - `packages/agent-docs/skills/jskit/references/heuristics/`
-- Authored agent documentation under these paths is edited directly:
-  - `packages/agent-docs/heuristics/`
-  - `packages/agent-docs/patterns/`
-  - `packages/agent-docs/site/guide/`
-  - `packages/agent-docs/skills/jskit/SKILL.md`
-  - `packages/agent-docs/skills/jskit/agents/`
+- The human guide, `packages/agent-docs/site/guide/` (in the VitePress site,
+  `packages/agent-docs/site/`), is the source of truth. Under
+  `packages/agent-docs/`, edit `site/guide/`, `heuristics/`, `patterns/`,
+  `skills/jskit/SKILL.md` and `skills/jskit/agents/` directly.
+- `npm run agent-docs:build` writes the rest of what the package ships, the
+  paths `scripts/agent-docs-outputs.mjs` declares (`reference/autogen/`,
+  `guide/agent/`, `site/patterns/` and `skills/jskit/references/`), and
+  `npm run catalog:build` writes `tooling/jskit-catalog/catalog/packages.json`.
+  Never edit those by hand: run the build, review its diff like any tracked
+  file, and commit it with its source. `npm run generated:check` fails on a
+  stale one.
+- When writing them, keep exact package ids, commands, APIs, tokens, env vars,
+  filenames, route shapes and architectural meaning. Write normal English, with
+  no shorthand, lossy abbreviations or new terms. Never invent behaviour or
+  settle an ambiguity by guessing: where the guide is unclear, say so.
 
-## Visible Change Checkpoint
+## Visible change checkpoint
 
-Before non-trivial edits, print a short visible checkpoint for the user in this format:
+Before a non-trivial edit, print the person one compact line:
+`Problem: ... Fix: ... Why this sticks: ... Not doing: ...`. Expand it only
+when asked.
 
-- `Problem: ...`
-- `Fix: ...`
-- `Why this sticks: ...`
-- `Not doing: ...`
+## JSKIT patterns
 
-Keep it compact. Do not expand this into a long multi-paragraph preamble unless the user asks for detail. Have all of them in one line.
-
-When asked to create or refresh distributed agent docs:
-
-1. Preserve exact package ids, commands, APIs, tokens, env vars, filenames, route shapes, and architectural meaning.
-2. Keep normal English. Do not invent shorthand languages, lossy abbreviations, or alternate terminology.
-3. Do not invent behavior or resolve ambiguity by guessing. If the human guide is unclear, keep the uncertainty explicit.
-4. Run `npm run agent-docs:build`.
-5. Review generated outputs in `packages/agent-docs/` like any other tracked artifact.
-
-## JSKIT Patterns
-
-- Server code (a feature, provider, action, service, repository, route, error or test) follows the one guide, `packages/agent-docs/site/guide/framework/typed-features.md`. `npm run lint` checks its rules with `@jskit-ai/config-eslint`, and each finding links its section. A new rule goes into that guide and, when a machine can see it, that plugin, with a passing and a failing fixture; never as a bullet here.
-- `packages/agent-docs/heuristics/INDEX.md` is the keyword index for recurring JSKIT implementation heuristics and workflow traps.
-- When a request involves JSKIT UI, routing, surfaces, CRUDs, filters, placements, live actions, or similar implementation details, scan the heuristics index for matching keywords and read only the relevant heuristic files.
-- Prefer the highest-level existing JSKIT client composable that fits, especially `useCrudListScreen()`, `useCrudViewScreen()`, `useCrudAddEditScreen()`, `useCrudList()`, `useCrudView()`, `useCrudAddEdit()`, `useList()`, `useView()`, `useAddEdit()`, `useCommand()`, and `useEndpointResource()`, instead of inventing custom local request helpers or bespoke command flows.
-- For collection UIs, prefer standard list elements and list runtimes over custom “submit the whole list” command patterns when the normal list/add-edit seams fit.
-- When building those elements, the normal end state should be a slim `use***()` composable call plus the template, with at most one or two small local helpers. Avoid building large local orchestration layers around standard JSKIT seams.
-- For generated CRUD list/view/form route screens, prefer the shared `users-web` screen composables/components before editing page-local shell chrome.
-- When editing the CRUD route/service/repository flow, read `packages/crud-core/src/server/jsonApiModule/`, `packages/crud-core/test/defineCrudFeature.test.js`, `packages/crud-core/test/crudOnHandles.test.js` and `packages/resource-runtime/src/server/resourceHandle.js` first. These define the CRUD service's method names, forwarded options, 404 behavior, tagged JSON:API results, and transaction ownership; the repository is the table's handle. Application composition lives in `packages/crud-core/patterns/crud-feature-package/`.
-- Page and surface extension goes through placements. Do not invent alternate page-extension seams (custom registries, tags, injection-only hooks, provider-owned section systems) unless the user explicitly asks for a new pattern.
-- Keep `AGENTS.md` short. Add recurring JSKIT heuristics to `packages/agent-docs/heuristics/`, not as one-off bullets here.
+- Server code (a feature, provider, action, service, repository, route, error
+  or test) follows `packages/agent-docs/site/guide/framework/typed-features.md`,
+  and client code `client-features.md` beside it. `npm run lint` checks their
+  rules with `@jskit-ai/config-eslint`, and each finding links its section. A
+  new rule goes into its guide and, when a machine can see it, that plugin,
+  with a passing and a failing fixture.
+- For UI, routing, surfaces, CRUDs, filters, placements, live actions and
+  similar work, match the request against the keywords in
+  `packages/agent-docs/heuristics/INDEX.md` and read only the files it names.
+  A recurring heuristic goes into one of those files, never as a bullet here.

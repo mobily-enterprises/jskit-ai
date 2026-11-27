@@ -23,7 +23,7 @@ Use Node.js 26 for repository development and publishing; `.nvmrc` records that 
 ## Common commands
 
 ```bash
-npm run jskit
+npx jskit help
 npm run agent-docs:build
 npm run docs:dev
 npm run docs:build

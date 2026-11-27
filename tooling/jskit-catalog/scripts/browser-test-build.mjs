@@ -8,8 +8,8 @@
 // build reads; an edit to server code alone reuses the build. Those are read after the build, so a build during which
 // one of them changed is not kept for reuse: it may hold code from before the change. A build that records no modules (a
 // Vite config without that plugin, or a build that is not Vite's) is keyed on every source file instead, taken before it
-// runs, as it rewrites files it generates among them (vue-router's src/typed-router.d.ts). Two runs in one tree build one
-// at a time: the second waits, then reuses the first one's build.
+// runs, as it rewrites files it generates among them (a declaration file vue-router writes into src). Two runs in one
+// tree build one at a time: the second waits, then reuses the first one's build.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
