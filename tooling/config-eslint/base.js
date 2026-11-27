@@ -31,6 +31,10 @@ const baseConfig = Object.freeze([
       // a deliberate source migration rather than a tooling patch release.
       "no-useless-assignment": "off",
       "preserve-caught-error": "off",
+      // A name read before its const, let or class in the same scope throws a ReferenceError (the temporal dead
+      // zone), as a local that shadows a helper called a line earlier does. Hoisted functions, and functions that
+      // run later and read a name declared below them, are fine.
+      "no-use-before-define": ["error", { functions: false, classes: true, variables: false }],
       "no-unused-vars": [
         "error",
         {

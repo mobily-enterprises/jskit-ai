@@ -1337,7 +1337,13 @@ export default [
   `**/src/server/**`, so an existing application sees them before it lists a
   package; it lists each package as it converts it. It makes the
   [data-access rules](data-access.md#hard-rules) errors in all
-  code but a package's `src/client`, tests, migrations and seeds.
+  code but a package's `src/client`, tests, migrations and seeds. In every
+  file it refuses a name read before its `const`, `let`, `class` or `import`
+  in the same scope (`no-use-before-define`): such a read throws a
+  `ReferenceError` when it runs, as a local that shadows a helper called a
+  line earlier does. Imports go at the top of the file. A hoisted function
+  called above its declaration, or a function that runs later and reads a
+  name declared below it, is fine.
 - `clientFeaturesConfig(globs)` holds client code to the same rules; see
   [client features](client-features.md#running-the-checks).
 

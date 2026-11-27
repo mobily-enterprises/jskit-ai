@@ -31,7 +31,9 @@ export default [
 ];
 ```
 
-- `baseConfig`: ESLint's recommended rules, JSKIT's import policy, as
+- `baseConfig`: ESLint's recommended rules, `no-use-before-define` for a
+  name read before its `const`, `let`, `class` or `import` in the same scope
+  (a `ReferenceError` when it runs), JSKIT's import policy, as
   warnings on `**/src/server/**`, the typed-features rules and, as errors on
   all server and shared code, the data-access rules.
 - `dataAccessConfig(globs, severity = "error")`: the data-access rules for the

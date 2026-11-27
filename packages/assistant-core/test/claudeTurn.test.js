@@ -3,10 +3,16 @@ import test from "node:test";
 import { Duplex } from "node:stream";
 import { createClaudeJsonClient } from "../src/server/conversation/claudeClient.js";
 import { setTimeout as delay } from "node:timers/promises";
-import { runClaudeRenewalTurn, waitForClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
+import { createClaudeConversationOwner, runClaudeRenewalTurn, waitForClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
 import { createClaudeConversationTurn } from "../src/server/conversation/claudeNativeTurn.js";
 import { claudeNativeMessageId, readClaudeHistory } from "../src/server/conversation/claudeHistory.js";
 import { exploreHostWaits } from "./fixtures/hostWaits.js";
+import { mkdtemp, mkdir, rm, readFile, writeFile, appendFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { createConversationRuntime, createMemoryConversationStorage, createConversationTranscript } from "../src/server/conversation/index.js";
+import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
+import { createSchema } from "json-rest-schema";
 
 function fixture() {
   const events = [];
@@ -1379,15 +1385,6 @@ test("Claude split text followed by a tool is commentary, never a final answer",
   await turn.receive({ type: "result", subtype: "success", result: "Done" });
   assert.deepEqual(events.filter(event => event.type === "message" && event.message.role === "assistant").map(event => event.message.text), ["Done"]);
 });
-
-
-import { createClaudeConversationOwner } from "../src/server/conversation/claudeTurn.js";
-import { mkdtemp, mkdir, rm, readFile, writeFile, appendFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { createConversationRuntime, createMemoryConversationStorage, createConversationTranscript } from "../src/server/conversation/index.js";
-import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
-import { createSchema } from "json-rest-schema";
 
 // Exercise the original supplied-store Send/process/event owner, without the
 // standalone execution-release capability or application-tool branch.
