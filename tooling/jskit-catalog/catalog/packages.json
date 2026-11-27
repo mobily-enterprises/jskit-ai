@@ -6,13 +6,13 @@
   "release": {
     "packages": {
       "@jskit-ai/agent": "0.1.3",
-      "@jskit-ai/agent-docs": "0.1.355",
+      "@jskit-ai/agent-docs": "0.1.356",
       "@jskit-ai/agent-runtime": "0.1.42",
       "@jskit-ai/architecture-inspector": "0.1.34",
-      "@jskit-ai/assistant-core": "0.2.84",
-      "@jskit-ai/assistant-runtime": "0.2.90",
-      "@jskit-ai/assistant-voice": "0.2.90",
-      "@jskit-ai/assistant-voice-sherpa": "0.1.137",
+      "@jskit-ai/assistant-core": "0.2.85",
+      "@jskit-ai/assistant-runtime": "0.2.91",
+      "@jskit-ai/assistant-voice": "0.2.91",
+      "@jskit-ai/assistant-voice-sherpa": "0.1.138",
       "@jskit-ai/auth-core": "0.2.40",
       "@jskit-ai/auth-pass": "0.1.9",
       "@jskit-ai/auth-provider-local-core": "0.2.46",
@@ -33,7 +33,7 @@
       "@jskit-ai/database-runtime-postgres": "0.1.283",
       "@jskit-ai/http-runtime": "0.2.36",
       "@jskit-ai/http-web": "0.2.61",
-      "@jskit-ai/jskit-catalog": "0.2.107",
+      "@jskit-ai/jskit-catalog": "0.2.108",
       "@jskit-ai/kernel": "0.2.35",
       "@jskit-ai/material-web": "0.1.11",
       "@jskit-ai/mobile-capacitor": "0.2.52",
@@ -185,7 +185,7 @@
     },
     {
       "packageId": "@jskit-ai/assistant-core",
-      "version": "0.2.84",
+      "version": "0.2.85",
       "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
       "jskit": {
         "kind": "runtime",
@@ -369,7 +369,7 @@
     },
     {
       "packageId": "@jskit-ai/assistant-runtime",
-      "version": "0.2.90",
+      "version": "0.2.91",
       "description": "Capability-based assistant runtime with per-surface chat, transcripts, settings, and action tools.",
       "jskit": {
         "kind": "runtime",
@@ -475,7 +475,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/assistant-core": "0.2.84",
+          "@jskit-ai/assistant-core": "0.2.85",
           "@jskit-ai/resource-core": "0.1.226",
           "json-rest-schema": "^1.0.20"
         },
@@ -495,7 +495,7 @@
     },
     {
       "packageId": "@jskit-ai/assistant-voice",
-      "version": "0.2.90",
+      "version": "0.2.91",
       "description": "Duplex voice conversations with application-owned targets and authorization, and the speech service engine with its client.",
       "jskit": {
         "kind": "runtime",
@@ -541,7 +541,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/assistant-core": "0.2.84",
+          "@jskit-ai/assistant-core": "0.2.85",
           "ws": "^8.20.1"
         },
         "peerDependencies": {
@@ -553,7 +553,7 @@
     },
     {
       "packageId": "@jskit-ai/assistant-voice-sherpa",
-      "version": "0.1.137",
+      "version": "0.1.138",
       "description": "Optional native Sherpa speech engine and explicit model preparation for assistant voice.",
       "jskit": {
         "kind": "runtime",
@@ -591,7 +591,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/assistant-voice": "0.2.90",
+          "@jskit-ai/assistant-voice": "0.2.91",
           "sherpa-onnx-node": "1.13.6"
         }
       }
@@ -4328,7 +4328,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/assistant-runtime",
-      "packageVersion": "0.2.90",
+      "packageVersion": "0.2.91",
       "documentPath": "patterns/assistant-surface/PATTERN.md",
       "examplePath": "patterns/assistant-surface/example",
       "files": [
