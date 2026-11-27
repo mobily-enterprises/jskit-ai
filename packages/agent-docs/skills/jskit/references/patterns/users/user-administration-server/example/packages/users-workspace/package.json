@@ -10,14 +10,14 @@
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/crud-core": "0.2.59",
+    "@jskit-ai/crud-core": "0.2.60",
     "@jskit-ai/resource-crud-core": "0.1.228",
-    "@jskit-ai/users-core": "0.2.70",
-    "@jskit-ai/workspaces-core": "0.2.70"
+    "@jskit-ai/users-core": "0.2.71",
+    "@jskit-ai/workspaces-core": "0.2.71"
   },
   "peerDependencies": {
     "@jskit-ai/kernel": "0.2.35",
-    "@jskit-ai/resource-runtime": "0.2.55"
+    "@jskit-ai/resource-runtime": "0.2.56"
   },
   "jskit": {
     "kind": "runtime",
