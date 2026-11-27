@@ -395,14 +395,16 @@ the application's `knexfile.js`:
   those two replaced, is set.
   Every file starts from the snapshot, rows included: a copy an earlier file of
   the run used is restored before the next file takes it, so no file sees what
-  another wrote. On MySQL and MariaDB the restore replaces only the tables that
-  differ from the snapshot, found exactly: a table's definition and its
+  another wrote. On MySQL and MariaDB the restore replaces only the tables
+  that differ from the snapshot, found exactly: a table's definition and its
   `AUTO_INCREMENT` counter (`SHOW CREATE TABLE`, so a row written and deleted,
-  or a write rolled back, counts), a trigger on it, a row in a table the
-  snapshot holds empty, rows that are not the snapshot's, and tables missing or
-  added. A file that wrote three tables costs three tables, not the whole
-  schema. On PostgreSQL the copy is made again from the snapshot database,
-  which costs less than finding the tables.
+  or a write rolled back, counts), a trigger on it, rows whose `CHECKSUM
+  TABLE` is not the snapshot's, and tables missing or added; each replaced
+  table is made on the server, its definition and then its rows copied from
+  the snapshot database (`INSERT ... SELECT`), so no row passes through Node.
+  A file that wrote three tables costs three tables, not the whole schema. On
+  PostgreSQL the copy is made again from the snapshot database, which costs
+  less than finding the tables.
 - When the run ends, whether its test files passed, failed or were stopped
   (Ctrl-C, `SIGTERM`), or its foreign key check failed before the first file,
   it drops the numbered copies it made and says so
@@ -418,15 +420,22 @@ the application's `knexfile.js`:
   up), none a session is connected to, and its summary says so
   (`dropped 1 numbered test database(s) earlier runs left (shop_test_7)`): a
   killed run's copies last until the next run starts, never longer. Only names
-  JSKIT gives a copy count: `<name>_snapshot` and a project's own lettered
-  copies stay. Two runs at once on one database name still are not supported.
+  JSKIT gives a copy count: the snapshot databases (`<name>_0`,
+  `<name>_snapshot`) and a project's own lettered copies stay. Two runs at
+  once on one database name still are not supported.
 - The snapshot holds the schema as the engine reports it and the rows the
-  migrations wrote, including the migration ledger. On MySQL and MariaDB it is
-  each table's `SHOW CREATE TABLE` and rows, in
-  `node_modules/.cache/jskit-test-databases/`; on PostgreSQL it is the database
-  `<TEST_DB_NAME>_snapshot`, which `CREATE DATABASE <name> TEMPLATE <snapshot>`
-  copies while nothing is connected to it (the user needs `CREATEDB`), file by
-  file (`STRATEGY FILE_COPY`) from PostgreSQL 15. Its key
+  migrations wrote, including the migration ledger, in a database of its own
+  on the database server, where `npm ci`, which empties `node_modules`, cannot
+  remove it: one for each test database, replaced when its key changes. On
+  MySQL and MariaDB it is `<TEST_DB_NAME>_0`, two characters as each copy's,
+  so a host that grants each database by name grants it within the same length
+  (the user needs all privileges on it, as on `TEST_DB_NAME` and its copies;
+  without them the run takes one file at a time and names the grant); its
+  label, a table of its own, holds its key, the server's version, each table's
+  definition and the `CHECKSUM TABLE` a copy is compared with. On PostgreSQL
+  it is the database `<TEST_DB_NAME>_snapshot`, which `CREATE DATABASE <name>
+  TEMPLATE <snapshot>` copies while nothing is connected to it (the user needs
+  `CREATEDB`), file by file (`STRATEGY FILE_COPY`) from PostgreSQL 15. Its key
   is a digest of the dialect, of the name and contents of every migration file
   that the application's `migrations/` and its installed packages supply, and
   of `package-lock.json`, since an upgraded package can change a helper its

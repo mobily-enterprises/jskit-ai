@@ -154,7 +154,6 @@ Local functions
 - `knexOn(knexConfig, database, connectionOptions = {}, session = "")`
 - `localWallClock(seconds)`
 - `withDateStopped(milliseconds, work)`
-- `rowsDigest(rows)`
 - `ledgerNames(knex, ledger, tables)`
 
 ### `src/server/types.js`

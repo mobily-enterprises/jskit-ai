@@ -68,9 +68,10 @@ application's workflow has no `postgres` service, `POSTGRES_*` variables, port
 Tests get their own databases from
 `@jskit-ai/database-runtime/server/testDatabases`. The `test` script runs
 `jskit test --databases`: each Node test file running at once gets its own
-copy of `TEST_DB_NAME` (`<name>`, `<name>_1`, ...), restored from a stored
-snapshot of the current migrations' schema and the rows they write, in
-`node_modules/.cache/jskit-test-databases/`. The snapshot is replayed once, and
+copy of `TEST_DB_NAME` (`<name>`, `<name>_1`, ...), restored from a snapshot
+of the current migrations' schema and the rows they write, kept on the server
+in `<TEST_DB_NAME>_0`, whose tables each copy's are made from there (`INSERT
+... SELECT`), and which `npm ci` leaves. The snapshot is replayed once, and
 again only when a migration's name or contents or `package-lock.json` change;
 a file that migrates or drops tables leaves its copy to be restored before the
 next file takes it.

@@ -3,18 +3,19 @@
 // A run gets one database per test file or browser worker running at once: the designated one (TEST_DB_NAME for Node
 // test files, BROWSER_TEST_DB_NAME for browser workers), then copies named after it (`<name>_1`, `_2`, ...) where the
 // database user may create them. Each starts from a snapshot of the schema the migrations build, with the rows they
-// write, instead of replaying every migration. A snapshot is taken once from a real replay into the designated
-// database, keyed by the dialect, the names and contents of the migrations and the application's package-lock.json
+// write, instead of replaying every migration. A snapshot is taken once from a real replay into a database of its
+// own, keyed by the dialect, the names and contents of the migrations and the application's package-lock.json
 // (a package upgrade can change what its migrations' helpers build), so changing, adding or reordering a migration, or
 // installing other packages, takes a new one. An application whose schema does not come from its migrations alone, such
 // as one whose migrations start from a baseline schema file, gives its own `schema.build` and the files it reads, which
 // join the key:
 //
-// - MySQL and MariaDB: each table's SHOW CREATE TABLE and its rows, in a file under
-//   `node_modules/.cache/jskit-test-databases/` named after the key and the server's version; a restore replaces only
-//   the tables that differ from it;
+// - MySQL and MariaDB: a prepared database, `<name>_0`, whose tables each copy's are made from on the server (SHOW
+//   CREATE TABLE, then INSERT ... SELECT); a restore replaces only the tables that differ from it;
 // - PostgreSQL: a prepared database, `<name>_snapshot`, that every copy is created from with
 //   CREATE DATABASE ... TEMPLATE (STRATEGY FILE_COPY from PostgreSQL 15).
+//
+// Either stays on the database server between runs, so `npm ci`, which empties node_modules, keeps it.
 //
 // testDatabaseSnapshots.js holds each dialect's snapshot and restore.
 //
@@ -209,7 +210,7 @@ async function prepareTestDatabases({
   const root = path.resolve(appRoot);
   const { key, migrations } = await testDatabaseSnapshotKey(knexConfig, { appRoot: root, schemaFiles: schema.files });
   const build = schema.build ?? ((knex) => knex.migrate.latest());
-  const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, root, build);
+  const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, build);
   // An earlier run that never reached its end left its copies; those this run will not make itself go first.
   const swept = await dropLeftTestDatabaseCopies(knexConfig, name, count);
   const restoreStarted = performance.now();
@@ -255,7 +256,7 @@ async function matchesSnapshot(knexConfig, database, snapshot) {
 /**
  * Restores `database`, which must be disposable, to the snapshot, and answers the tables it replaced, sorted: on MySQL
  * and MariaDB those that differ from the snapshot's, found exactly (a table's definition and AUTO_INCREMENT counter,
- * its triggers, its rows, and tables missing or added), so a file that wrote three tables costs three; on PostgreSQL
+ * its triggers, its rows' CHECKSUM TABLE, and tables missing or added), so a file that wrote three tables costs three; on PostgreSQL
  * every table, the database a new copy of the snapshot database, which costs less than finding them.
  * @returns {Promise<string[]>}
  */
@@ -289,7 +290,7 @@ async function proveMigrationHistory({ knexConfig, environment, schema = {}, app
   const root = path.resolve(appRoot);
   const { key, migrations } = await testDatabaseSnapshotKey(knexConfig, { appRoot: root, schemaFiles: schema.files });
   const build = schema.build ?? ((knex) => knex.migrate.latest());
-  const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, root, build);
+  const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, build);
   const failure = (reason) => new Error(`The migration history proof: ${reason}`);
   let restored = false;
   try {
@@ -369,7 +370,7 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
     prepared = await prepareTestDatabases({ knexConfig, environment, count, schema, appRoot });
   } catch (error) {
     if (!refusedPrivilege(error)) throw error;
-    return oneAtATime(`the database user may not prepare ${testDatabase} (${error.code})`);
+    return oneAtATime(`the database user may not prepare ${testDatabase}: ${error.sqlMessage ?? error.message}`);
   }
   const checked = await dropCopiesIfThrows(knexConfig, prepared.databases, async () =>
     (checkDatabase ? withKnex(knexConfig, prepared.databases[0], checkDatabase) : ""));
