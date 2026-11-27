@@ -644,7 +644,7 @@ const SINGLE_COPY_CATALOG = Object.freeze({
   },
   packages: [
     { packageId: "@jskit-ai/crud-core", packageJson: { peerDependencies: { "@jskit-ai/resource-runtime": "0.1.5" } } },
-    { packageId: "@jskit-ai/resource-runtime", packageJson: { dependencies: { "json-rest-api": "3.3.3" } } },
+    { packageId: "@jskit-ai/resource-runtime", packageJson: { dependencies: { "json-rest-api": "3.3.4" } } },
     { packageId: "@jskit-ai/shell-web", packageJson: { dependencies: { vue: "^3.5.0" } } }
   ]
 });
@@ -665,20 +665,20 @@ test("an app's direct json-rest-api pin must be the version JSKIT's packages req
         "node_modules/@jskit-ai/crud-core": { version: "0.1.6" },
         "node_modules/@jskit-ai/jskit-catalog": { version: "0.1.9" },
         "node_modules/@jskit-ai/resource-runtime": { version: "0.1.5" },
-        "node_modules/@jskit-ai/resource-runtime/node_modules/json-rest-api": { version: "3.3.3" },
+        "node_modules/@jskit-ai/resource-runtime/node_modules/json-rest-api": { version: "3.3.4" },
         "node_modules/json-rest-api": { version: "3.1.9" }
       }
     });
 
     const issues = (await checkProject({ projectRoot, catalog: SINGLE_COPY_CATALOG })).issues.join("\n");
-    assert.match(issues, /package\.json#dependencies\.json-rest-api is 3\.1\.9; .*Pin json-rest-api to 3\.3\.3 /u);
-    assert.match(issues, /json-rest-api is installed 2 times \(3\.3\.3 at node_modules\/@jskit-ai\/resource-runtime\/node_modules\/json-rest-api, 3\.1\.9 at node_modules\/json-rest-api\).*Pin json-rest-api to 3\.3\.3 and run npm install\./u);
+    assert.match(issues, /package\.json#dependencies\.json-rest-api is 3\.1\.9; .*Pin json-rest-api to 3\.3\.4 /u);
+    assert.match(issues, /json-rest-api is installed 2 times \(3\.3\.4 at node_modules\/@jskit-ai\/resource-runtime\/node_modules\/json-rest-api, 3\.1\.9 at node_modules\/json-rest-api\).*Pin json-rest-api to 3\.3\.4 and run npm install\./u);
 
     await updateProject({
       projectRoot,
       catalog: SINGLE_COPY_CATALOG,
       async installProject() {
-        assert.equal((await readJson(manifestPath)).dependencies["json-rest-api"], "3.3.3");
+        assert.equal((await readJson(manifestPath)).dependencies["json-rest-api"], "3.3.4");
         await writeJson(path.join(projectRoot, "package-lock.json"), {
           lockfileVersion: 3,
           packages: {
@@ -686,7 +686,7 @@ test("an app's direct json-rest-api pin must be the version JSKIT's packages req
             "node_modules/@jskit-ai/crud-core": { version: "0.1.6" },
             "node_modules/@jskit-ai/jskit-catalog": { version: "0.1.9" },
             "node_modules/@jskit-ai/resource-runtime": { version: "0.1.5" },
-            "node_modules/json-rest-api": { version: "3.3.3" }
+            "node_modules/json-rest-api": { version: "3.3.4" }
           }
         });
         return { async commit() {}, async rollback() {} };
