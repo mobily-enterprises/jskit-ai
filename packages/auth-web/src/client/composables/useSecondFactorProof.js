@@ -9,7 +9,9 @@ const SOURCE = "auth-web.second-factor";
 
 /**
  * A form for a code from the authenticator app or one of the recovery codes: what the person typed, the refusal shown
- * beside the field, and the submission, which hands `submit`'s answer to `onDone`.
+ * beside the field, and the submission, which hands `submit`'s answer to `onDone`. A prompt that stays mounted between
+ * openings (a step-up dialog) calls `reset()` each time it opens, so every opening asks for the authenticator's code
+ * with nothing typed and no refusal, whatever the last one ended with.
  * @param {{
  *   submit: (proof: import("../types.js").SecondFactorProof) => Promise<unknown>,
  *   onDone: (result: unknown) => void
@@ -28,6 +30,13 @@ function useSecondFactorProof({ submit, onDone }) {
 
   function toggleRecoveryCode() {
     usingRecoveryCode.value = !usingRecoveryCode.value;
+    fieldError.value = "";
+  }
+
+  function reset() {
+    usingRecoveryCode.value = false;
+    code.value = "";
+    recoveryCode.value = "";
     fieldError.value = "";
   }
 
@@ -72,6 +81,7 @@ function useSecondFactorProof({ submit, onDone }) {
     pending,
     canSubmit,
     toggleRecoveryCode,
+    reset,
     submitProof
   };
 }

@@ -47,12 +47,14 @@ const proof = reactive(useSecondFactorProof({
 /**
  * A request opens the dialog, not a button of its own, so the dialog has no activator to give focus back to: it keeps
  * the element that had focus when it opened (the control that sent the request) and focuses it again once it closes,
- * verified or cancelled, so a keyboard carries on where it was.
+ * verified or cancelled, so a keyboard carries on where it was. Its form lives as long as the dialog, which a page keeps
+ * between step-ups, so each opening starts it afresh: the authenticator's code, nothing typed, no refusal.
  * @type {HTMLElement | null}
  */
 let returnFocusTo = null;
 watch(() => props.open, async (open) => {
   if (open) {
+    proof.reset();
     returnFocusTo = /** @type {HTMLElement | null} */ (pageActiveElement());
     return;
   }
