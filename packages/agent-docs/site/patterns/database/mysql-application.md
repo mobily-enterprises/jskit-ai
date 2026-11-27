@@ -82,8 +82,8 @@ next file takes it.
 server its own copy of `BROWSER_TEST_DB_NAME`, restored from the same kind of
 snapshot and seeded in one transaction by the app's fixture `seed`, which
 restores any migration-owned baseline rows the app needs. Every server serves
-the production build. When the run stops, the launcher drops the numbered copies
-it made, after its servers stop; `BROWSER_TEST_DB_NAME` and the snapshot stay. Both refuse the application's database (`DB_NAME`,
+the production build. When the run stops, the launcher stops its servers;
+`BROWSER_TEST_DB_NAME`, its copies and the snapshot stay for the next run, which restores them. Both refuse the application's database (`DB_NAME`,
 `DATABASE_URL`'s, the Knex connection's), `STAGING_DB_NAME`,
 `PRODUCTION_DB_NAME` and the other test database and its copies. Provision `TEST_DB_NAME`, `BROWSER_TEST_DB_NAME` and
 their numbered copies with grants for the application account (a `<app>_%`

@@ -22,8 +22,9 @@
 import { detectDialectFromClient } from "../shared/dialect.js";
 import { loadKnexFactory } from "./knexFactory.js";
 import { MYSQL_DATABASE_OPTIONS } from "./mysqlPackageTestDatabase.js";
-import { POSTGRES_MAINTENANCE_DATABASE } from "./testDatabaseCopies.js";
 
+// The database a PostgreSQL connection uses to create, drop and copy the test databases.
+const POSTGRES_MAINTENANCE_DATABASE = "postgres";
 const MYSQL_SNAPSHOT_SUFFIX = "_0";
 const MYSQL_LABEL_TABLE = "jskit_test_snapshot";
 const MYSQL_ACCESS_DENIED = new Set(["ER_DBACCESS_DENIED_ERROR", "ER_ACCESS_DENIED_ERROR", "ER_SPECIFIC_ACCESS_DENIED_ERROR"]);
@@ -126,7 +127,7 @@ async function withKnex(knexConfig, database, use, connectionOptions) {
 
 /**
  * Awaits every promise, and then throws the first failure, if any: a step run on each test database at once ends on
- * all of them before a failure on one drops the copies, which keeps any a session is still connected to.
+ * all of them before a failure on one ends the preparation, so none still runs after it.
  * @param {Promise<unknown>[]} promises
  */
 async function settleAll(promises) {
@@ -390,6 +391,11 @@ const mysql = {
     });
   },
 
+  /**
+   * Creates each of `databases` the server lacks, as far as the user may, and restores each (restore()): one an earlier
+   * run left is changed only where its files wrote. Answers those it provides and how many tables their restores
+   * copied.
+   */
   async provide(knexConfig, databases, snapshot) {
     const provided = [];
     for (const [index, database] of databases.entries()) {
@@ -397,8 +403,8 @@ const mysql = {
       if (!(await mysql.createDatabase(knexConfig, database)) && index > 0) break;
       provided.push(database);
     }
-    await settleAll(provided.map((database) => mysql.restore(knexConfig, database, snapshot)));
-    return provided;
+    const replaced = await settleAll(provided.map((database) => mysql.restore(knexConfig, database, snapshot)));
+    return { databases: provided, restored: replaced.reduce((sum, tables) => sum + tables.length, 0) };
   },
 
   async outline(knexConfig, database) {
@@ -582,15 +588,21 @@ const postgres = {
     });
   },
 
-  // One at a time: each copy reads the template while it is made.
+  /**
+   * Makes each of `databases` again from the snapshot (restore()), one at a time, since each copy reads the template
+   * while it is made, as far as the user may. Answers those it provides and how many tables they hold.
+   */
   async provide(knexConfig, databases, snapshot) {
     const provided = [];
+    let restored = 0;
     for (const database of databases) {
-      if (!(await postgres.restore(knexConfig, database, snapshot))) break;
+      const tables = await postgres.restore(knexConfig, database, snapshot);
+      if (!tables) break;
       provided.push(database);
+      restored += tables.length;
     }
     if (provided.length < 1) throw new Error(`The database user may not create ${databases[0]} from the snapshot (CREATEDB).`);
-    return provided;
+    return { databases: provided, restored };
   },
 
   async outline(knexConfig, database) {
@@ -617,6 +629,7 @@ function dialectOf(knexConfig) {
 export {
   DIALECTS,
   POSTGRES_INSUFFICIENT_PRIVILEGE,
+  POSTGRES_MAINTENANCE_DATABASE,
   dialectOf,
   ledgerOf,
   rowDifference,

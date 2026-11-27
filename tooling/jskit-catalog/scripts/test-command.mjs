@@ -278,9 +278,8 @@ async function runTests(args) {
       if (exitCode === 0) exitCode = 1;
     }
   } finally {
-    // However the run ended, it drops its numbered test databases, and says what it dropped.
-    const ended = await databases?.cleanup();
-    if (ended) process.stderr.write(`jskit test: ${ended}.\n`);
+    // However the run ended, its settings go; its test databases stay for the next run, which restores them.
+    await databases?.cleanup();
     rmSync(timesDirectory, { recursive: true, force: true });
   }
   return exitCode;

@@ -15,7 +15,11 @@
 // - PostgreSQL: a prepared database, `<name>_snapshot`, that every copy is created from with
 //   CREATE DATABASE ... TEMPLATE (STRATEGY FILE_COPY from PostgreSQL 15).
 //
-// Either stays on the database server between runs, so `npm ci`, which empties node_modules, keeps it.
+// Either stays on the database server between runs, so `npm ci`, which empties node_modules, keeps it. So do the
+// designated database and its copies: the next run restores each one it takes, on MySQL and MariaDB replacing only the
+// tables that differ from the snapshot (on PostgreSQL making it again from the template), so a run after one whose files
+// wrote a few tables copies those tables, not the whole schema. Copies a run does not take stay for one that does, until
+// the project's databases are dropped. A run killed mid-way leaves nothing the next run does not restore.
 //
 // testDatabaseSnapshots.js holds each dialect's snapshot and restore.
 //
@@ -31,7 +35,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes } from "node:crypto";
 import diagnosticsChannel from "node:diagnostics_channel";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -44,16 +48,9 @@ import { RUNTIME_QUERY_CHANNEL } from "./database.js";
 import { loadKnexFactory } from "./knexFactory.js";
 import { createMysqlPackageTestKnex, letteredCopies } from "./mysqlPackageTestDatabase.js";
 import {
-  POSTGRES_MAINTENANCE_DATABASE,
-  dropCopiesIfThrows,
-  dropLeftTestDatabaseCopies,
-  endTestDatabaseRun,
-  rememberTestDatabaseCopies,
-  testDatabaseNames
-} from "./testDatabaseCopies.js";
-import {
   DIALECTS,
   POSTGRES_INSUFFICIENT_PRIVILEGE,
+  POSTGRES_MAINTENANCE_DATABASE,
   dialectOf,
   ledgerOf,
   rowDifference,
@@ -90,6 +87,15 @@ const LOCKFILE = "package-lock.json";
 
 const folded = (value) => String(value ?? "").trim().toLowerCase();
 const milliseconds = (since) => Math.round(performance.now() - since);
+
+/**
+ * The databases for `count` test files or workers at once: `name`, then its numbered copies.
+ * @param {string} name
+ * @param {number} count
+ */
+function testDatabaseNames(name, count) {
+  return Array.from({ length: count }, (_, index) => (index ? `${name}_${index}` : name));
+}
 
 /** The database the application's environment connects to: DB_NAME, else the one DATABASE_URL names. */
 function connectedDatabaseName(environment) {
@@ -180,10 +186,9 @@ async function testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd(), sc
 /**
  * Prepares the disposable databases for up to `count` test files or browser workers at once, each holding the current
  * migrations' schema afresh, then the seed's rows when given: the database `variable` names, then the numbered copies
- * the database user may create; `shortfall` names the first it may not. It first drops the numbered copies an earlier
- * run that never reached its end left and this one will not make, none a session is connected to
- * (dropLeftTestDatabaseCopies()). A throw drops the copies made so far; the process keeps those it returns, which a
- * browser run's launcher drops when it stops (testDatabaseCopies.js).
+ * the database user may create; `shortfall` names the first it may not. Each one an earlier run left is restored, not
+ * made again (the dialect's provide()), and every one stays after the run, for the next. Its summary says how many
+ * tables the restores copied.
  * @param {object} options
  * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig The application's Knex
  *   migration configuration (its knexfile.js), from `createKnexMigrationConfigFromApp()`.
@@ -211,32 +216,28 @@ async function prepareTestDatabases({
   const { key, migrations } = await testDatabaseSnapshotKey(knexConfig, { appRoot: root, schemaFiles: schema.files });
   const build = schema.build ?? ((knex) => knex.migrate.latest());
   const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, build);
-  // An earlier run that never reached its end left its copies; those this run will not make itself go first.
-  const swept = await dropLeftTestDatabaseCopies(knexConfig, name, count);
   const restoreStarted = performance.now();
   const names = testDatabaseNames(name, count);
-  // A throw drops the copies made so far; the process keeps those it returns for its end (rememberTestDatabaseCopies()).
-  const databases = await dropCopiesIfThrows(knexConfig, names, () => dialect.provide(knexConfig, names, snapshot));
+  const { databases, restored } = await dialect.provide(knexConfig, names, snapshot);
   const restoreMs = milliseconds(restoreStarted);
   const seedStarted = performance.now();
   // A seed's rows are sampled for the planner as a restore's are (refreshStatistics()).
-  if (seed) await dropCopiesIfThrows(knexConfig, databases, () => settleAll(databases.map((database) =>
-    withKnex(knexConfig, database, async (knex) => {
-      await knex.transaction(seed);
-      await dialect.refreshStatistics(knex, database);
-    }))));
+  if (seed) await settleAll(databases.map((database) => withKnex(knexConfig, database, async (knex) => {
+    await knex.transaction(seed);
+    await dialect.refreshStatistics(knex, database);
+  })));
   const seedMs = milliseconds(seedStarted);
   const { replayed, ...stored } = snapshot;
   const shortfall = databases.length < names.length ? `the database user may not create ${names[databases.length]}` : "";
   return {
-    databases: rememberTestDatabaseCopies(knexConfig, databases),
+    databases,
     snapshot: stored,
     shortfall,
     summary: `${databases.length}${shortfall ? ` of ${count}` : ""} test database(s) from ${name} ready in ${milliseconds(started)}ms: ` +
       (replayed && schema.build ? "schema built once for a new snapshot, " : "") +
       (replayed && !schema.build ? `${migrations.length} migrations replayed once for a new snapshot, ` : "") +
       (replayed ? "" : "stored snapshot, ") +
-      `restore ${restoreMs}ms${seed ? `, seed ${seedMs}ms` : ""}${swept ? `; ${swept}` : ""}${shortfall ? `; ${shortfall}` : ""}`
+      `restore ${restoreMs}ms of ${restored} table(s)${seed ? `, seed ${seedMs}ms` : ""}${shortfall ? `; ${shortfall}` : ""}`
   };
 }
 
@@ -343,7 +344,8 @@ function refusedPrivilege(error) {
  * connected database itself, or one the database user may not prepare), one file at a time on the connected database.
  * Of the `asked` files at once, `concurrency` run; when fewer, `shortfall` says why, for the runner to report and fail
  * on. Anything else that stops the preparation, such as a TEST_DB_NAME copy named like a protected database or an
- * unreachable server, fails the run. Its cleanup() ends the run, removing its settings and dropping its copies.
+ * unreachable server, fails the run. Its cleanup() ends the run, removing its settings; its databases stay for the
+ * next run, which restores them.
  * @param {object} options
  * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig
  * @param {Record<string, string | undefined>} options.environment
@@ -351,7 +353,7 @@ function refusedPrivilege(error) {
  * @param {TestDatabaseSchema} [options.schema]
  * @param {string} [options.appRoot]
  * @param {(knex: import("knex").Knex) => Promise<string>} [options.checkDatabase] Runs once on the prepared TEST_DB_NAME,
- *   before any test file: what it answers joins the summary, and a throw drops the copies and fails the run.
+ *   before any test file: what it answers joins the summary, and a throw fails the run.
  */
 async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd(), checkDatabase }) {
   assertNoRetiredVariables(environment);
@@ -376,8 +378,7 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
     if (!refusedPrivilege(error)) throw error;
     return oneAtATime(`the database user may not prepare ${testDatabase}: ${error.sqlMessage ?? error.message}`);
   }
-  const checked = await dropCopiesIfThrows(knexConfig, prepared.databases, async () =>
-    (checkDatabase ? withKnex(knexConfig, prepared.databases[0], checkDatabase) : ""));
+  const checked = checkDatabase ? await withKnex(knexConfig, prepared.databases[0], checkDatabase) : "";
   // mkdtemp makes the directory for this user alone; the settings file holds the connection password.
   const directory = mkdtempSync(path.join(os.tmpdir(), "jskit-test-databases-"));
   const { client, connection, migrations } = knexConfig;
@@ -394,7 +395,7 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
     env: { JSKIT_TEST_DATABASES: directory },
     preload: TEST_DATABASE_FILE,
     summary: `${prepared.summary}${checked ? `; ${checked}` : ""}`,
-    cleanup: () => endTestDatabaseRun(knexConfig, prepared.databases, directory)
+    cleanup: () => rmSync(directory, { recursive: true, force: true })
   };
 }
 

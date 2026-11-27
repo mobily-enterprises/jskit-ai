@@ -124,8 +124,8 @@ async function applicationTestDatabases(cwd, command) {
 
 /**
  * The run's databases for `count` files at once, or one file at a time on the connected database. Its `cleanup()` ends
- * the run: it removes the run's settings and drops its numbered copies of TEST_DB_NAME, answering what it dropped (an
- * installed @jskit-ai/database-runtime from before that answers nothing and leaves the copies).
+ * the run: it removes the run's settings, and the databases stay for the next run (an installed
+ * @jskit-ai/database-runtime from before drops the numbered copies, and answers what it dropped).
  * @param {number} count at most the run's test budget, and no more than its test files
  * @param {string} [cwd]
  * @returns {Promise<{ concurrency: number, env: Record<string, string>, preload: string, summary: string,

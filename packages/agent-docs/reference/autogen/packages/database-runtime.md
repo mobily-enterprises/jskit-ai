@@ -83,19 +83,6 @@ Local functions
 - `repairRecordedTable(knex, tableName, state, reference, keys)`
 - `dropTableLeftWithoutKey(knex, migration, tableName, keys)`
 
-### `src/server/testDatabaseCopies.js`
-Exports
-- `POSTGRES_MAINTENANCE_DATABASE`
-- `dropCopiesIfThrows(knexConfig, databases, work)`
-- `dropLeftTestDatabaseCopies(knexConfig, name, count)`
-- `dropTestDatabaseCopies(knexConfig, databases)`
-- `endTestDatabaseRun(knexConfig, databases, directory)`
-- `rememberTestDatabaseCopies(knexConfig, databases)`
-- `testDatabaseNames(name, count)`
-Local functions
-- `preparedCopies()`
-- `dropUnlessInUse(knex, client, database)`
-
 ### `src/server/testDatabaseFile.js`
 Exports
 - None
@@ -127,7 +114,7 @@ Exports
 - `resetTestDatabase({ environment })`
 - `restoreTestDatabase(knexConfig, database, snapshot)`
 - `tableNames(knex)`
-- `testDatabaseNames`
+- `testDatabaseNames(name, count)`
 - `testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd(), checkDatabase })`
 - `testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd(), schemaFiles = [] } = {})`
 - `type TestDatabaseSchema`
@@ -145,6 +132,7 @@ Local functions
 Exports
 - `DIALECTS`
 - `POSTGRES_INSUFFICIENT_PRIVILEGE`
+- `POSTGRES_MAINTENANCE_DATABASE`
 - `dialectOf(knexConfig)`
 - `ledgerOf(knexConfig)`
 - `rowDifference(table, built, captured)`
