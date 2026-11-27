@@ -197,32 +197,43 @@
   /* A filled or elevated button has no activated state layer: Material 3 gives these buttons none (a selected
      segment is secondary-container), and Vuetify's, the label's colour at 10% over the container, took a primary
      button's white label under WCAG's 4.5:1 (4.11:1 in JSKIT's fixture theme) for as long as the button stayed
-     active, as one whose route is current does. Hovered or focused, it shows that state's layer alone. */
-  .v-btn--active:is(.v-btn--variant-flat, .v-btn--variant-elevated) > .v-btn__overlay {
+     active, as one whose route is current does, or whose menu is open (Vuetify draws a menu's button as active
+     then). */
+  .v-btn:where(.v-btn--active, [aria-haspopup="menu"][aria-expanded="true"]):is(.v-btn--variant-flat,
+    .v-btn--variant-elevated) > .v-btn__overlay {
     opacity: 0;
   }
 
-  .v-btn--active:is(.v-btn--variant-flat, .v-btn--variant-elevated):hover > .v-btn__overlay {
+  /* An active button that draws its label in its colour (filled, elevated, text, outlined) shows one state layer at a
+     time, as Material 3 does: hovered, focused or pressed, that state's layer alone. Vuetify added it to the activated
+     layer, 18% or 20% of a text button's colour under its label, which took a primary label to 4.13:1 under the mouse
+     that had just opened its menu. A tonal button's label is its on-container colour, which keeps 4.5:1 over both
+     layers, so a selected tonal button keeps its selected layer under the others. */
+  .v-btn:where(.v-btn--active, [aria-haspopup="menu"][aria-expanded="true"]):is(.v-btn--variant-flat,
+    .v-btn--variant-elevated, .v-btn--variant-text, .v-btn--variant-outlined):hover > .v-btn__overlay {
     opacity: calc(var(--v-hover-opacity) * var(--v-theme-overlay-multiplier));
   }
 
-  .v-btn--active:is(.v-btn--variant-flat, .v-btn--variant-elevated):focus-visible > .v-btn__overlay {
+  .v-btn:where(.v-btn--active, [aria-haspopup="menu"][aria-expanded="true"]):is(.v-btn--variant-flat,
+    .v-btn--variant-elevated, .v-btn--variant-text, .v-btn--variant-outlined):focus-visible > .v-btn__overlay {
     opacity: calc(var(--v-focus-opacity) * var(--v-theme-overlay-multiplier));
   }
 
   /* The ripple, Material 3's pressed state layer, lies under the label too (above), at its 10%: Vuetify's was 25%,
      over the hover layer and over the label, so axe judged no pressed label at all. A pressed button shows the ripple
-     alone, as Material 3 shows one state layer at a time; a selected one keeps its selected layer under it. */
+     alone, as Material 3 shows one state layer at a time; a selected tonal one keeps its selected layer under it. */
   .v-ripple__animation--in {
     opacity: var(--v-pressed-opacity);
   }
 
   .v-btn:active:not(.v-btn--active) > .v-btn__overlay,
-  .v-btn--active:active:is(.v-btn--variant-flat, .v-btn--variant-elevated) > .v-btn__overlay {
+  .v-btn--active:active:is(.v-btn--variant-flat, .v-btn--variant-elevated, .v-btn--variant-text,
+    .v-btn--variant-outlined) > .v-btn__overlay {
     opacity: 0;
   }
 
-  .v-btn--active:active:not(.v-btn--variant-flat, .v-btn--variant-elevated) > .v-btn__overlay {
+  .v-btn--active:active:not(.v-btn--variant-flat, .v-btn--variant-elevated, .v-btn--variant-text,
+    .v-btn--variant-outlined) > .v-btn__overlay {
     opacity: calc(var(--v-activated-opacity) * var(--v-theme-overlay-multiplier));
   }
 
@@ -401,6 +412,22 @@
      closing one still animates. */
   .v-overlay:has(> .v-overlay__content[style*="display: none"]) {
     display: none;
+  }
+
+  /* An open menu or a snackbar lies over the page only where it draws. Vuetify places a menu's content and a
+     snackbar's message in an overlay that spans the whole window (or the container it is attached to), transparent
+     and taking no clicks, and axe found that box over every text beside it and judged the contrast of none of them
+     (color-contrast incomplete, bgOverlap): 36 texts on mobilynet's page with a menu open. The overlay is hidden and
+     what it holds (the content, and the scrim when a menu has one) is shown, so nothing changes on screen and the
+     content is the only box it lays over the page; a snackbar's role="status" is on its content. Select,
+     autocomplete and combobox lists are menus too. A tooltip keeps its overlay: Vuetify puts its role="tooltip"
+     there, which a hidden overlay would take from assistive technology. */
+  .v-overlay:is(.v-menu, .v-snackbar) {
+    visibility: hidden;
+  }
+
+  .v-overlay:is(.v-menu, .v-snackbar) > * {
+    visibility: visible;
   }
 
   /* Segmented buttons (v-btn-toggle): a 40dp pill in the outline role whose segments share its width, each with a 48dp
