@@ -13,25 +13,35 @@ const LIVE_RIPPLE = ":scope > .v-ripple__container > .v-ripple__animation--visib
 
 /**
  * Ends a keyboard press's ripple when the press ends, on a control whose own key handler moved focus away before
- * Vuetify's ripple heard the key. Listens on `view` once, however often it is called; does nothing without a document.
+ * Vuetify's ripple heard the key. Listens on `view` once, however often it is called, for as long as the page lives or
+ * until the returned function releases it; does nothing without a document.
  * @param {Window | undefined} view
+ * @returns {(() => void) | undefined} releases the listeners
  */
 function endKeyboardRipplesWithThePress(view) {
-  if (!view?.document || view[INSTALLED]) return;
-  view[INSTALLED] = true;
+  if (!view?.document) return undefined;
+  if (view[INSTALLED]) return view[INSTALLED];
   // Where each key held down went down. Captured on the window, so a handler that stops the key does not hide it.
   const pressed = new Map();
-  view.addEventListener("keydown", (event) => {
+  function notePress(event) {
     if (!event.repeat) pressed.set(event.key, event.target);
-  }, true);
-  view.addEventListener("keyup", (event) => {
+  }
+  function endRipplesLeftBehind(event) {
     const origin = pressed.get(event.key);
     pressed.delete(event.key);
     const focused = view.document.activeElement;
     for (let control = origin instanceof view.Element ? origin : null; control; control = control.parentElement) {
       if (!control.contains(focused) && control.querySelector(LIVE_RIPPLE)) control.dispatchEvent(new view.FocusEvent("blur"));
     }
-  }, true);
+  }
+  view.addEventListener("keydown", notePress, true);
+  view.addEventListener("keyup", endRipplesLeftBehind, true);
+  view[INSTALLED] = function release() {
+    view.removeEventListener("keydown", notePress, true);
+    view.removeEventListener("keyup", endRipplesLeftBehind, true);
+    delete view[INSTALLED];
+  };
+  return view[INSTALLED];
 }
 
 export { endKeyboardRipplesWithThePress };

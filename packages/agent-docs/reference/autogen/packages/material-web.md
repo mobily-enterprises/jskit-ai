@@ -46,6 +46,10 @@ Local functions
 - `typefaceVariables({ brand = ROBOTO_FLEX, plain = ROBOTO_FLEX } = {})`
 - `appIconAliases(icons)`
 
+### `src/client/keyboardRipple.js`
+Exports
+- `endKeyboardRipplesWithThePress(view)`
+
 ### `src/client/symbols.js`
 Exports
 - `materialSymbols`
