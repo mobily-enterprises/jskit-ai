@@ -170,9 +170,10 @@ test("a file with jskit check's fixed-wait marker runs, and an alone, network or
     "test/window.test.js": "// jskit-test: fixed-wait - the window in which the list must make no second read\n" +
       "await page.waitForTimeout(2000);\n"
   }, async (root) => {
-    assert.deepEqual(planTestRuns([], { cwd: root, concurrency: 4 }).runs, [
-      ["--test", "--test-concurrency=4", "test/a.test.js", "test/latency.test.js", "test/window.test.js"]
-    ]);
+    // No file is marked, so the one parallel run takes node's default files, all three.
+    const plan = planTestRuns([], { cwd: root, concurrency: 4 });
+    assert.deepEqual(plan.alone, []);
+    assert.deepEqual(plan.runs, [["--test", "--test-concurrency=4"]]);
   });
   await withProject({
     "test/a.test.js": `import "node:test";\n${ALONE_LINE}\n`,
