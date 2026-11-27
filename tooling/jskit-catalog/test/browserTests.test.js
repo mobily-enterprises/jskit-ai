@@ -672,11 +672,12 @@ test("jskit browser-test-server stopped by a host's repeated signals still stops
     const target = serveTarget(root, ["127.0.0.1", String(port), "3"]);
     try {
       await outputMatches(target, [/^jskit browser tests: 3 server\(s\) ready/mu]);
+      const exited = exitOf(target.child);
       for (const signal of ["SIGTERM", "SIGHUP", "SIGTERM", "SIGINT"]) {
-        target.child.kill(signal);
+        if (target.child.exitCode === null && target.child.signalCode === null) target.child.kill(signal);
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
-      assert.equal(await exitOf(target.child), 143, `${target.output}${target.errors}`);
+      assert.equal(await exited, 143, `ended by ${target.child.signalCode || target.child.exitCode}: ${target.output}${target.errors}`);
       for (const index of [0, 1, 2]) assert.equal(await answers(port + index), false);
       assert.deepEqual(JSON.parse(await readFile(path.join(root, "dropped.json"), "utf8")), ["app_browser_1", "app_browser_2"]);
       assert.equal(target.output.match(/\[browser-tests\] dropped app_browser_1, app_browser_2\./gu)?.length, 1, target.output);
