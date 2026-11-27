@@ -23,7 +23,7 @@ const COMPONENT = [
   "<template><button @click=\"adapter.resend(); $emit('sent')\" /></template>",
   ""
 ].join("\n");
-const CLIENT_ONLY_RULES = Object.freeze(["typed-inject", "collaborator-props", "fixed-result-shape", "released-listeners", "no-module-state", "no-frozen-vue-state", "selection-field", "search-on-server"]);
+const CLIENT_ONLY_RULES = Object.freeze(["typed-inject", "collaborator-props", "fixed-result-shape", "released-listeners", "no-module-state", "no-frozen-vue-state", "selection-field", "search-on-server", "request-recovery-label"]);
 const SERVER_ONLY_RULES = Object.freeze(["one-line-action", "action-execute-shape", "action-creator", "no-idempotency", "app-error-code", "no-patched-error", "narrow-in-query"]);
 // The rule baseConfig holds every application's Playwright configs to, outside the client features.
 const BASE_ONLY_RULES = Object.freeze(["playwright-login-unchanged"]);
@@ -84,6 +84,7 @@ test("clientFeaturesConfig turns on every jskit rule but the server's action and
   assert.deepEqual(Object.keys(jskitPlugin.rules).filter((rule) => !notClient.includes(rule) && entry.rules[`jskit/${rule}`] !== "error"), []);
   assert.deepEqual(notClient.filter((rule) => entry.rules[`jskit/${rule}`]), []);
   assert.deepEqual(entry.settings, { jskit: { client: true } });
+  assert.equal(entry.rules["jskit/request-recovery-label"], "error");
   assert.deepEqual(entry.rules["max-lines"], ["error", { max: 750 }]);
   assert.deepEqual(Object.keys(components.rules), COMPONENT_RULES);
   assert.equal(clientFeaturesConfig(["src/client/**"], "warn")[0].rules["jskit/typed-inject"], "warn");
