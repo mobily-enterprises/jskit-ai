@@ -366,6 +366,19 @@ test("the rules the foundation AGENTS.md no longer copies are each in their guid
   assert.match(flat(typedFeatures), /`\/\/ jskit-test: alone - <reason>`/u);
 });
 
+// `@jskit-ai/agent-docs` is installed in no app, so a `node_modules/@jskit-ai/agent-docs/...` path in what an app's
+// agent reads leads nowhere, and the agent falls back to guessing.
+test("no shipped guidance points an app's agent at an installed copy of agent-docs", async () => {
+  const shipped = [];
+  for (const root of ["guide", "heuristics", "patterns", "site/guide", "skills"]) {
+    shipped.push(...(await collectFiles(path.join(PACKAGE_ROOT, root))).filter((file) => file.endsWith(".md")));
+  }
+  assert.ok(shipped.length > 50);
+  for (const file of shipped) {
+    assert.doesNotMatch(await readFile(file, "utf8"), /node_modules\/@jskit-ai\/agent-docs/u, path.relative(PACKAGE_ROOT, file));
+  }
+});
+
 test("shell foundation reuses the shell-web application shell and the minimal foundation byte for byte", async () => {
   const shellRoot = path.join(PATTERNS_ROOT, "shell-foundation", "example");
   const minimalRoot = path.join(PATTERNS_ROOT, "minimal-foundation", "example");

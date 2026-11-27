@@ -256,9 +256,11 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   // top-level; 66 KiB since the skill routes the identity, quality and data passes to their own references; 43 KiB
   // since it also routes the speed pass and Nix packaging; 67 KiB since CRUD says a user table's rows reach only the
   // signed-in user on every route and keeps its default visibility; 68 and 44 KiB since a control's own loading line
-  // stays, apart from ad-hoc spinners, and spinners are counted by what renders).
-  assert.ok(Buffer.byteLength(operationalSource) <= 68 * 1024);
-  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 44 * 1024);
+  // stays, apart from ad-hoc spinners, and spinners are counted by what renders; 70 and 46 KiB since a managed
+  // browser run names its declared test target, with the target's declaration, keeps specs that write off the
+  // development target, and Application operations keeps verification output small).
+  assert.ok(Buffer.byteLength(operationalSource) <= 70 * 1024);
+  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 46 * 1024);
 });
 
 test("the published JSKIT skill remains self-contained after relocation", async (t) => {

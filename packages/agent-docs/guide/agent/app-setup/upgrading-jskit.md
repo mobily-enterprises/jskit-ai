@@ -288,9 +288,14 @@ application:
 5. Proves it with a timed full run: `npm test` and the whole Playwright suite,
    every test passing, the time of each before and after recorded, and the
    slowest tests the run lists read. Where the host provides a managed browser
-   runner, every Playwright suite runs through it from the first run, never
-   through `npx playwright test`, `playwright test` or a package script such
-   as `npm run test:e2e`. Elsewhere the suite is `npx playwright test`.
+   runner, such as Vibe64's, every Playwright suite runs through it from the
+   first run, on a declared test target: give the runner the package script (on
+   Vibe64, `vibe64-helper playwright --target test-app npm-run test:e2e`), and
+   never start `npx playwright test`, `playwright test` or `npm run test:e2e`
+   yourself. Specs that write run only on a test target with its own database,
+   never on the person's development target or database.
+   [Browser verification](/guide/framework/ui-operations#browser-verification)
+   shows the target. Elsewhere the suite is `npm run test:e2e`.
 
 ## Cache built assets for good
 
