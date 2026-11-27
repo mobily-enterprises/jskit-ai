@@ -343,3 +343,82 @@ test("a page whose typeface fails shows in the fallback font, and nothing moves"
 
   await assertNothingMoved(page, { targets, clicked: "validate", point });
 });
+
+// Runs in the page before the app: the pull-to-refresh indicator and the supporting side panel as the shell first
+// renders in its settle's hold, two parts of the shell that a page shows only later.
+function recordHeldExtras() {
+  const observer = new MutationObserver(() => {
+    if (!document.querySelector(".shell-layout--waiting")) {
+      return;
+    }
+    const panel = document.querySelector("[data-testid='jskit-shell-supporting-side-panel']");
+    globalThis.__heldExtras = {
+      pullIndicator: Boolean(document.querySelector("[data-testid='jskit-shell-pull-refresh']")),
+      panel: panel ? { inert: panel.inert, left: Math.round(panel.getBoundingClientRect().left), viewport: window.innerWidth } : null
+    };
+    observer.disconnect();
+  });
+  observer.observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+}
+
+async function openSettled(t, viewport) {
+  const { vite, browser } = await open(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport });
+  await page.addInitScript(recordHeldExtras);
+  await page.goto("/home");
+  await page.waitForFunction(() => document.querySelector("[data-shell-page]") &&
+    !document.querySelector(".shell-layout--waiting, .shell-layout--placing"));
+  await settle(page);
+  return page;
+}
+
+// Whether the element with `testId` is shown and on screen: displayed, not transparent, and inside the window.
+const shownOnScreen = (page, testId) => page.getByTestId(testId).evaluate((element) => {
+  const box = element.getBoundingClientRect();
+  return element.checkVisibility({ opacityProperty: true, visibilityProperty: true }) &&
+    box.width > 0 && box.left < window.innerWidth && box.right > 0;
+});
+
+test("the supporting side panel, closed and inert as the shell settles, opens over the settled page and its close button takes a click", {
+  skip: SKIP,
+  timeout: 90_000
+}, async (t) => {
+  const page = await openSettled(t, EXPANDED);
+  const held = await page.evaluate(() => globalThis.__heldExtras);
+  assert.equal(held.panel?.inert, true, `the side panel was not inert as the shell settled: ${JSON.stringify(held)}`);
+  assert.ok(held.panel.left >= held.panel.viewport, `the side panel was on screen as the shell settled: ${JSON.stringify(held)}`);
+
+  await page.evaluate(() => window.__shellFixtureOpenSupportingContent("Build details"));
+  await settle(page);
+  assert.equal(await shownOnScreen(page, "jskit-shell-supporting-side-panel"), true, "the opened side panel is not shown on screen");
+  await expect(page.getByTestId("jskit-shell-supporting-side-panel")).toContainText("Build details");
+  const close = page.getByTestId("jskit-shell-supporting-side-panel").getByRole("button", { name: "Close" });
+  const box = await close.boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await settle(page);
+  assert.equal(await shownOnScreen(page, "jskit-shell-supporting-side-panel"), false, "the side panel's close button did not close it");
+});
+
+test("the pull-to-refresh indicator, absent as the shell settles, shows over the settled page and its pull refreshes it", {
+  skip: SKIP,
+  timeout: 90_000
+}, async (t) => {
+  const page = await openSettled(t, COMPACT);
+  const held = await page.evaluate(() => globalThis.__heldExtras);
+  assert.equal(held.pullIndicator, false, `the pull-to-refresh indicator was on the page as the shell settled: ${JSON.stringify(held)}`);
+  let refreshes = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/api/bootstrap?reason=pull-to-refresh")) {
+      refreshes += 1;
+    }
+  });
+
+  const touch = { pointerId: 41, pointerType: "touch", isPrimary: true, button: 0 };
+  await page.dispatchEvent("body", "pointerdown", { ...touch, clientX: 180, clientY: 90 });
+  await page.dispatchEvent("body", "pointermove", { ...touch, clientX: 184, clientY: 250 });
+  await expect.poll(() => shownOnScreen(page, "jskit-shell-pull-refresh"), {
+    message: "the pull-to-refresh indicator is not shown while the page is pulled"
+  }).toBe(true);
+  await page.dispatchEvent("body", "pointerup", { ...touch, clientX: 184, clientY: 250 });
+  await expect.poll(() => refreshes, { message: "the pull did not refresh the page" }).toBeGreaterThan(0);
+});

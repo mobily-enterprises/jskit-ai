@@ -464,6 +464,8 @@ app.provide(SHELL_WEB_REFRESH_RUNTIME_KEY, {
   }
 });
 useShellLayoutStore(pinia).setDrawerDefaultOpen(true);
+// Opens the layout's supporting content (the side panel beside a medium or wider page) with `title`, as a page does.
+window.__shellFixtureOpenSupportingContent = (title) => useShellLayoutStore(pinia).openSupportingContent({ title });
 await router.isReady();
 // The fixture boots as an app does. An app makes its Vuetify options (createMaterialVuetifyOptions) before its shell
 // bootstrap, whose bootstrapClientShellApp awaits bootClientModules, onAfterModulesBootstrapped and router.isReady
