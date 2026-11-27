@@ -4,18 +4,40 @@ import { RouterView, useRoute } from "vue-router";
 import { useTheme } from "vuetify";
 import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
 import ShellErrorHost from "@jskit-ai/shell-web/client/components/ShellErrorHost";
+import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import OwnBarLayout from "./OwnBarLayout.vue";
 
 const route = useRoute();
 const theme = useTheme();
+const { mergeContext } = useWebPlacementContext();
 const bare = computed(() => route.meta.bare === true);
 const ownBar = computed(() => route.meta.ownBar === true);
 const surface = computed(() => {
   if (route.path.startsWith("/w/")) return "admin";
   if (route.path.startsWith("/solo")) return "solo";
+  if (route.path.startsWith("/console")) return "console";
   return route.path.startsWith("/account") ? "account" : "home";
 });
-const surfaceLabel = computed(() => ({ admin: "Admin", account: "Account" })[surface.value] || "Home");
+const surfaceLabel = computed(() => ({ admin: "Admin", account: "Account", console: "Console" })[surface.value] || "Home");
+
+// The console's destinations depend on its session's permissions (consolePermissions), which load after the page
+// opens, as an app's own session does (mobilynet's console): the context says they are pending until they arrive, or
+// until the request fails, when the console has none.
+async function loadConsoleSession() {
+  let permissions = [];
+  try {
+    const response = await fetch("/api/fixture/console-session", { headers: { accept: "application/json" } });
+    permissions = response.ok ? (await response.json()).permissions : [];
+  } catch {
+    permissions = [];
+  }
+  mergeContext({ consolePermissions: permissions }, "fixture.console-session");
+}
+
+if (route.path.startsWith("/console")) {
+  mergeContext({ consolePermissions: [] }, "fixture.console-session", { pending: true });
+  void loadConsoleSession();
+}
 const themeMode = computed(() => route.query.theme === "dark" ? "dark" : "light");
 const railWidth = computed(() => Number(route.query.railWidth) || undefined);
 const navigationItemSpacing = computed(() => Number(route.query.navigationItemSpacing) || undefined);
