@@ -235,8 +235,8 @@ JSKIT ships these exact sizes; an app never re-implements or overrides them:
   and the 48dp target. No icon button is under 32dp, and a target stops at
   the edge of a button beside it, so each of a row's touching icon buttons
   answers its own press;
-- one-line button labels, ending in an ellipsis: keep labels short, and give
-  one that can run long, such as a name, its full label as `title`;
+- one-line button and chip labels, ending in an ellipsis: keep labels short,
+  and give one that can run long, such as a name, its full label as `title`;
 - 12dp cards: flat (the default) and tonal at level 0, `variant="elevated"`
   at level 1; flat expansion panels;
 - 28dp dialogs and bottom-sheet top corners, square full-screen dialogs;

@@ -59,7 +59,9 @@ test("a chip's label longer than its chip ends in an ellipsis inside it; a short
   const unchanged = ["short-chip", "icon-chip", "slot-chip"];
   const ours = [];
   for (const testId of unchanged) ours.push(await chipGeometry(page.getByTestId(testId)));
-  assert.equal(ours[2].display, "inline-flex", "a label holding an element keeps Vuetify's inline-flex content");
+  // Vuetify's inline-flex content, as the chip's flex item, computes to flex; material.css's text-only content is block.
+  assert.deepEqual(ours.map(({ display }) => display), ["block", "block", "flex"],
+    "a text-only label is clipped as a block; one holding an element keeps Vuetify's inline-flex content");
   await page.addStyleTag({ content: VUETIFY_CHIP_CONTENT });
   for (const [index, testId] of unchanged.entries()) {
     const theirs = await chipGeometry(page.getByTestId(testId));
