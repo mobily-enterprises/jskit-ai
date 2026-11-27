@@ -655,6 +655,37 @@ test("jskit browser-test-server stops its servers and drops its database copies 
   });
 });
 
+// A host's stop signals a target more than once: Vibe64's wrapper sends the launch SIGTERM when its terminal hangs up,
+// the hang-up itself sends SIGHUP, and the host's stop sends the whole process group SIGTERM. A launcher that handled
+// each signal once was killed by the second SIGTERM in the middle of its stop, before it dropped the copies.
+test("jskit browser-test-server stopped by a host's repeated signals still stops its servers and drops its copies, once", async () => {
+  const slowDrop = PREPARE_WITH_COPIES.replace("async () => {\n    writeFileSync",
+    "async () => {\n    await new Promise((resolve) => setTimeout(resolve, 400));\n    writeFileSync");
+  assert.notEqual(slowDrop, PREPARE_WITH_COPIES);
+  await withProject({
+    ...LAUNCHER_APP,
+    "tests/e2e/databases.mjs": slowDrop,
+    "tests/e2e/sign-in.mjs": SIGN_IN,
+    "playwright.config.mjs": TARGET_CONFIG
+  }, async (root) => {
+    const port = await freeConsecutivePorts(3);
+    const target = serveTarget(root, ["127.0.0.1", String(port), "3"]);
+    try {
+      await outputMatches(target, [/^jskit browser tests: 3 server\(s\) ready/mu]);
+      for (const signal of ["SIGTERM", "SIGHUP", "SIGTERM", "SIGINT"]) {
+        target.child.kill(signal);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      assert.equal(await exitOf(target.child), 143, `${target.output}${target.errors}`);
+      for (const index of [0, 1, 2]) assert.equal(await answers(port + index), false);
+      assert.deepEqual(JSON.parse(await readFile(path.join(root, "dropped.json"), "utf8")), ["app_browser_1", "app_browser_2"]);
+      assert.equal(target.output.match(/\[browser-tests\] dropped app_browser_1, app_browser_2\./gu)?.length, 1, target.output);
+    } finally {
+      if (target.child.exitCode === null) process.kill(-target.child.pid, "SIGKILL");
+    }
+  });
+});
+
 // A target's output can go before its stop does: a host's pseudo-terminal answers EIO once it has hung up, and a pipe
 // whose reader has gone answers EPIPE. Its servers' output still reaches the launcher's own, and a write that failed
 // there killed the launcher before its stop dropped the copies (Vibe64's two-size check left them at four workers).
