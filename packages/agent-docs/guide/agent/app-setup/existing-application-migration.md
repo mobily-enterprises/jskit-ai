@@ -93,7 +93,9 @@ still have callers and tests.
 Audit application `AGENTS.md` files, ordinary documentation, npm scripts, CI,
 and package metadata as well as executable source. There is no supported
 `jskit doctor` command or general JSKIT source-authoring CLI. The supported
-`jskit update` and `jskit check` commands own only the installed package graph;
+`jskit update` and `jskit check` commands own only the installed package graph
+and the JSKIT block of `AGENTS.md`
+([Agent instructions](/guide/framework/typed-features#agent-instructions));
 they do not author, regenerate, or certify application source. Replace stale
 doctor or authoring instructions with current-state checks owned by runtime
 startup, the client build, migration status and disposable rebuilds, the

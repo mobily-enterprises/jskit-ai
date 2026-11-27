@@ -89,4 +89,5 @@ documents and examples, but no agent host is required to install it.
 There are no source-generator chapters. Package-owned patterns replace their
 useful source examples; questionnaire, mutation, and provenance machinery is
 not part of JSKIT. The supported `jskit update` and `jskit check` commands own
-only dependency manifests and lockfile conformance.
+only dependency manifests, lockfile conformance and the JSKIT block of the
+app's `AGENTS.md`.

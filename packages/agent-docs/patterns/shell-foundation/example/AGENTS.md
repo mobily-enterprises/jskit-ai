@@ -1,5 +1,8 @@
 # App Agent Instructions
 
+<!-- jskit:begin app guidance (written by npx jskit agents; edit outside this block) -->
+## JSKIT
+
 This app is built on JSKIT. Its guide,
 `https://mobily-enterprises.github.io/jskit-ai/guide/`, and its pattern
 library, `https://mobily-enterprises.github.io/jskit-ai/patterns/`, describe
@@ -30,13 +33,12 @@ Read the guide's page before the work it covers:
 - a new capability: the pattern library; read the narrow pattern completely
   before implementing.
 
-`npm run verify` runs `jskit check` (the package graph and JSKIT's navigation,
-data-access and test-run rules), `npm run lint`, the Node tests (`npm test`,
-through `jskit test`), the client tests (`npm run test:client`) and the browser
-suite (`npm run test:e2e`, whose `browserTestConfig()` builds the production
-frontend it serves). Each finding links the guide section that explains it:
-fix it in the code, and excuse one only with the guide's
-`readable-check: allow` comment and reason prefix.
+`npm run verify` runs the checks listed in
+`https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features#running-the-checks`.
+`npm test` runs every Node test file; `npm test -- <file>` runs exactly that
+file. Each finding links the guide section that explains it: fix it in the
+code, and excuse one only with the guide's `readable-check: allow` comment and
+reason prefix.
 
 Where the host provides a managed browser runner, such as Vibe64's, every
 Playwright suite runs through it from the first run, on a declared test target:
@@ -46,3 +48,9 @@ give the runner the package script (on Vibe64,
 that write run only on a test target with its own database, never on the
 person's development target or database. The browser tests guide above shows
 the test target's declaration.
+<!-- jskit:end app guidance -->
+
+## This app
+
+Write this app's own rules here, outside the JSKIT block, which
+`npm run jskit:update` rewrites.

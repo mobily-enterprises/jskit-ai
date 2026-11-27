@@ -4,6 +4,7 @@
   "description": "Published metadata catalog for JSKIT package metadata.",
   "type": "module",
   "files": [
+    "app-guidance",
     "catalog",
     "scripts",
     "nix"

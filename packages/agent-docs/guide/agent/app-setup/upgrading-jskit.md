@@ -83,6 +83,11 @@ installation, or validation fails, it restores the previous manifests,
 lockfile, and installed tree before reporting the failure. Resolve the reported
 registry or real peer problem and rerun `npm run jskit:update`.
 
+The updater then writes the catalog's JSKIT block in `AGENTS.md`, as
+`npx jskit agents` does ([Agent instructions](/guide/framework/typed-features#agent-instructions)):
+commit it with the manifests. Delete any JSKIT guidance the app copied into
+`AGENTS.md` from a foundation or starter, which the block now carries.
+
 When the install brings package migrations the application has not had, the
 updater lists each one (`<package>: <file>`) and says to run
 `npm run db:migrate`. Run it, on every database the application uses, before
