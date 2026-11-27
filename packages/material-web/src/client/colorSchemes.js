@@ -313,6 +313,11 @@ function vuetifyTheme(schemeColorsByRole, dark) {
     colors,
     variables: {
       ...STATE_LAYER_VARIABLES,
+      // Material 3's state layers have one opacity each, on every colour. Vuetify doubles them on a colour whose
+      // luminance is the theme's opposite (a primary button in light): a hovered primary button's white label read
+      // 4.43:1 and a focused one 4.08:1, under WCAG's 4.5:1, now that the layer lies under the label.
+      ...Object.fromEntries(Object.keys(colors).filter((role) => !role.startsWith("on-"))
+        .map((role) => [`theme-${role}-overlay-multiplier`, 1])),
       // Channel strings: Vuetify writes them as rgba(var(--v-border-color), var(--v-border-opacity)).
       "border-color": channels(argbFromHex(colors["outline-variant"])),
       "shadow-color": channels(argbFromHex(colors.shadow)),

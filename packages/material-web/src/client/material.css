@@ -175,10 +175,10 @@
     isolation: isolate;
   }
 
-  .v-btn > :is(.v-btn__overlay, .v-btn__underlay),
-  .v-chip > :is(.v-chip__overlay, .v-chip__underlay),
-  .v-list-item > :is(.v-list-item__overlay, .v-list-item__underlay),
-  .v-card > :is(.v-card__overlay, .v-card__underlay),
+  .v-btn > :is(.v-btn__overlay, .v-btn__underlay, .v-ripple__container),
+  .v-chip > :is(.v-chip__overlay, .v-chip__underlay, .v-ripple__container),
+  .v-list-item > :is(.v-list-item__overlay, .v-list-item__underlay, .v-ripple__container),
+  .v-card > :is(.v-card__overlay, .v-card__underlay, .v-ripple__container),
   .v-avatar > .v-avatar__underlay {
     z-index: -1;
   }
@@ -205,6 +205,59 @@
 
   .v-btn--active:is(.v-btn--variant-flat, .v-btn--variant-elevated):focus-visible > .v-btn__overlay {
     opacity: calc(var(--v-focus-opacity) * var(--v-theme-overlay-multiplier));
+  }
+
+  /* The ripple, Material 3's pressed state layer, lies under the label too (above), at its 10%: Vuetify's was 25%,
+     over the hover layer and over the label, so axe judged no pressed label at all. A pressed button shows the ripple
+     alone, as Material 3 shows one state layer at a time; a selected one keeps its selected layer under it. */
+  .v-ripple__animation--in {
+    opacity: var(--v-pressed-opacity);
+  }
+
+  .v-btn:active:not(.v-btn--active) > .v-btn__overlay,
+  .v-btn--active:active:is(.v-btn--variant-flat, .v-btn--variant-elevated) > .v-btn__overlay {
+    opacity: 0;
+  }
+
+  .v-btn--active:active:not(.v-btn--variant-flat, .v-btn--variant-elevated) > .v-btn__overlay {
+    opacity: calc(var(--v-activated-opacity) * var(--v-theme-overlay-multiplier));
+  }
+
+  /* A tonal button in a colour with a container role draws its label, icons and spinner in that colour's
+     on-container role, as Material 3 does on its tonal containers. Vuetify drew them in the colour itself over the
+     colour's tint, which a focus or pressed layer (the colour again) took under WCAG's 4.5:1: 4.45:1 for a focused
+     tonal error button. The tint and the state layers stay the colour's. */
+  .v-btn--variant-tonal.text-primary {
+    --jskit-tonal-label: var(--v-theme-on-primary-container);
+  }
+
+  .v-btn--variant-tonal.text-secondary {
+    --jskit-tonal-label: var(--v-theme-on-secondary-container);
+  }
+
+  .v-btn--variant-tonal.text-tertiary {
+    --jskit-tonal-label: var(--v-theme-on-tertiary-container);
+  }
+
+  .v-btn--variant-tonal.text-error {
+    --jskit-tonal-label: var(--v-theme-on-error-container);
+  }
+
+  .v-btn--variant-tonal.text-success {
+    --jskit-tonal-label: var(--v-theme-on-success-container);
+  }
+
+  .v-btn--variant-tonal.text-warning {
+    --jskit-tonal-label: var(--v-theme-on-warning-container);
+  }
+
+  .v-btn--variant-tonal.text-info {
+    --jskit-tonal-label: var(--v-theme-on-info-container);
+  }
+
+  .v-btn--variant-tonal:is(.text-primary, .text-secondary, .text-tertiary, .text-error, .text-success, .text-warning,
+    .text-info):not(.v-btn--disabled) > :is(.v-btn__prepend, .v-btn__content, .v-btn__append, .v-btn__loader) {
+    color: rgb(var(--jskit-tonal-label));
   }
 
   /* A label stays on one line, as Material 3 draws it; one longer than its button ends in an ellipsis. */

@@ -123,6 +123,17 @@ test("theme variables carry Material 3 state layers and channel strings for bord
   assert.equal(light.variables["border-color"], "202, 196, 207");
 });
 
+test("every colour's state layers keep Material 3's one opacity: no colour doubles them", () => {
+  const { light, dark } = materialThemes("#6750A4", { brand: "#0B57D0" });
+  for (const theme of [light, dark]) {
+    const roles = Object.keys(theme.colors).filter((role) => !role.startsWith("on-"));
+    assert.ok(roles.includes("primary") && roles.includes("error") && roles.includes("brand-container"));
+    for (const role of roles) {
+      assert.equal(theme.variables[`theme-${role}-overlay-multiplier`], 1, role);
+    }
+  }
+});
+
 // A browser's localStorage for one origin; `refuse` makes it throw as blocked or full storage does.
 function browserStorage({ refuse = false } = {}) {
   const items = new Map();
@@ -234,8 +245,9 @@ test("colours stored under another revision, or that are not a scheme's, are com
   assert.equal(JSON.parse(garbage.getItem("jskit:material-themes")).inputs.length, 1);
 });
 
-// The colours of each stored revision: one digest of three inputs' light and dark themes.
-const REVISION_COLOURS = Object.freeze({ 1: "8e0c647d52f4394c311b8d49bfaa699997ad23a17579d8da75944818b873db63" });
+// The colours of each stored revision: one digest of three inputs' light and dark colours, which is what a browser
+// stores (each start builds its themes' variables from them).
+const REVISION_COLOURS = Object.freeze({ 1: "91308426d160318bcfc8363055a003919c691a6dd00da36fe9ff1779827c5caf" });
 
 test("the colours a theme input gives change only with the revision browsers store them under", async (t) => {
   const storage = browserStorage();
@@ -243,7 +255,8 @@ test("the colours a theme input gives change only with the revision browsers sto
   const colours = [themes("#6750A4"), themes(...VIBE64_INPUT), themes("#B3261E", { partner: "#0A7D3E", brandAccent: "#FF6D00" })];
   const { revision } = JSON.parse(storage.getItem("jskit:material-themes"));
   // A browser keeps showing the colours it stored until the revision changes.
-  assert.equal(createHash("sha256").update(JSON.stringify(colours)).digest("hex"), REVISION_COLOURS[revision],
+  const stored = colours.map(({ light, dark }) => ({ light: light.colors, dark: dark.colors }));
+  assert.equal(createHash("sha256").update(JSON.stringify(stored)).digest("hex"), REVISION_COLOURS[revision],
     `The colours differ from revision ${revision}'s: bump THEMES_REVISION in colorSchemes.js and record its digest here.`);
 });
 

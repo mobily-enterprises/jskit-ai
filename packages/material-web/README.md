@@ -107,8 +107,13 @@ export const theme = {
   technology, and a closed eager menu lay over the whole page, so axe judged the
   contrast of no text under it), state layers and tints under the label on
   buttons, chips, list items, cards and avatars (axe judges the label's
-  contrast), no activated state layer on a filled or elevated button (it took a
-  primary button's label under 4.5:1), `on-surface` text on a tonal card of the
+  contrast), Material 3's one state-layer opacity on every colour (Vuetify
+  doubles it on a colour of the opposite tone, which took a hovered or focused
+  primary button's label under 4.5:1), a tonal button's label, icons and spinner
+  in its colour's on-container role (primary, secondary, tertiary, error,
+  success, warning and info), no activated state layer on a filled or elevated
+  button (it took a primary button's label under 4.5:1), `on-surface` text on a
+  tonal card of the
   default colour, 40dp outlined segmented buttons and outlined
   filter chips that lead with a check when selected (chips with
   `aria-pressed` too), fixed tabs that share the width or else scroll, dialog
