@@ -98,13 +98,13 @@ function blockOf(tokens, open) {
 function rereads(tokens, keyword, body) {
   const header = tokens[keyword].value === "do" ? tokens[body].partner + 2 : keyword + (precededBy(tokens, keyword + 2, "await") ? 2 : 1);
   const parts = [[]];
-  let iterates = false;
   for (let index = header + 1; tokens[header]?.value === "(" && index < tokens[header].partner; index += 1) {
-    const atTop = tokens[index].parent === header;
-    iterates ||= atTop && /^(?:of|in)$/u.test(tokens[index].value);
-    if (atTop && tokens[index].value === ";") parts.push([]);
+    if (tokens[index].parent === header && tokens[index].value === ";") parts.push([]);
     else parts.at(-1).push(tokens[index]);
   }
+  // A for-of or for-in: a `for` header without `;`, its `of` or `in` at the top (not `of()` or `"x" in y` in a test).
+  const iterates = tokens[keyword].value === "for" && parts.length < 2 &&
+    parts[0].some((token) => token.parent === header && /^(?:of|in)$/u.test(token.value));
   const own = body >= 0 ? tokens.slice(body + 1, tokens[body].partner) : [];
   const steps = [...(parts[2] || []), ...own];
   const stepped = new Set(steps.filter((token, index) => STEP.test(steps[index + 1]?.value) || STEP.test(steps[index - 1]?.value))
