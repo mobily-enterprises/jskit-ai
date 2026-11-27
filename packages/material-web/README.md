@@ -101,9 +101,15 @@ export const theme = {
   end in an ellipsis, 12dp card corners, 28dp dialogs on
   `surface-container-high` at level 3 and bottom sheets with a square card on
   `surface-container-low`, square full-screen dialogs on `surface`, a 48dp touch target on clickable chips,
-  inverse-surface tooltips hidden whole while their text is (Vuetify mounts a
-  tooltip before it shows, and its hidden overlay was an empty tooltip to
-  assistive technology), 40dp outlined segmented buttons and outlined
+  inverse-surface tooltips, and every other overlay (menu, dialog, snackbar),
+  hidden whole while their content is (Vuetify keeps a mounted overlay around
+  its hidden content: a hidden tooltip was an empty tooltip to assistive
+  technology, and a closed eager menu lay over the whole page, so axe judged the
+  contrast of no text under it), state layers and tints under the label on
+  buttons, chips, list items, cards and avatars (axe judges the label's
+  contrast), no activated state layer on a filled or elevated button (it took a
+  primary button's label under 4.5:1), `on-surface` text on a tonal card of the
+  default colour, 40dp outlined segmented buttons and outlined
   filter chips that lead with a check when selected (chips with
   `aria-pressed` too), fixed tabs that share the width or else scroll, dialog
   actions 24dp from the edges, a menu's own list as its container
