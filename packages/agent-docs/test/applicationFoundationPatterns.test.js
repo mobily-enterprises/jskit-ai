@@ -112,7 +112,10 @@ test("application foundations are concrete source patterns rather than generator
       "npx --yes @jskit-ai/jskit-catalog@latest update"
     );
     assert.equal(packageJson.scripts?.["jskit:check"], "jskit check");
-    assert.match(packageJson.scripts?.verify || "", /^npm run jskit:check && /u);
+    // The whole suite, every section once: the browser suite builds the production frontend it serves, so no
+    // separate build runs.
+    assert.equal(packageJson.scripts?.verify,
+      "npm run jskit:check && npm run lint && npm run test && npm run test:client && npm run test:e2e");
     assert.ok(files.length > 25, `${patternName} must remain a coherent application tree.`);
 
     const combinedSource = (

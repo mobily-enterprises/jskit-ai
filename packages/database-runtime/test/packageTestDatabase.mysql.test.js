@@ -2,16 +2,21 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import knexFactory from "knex";
-import { createPackageTestKnex, requireTestDatabase } from "../src/server/testDatabases.js";
+import { createKnexMigrationConfig } from "../src/server/knexMigrationConfig.js";
+import { createPackageTestKnex, requireTestDatabase, testDatabaseRun } from "../src/server/testDatabases.js";
 
 // createPackageTestKnex() on MariaDB and MySQL for a database user granted only its test database and that database's
 // copies, each by name with every _ escaped, as a managed host may grant them: a package test claims one of the 26 lettered
 // copies, never a name of its own. Each test claims the copies of a database of its own named after TEST_DB_NAME, so
 // it never meets another file's. The run's DB_USER makes the users: it needs CREATE USER, and GRANT OPTION on the
-// databases named after TEST_DB_NAME.
+// databases named after TEST_DB_NAME. A `jskit test --databases` run for a user granted only some numbered copies runs
+// as many files at once as it may make databases, and says which copy it may not create.
 
 const LETTERS = [..."abcdefghijklmnopqrstuvwxyz"];
 const NUMBERED = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
@@ -214,4 +219,34 @@ test("a test whose process dies gives its copy up with its session, and the next
     const { name, tables } = await databaseOf(await createPackageTestKnex(t, { environment }));
     assert.deepEqual([name, tables], [`${base}_a`, []]);
   });
+});
+
+test("a jskit test --databases run whose database user may create only some numbered copies runs that many files at once, and names the copy it may not create", async (context) => {
+  const base = `${requireTestDatabase(process.env)}_c7`;
+  const granted = await userGrantedOnly(context, base, ["1"]);
+  const environment = { ...granted, DB_NAME: `${base}_application` };
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-granted-"));
+  const admin = knexFactory({ client: "mysql2", connection: serverConnection(), pool: { min: 0, max: 1 } });
+  context.after(async () => {
+    try {
+      for (const database of [base, `${base}_1`, `${base}_2`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    } finally {
+      await admin.destroy();
+      await rm(appRoot, { recursive: true, force: true });
+    }
+  });
+  await mkdir(path.join(appRoot, "migrations"));
+  await writeFile(path.join(appRoot, "migrations", "20200101000000_notes.cjs"),
+    "exports.up = (knex) => knex.schema.createTable(\"notes\", (table) => table.increments());\nexports.down = () => {};\n");
+  const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment, appRoot });
+  const run = await testDatabaseRun({ knexConfig, environment, count: 3, appRoot });
+  try {
+    assert.equal(run.concurrency, 2);
+    assert.equal(run.asked, 3);
+    assert.equal(run.shortfall, `the database user may not create ${base}_2`);
+    assert.match(run.summary, new RegExp(`^2 of 3 test database\\(s\\) from ${base} ready in \\d+ms: `, "u"));
+    assert.ok(run.summary.endsWith(`; the database user may not create ${base}_2`), run.summary);
+  } finally {
+    assert.equal(await run.cleanup(), "dropped the run's 1 numbered test database(s)");
+  }
 });

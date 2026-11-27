@@ -324,7 +324,8 @@ try {
 export default createKnexMigrationConfig({ client: "mysql2", environment: process.env });
 `;
 // Each file waits until the other has started, so both hold a database at once, then records what it was given (the
-// password as a digest) and the database a package data test of its gets.
+// password as a digest) and the database a package data test of its gets with the file's own environment, which names
+// the run's database client.
 const FIXTURE_TEST = (name, other) => `import { createHash } from "node:crypto";
 import { existsSync, writeFileSync } from "node:fs";
 import test from "node:test";
@@ -333,9 +334,9 @@ test("${name}", async (t) => {
   writeFileSync("started-${name}", "");
   const deadline = Date.now() + 30000;
   while (!existsSync("started-${other}") && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20));
-  const own = await createPackageTestKnex(t, { environment: { ...process.env, DB_CLIENT: "mysql2" } });
+  const own = await createPackageTestKnex(t, { environment: process.env });
   const [[{ packageDatabase }]] = await own.raw("SELECT DATABASE() AS packageDatabase");
-  writeFileSync("seen-${name}.json", JSON.stringify({ packageDatabase,
+  writeFileSync("seen-${name}.json", JSON.stringify({ packageDatabase, client: process.env.DB_CLIENT ?? null,
     db: process.env.DB_NAME, test: process.env.TEST_DB_NAME, settings: process.env.JSKIT_TEST_DATABASES ?? null,
     dotenv: process.env.FIXTURE_ONLY_IN_DOTENV ?? null, other: existsSync("started-${other}"),
     connection: { host: process.env.DB_HOST, port: process.env.DB_PORT, user: process.env.DB_USER,
@@ -398,13 +399,13 @@ async function fixtureApplication(context, suffix, { tests, concurrency }) {
 
   const env = { ...process.env, V64_TEST_CONCURRENCY: String(concurrency), DB_NAME: `${name}_application`,
     TEST_DB_NAME: name, DATABASE_URL: "" };
-  for (const variable of ["NODE_TEST_CONTEXT", "FIXTURE_ONLY_IN_DOTENV", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD"]) {
+  for (const variable of ["NODE_TEST_CONTEXT", "FIXTURE_ONLY_IN_DOTENV", "DB_CLIENT", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD"]) {
     delete env[variable];
   }
   return { appRoot, name, server, env };
 }
 
-test("jskit test --databases gives each test file running at once its own restored copy and its connection, and nothing else of the .env", {
+test("jskit test --databases gives each test file running at once its own restored copy, its connection and client, and nothing else of the .env", {
   skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
 }, async (context) => {
   const { appRoot, name, server, env } = await fixtureApplication(context, "cli", {
@@ -419,8 +420,10 @@ test("jskit test --databases gives each test file running at once its own restor
   assert.deepEqual(seen.map(({ db }) => db).sort(), [name, `${name}_1`]);
   const connection = { host: server.host, port: String(server.port), user: server.user,
     password: createHash("sha256").update(server.password ?? "").digest("hex") };
-  for (const { db, test: testDatabase, settings, dotenv, other, connection: given, packageDatabase } of seen) {
+  for (const { db, test: testDatabase, settings, dotenv, other, connection: given, packageDatabase, client } of seen) {
     assert.equal(testDatabase, db);
+    // The run's knexfile fixes the client; the file gets it with its database, so its package data tests use it too.
+    assert.equal(client, "mysql2");
     // A package data test claims a lettered copy of the run's designated database, not of the file's numbered copy.
     assert.match(packageDatabase, new RegExp(`^${name}_[a-z]$`, "u"));
     assert.equal(settings, null);
