@@ -147,10 +147,13 @@ Exports
 - `POSTGRES_INSUFFICIENT_PRIVILEGE`
 - `dialectOf(knexConfig)`
 - `ledgerOf(knexConfig)`
+- `rowDifference(table, built, captured)`
 - `settleAll(promises)`
 - `withKnex(knexConfig, database, use, connectionOptions)`
 Local functions
-- `knexOn(knexConfig, database, connectionOptions = {})`
+- `knexOn(knexConfig, database, connectionOptions = {}, session = "")`
+- `localWallClock(seconds)`
+- `withDateStopped(milliseconds, work)`
 - `rowsDigest(rows)`
 - `ledgerNames(knex, ledger, tables)`
 

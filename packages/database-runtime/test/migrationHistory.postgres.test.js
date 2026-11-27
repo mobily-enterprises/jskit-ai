@@ -36,6 +36,38 @@ const RANDOM = `exports.up = async (knex) => {
 exports.down = () => {};
 `;
 
+// Seed rows filled from the clock, as a migration that has run cannot stop doing: column defaults (a time with and
+// without its zone, the day) and JavaScript's Date.
+const CLOCK = `exports.up = async (knex) => {
+  await knex.schema.createTable("presets", (table) => {
+    table.increments("id");
+    table.string("name");
+    table.timestamp("created_at", { useTz: true }).notNullable().defaultTo(knex.fn.now());
+    table.timestamp("seen_at", { useTz: false }).defaultTo(knex.fn.now());
+    table.date("day").defaultTo(knex.raw("CURRENT_DATE"));
+    table.timestamp("noted_at", { useTz: true });
+  });
+  await knex("presets").insert({ name: "Core Coach", noted_at: new Date() });
+};
+exports.down = () => {};
+`;
+// A settings row a migration seeds with knex.fn.now() (SQL's CURRENT_TIMESTAMP) beside JavaScript's Date, as
+// BeePollen's console_settings, allowed_login_email_settings and driers migrations do.
+const SETTINGS = `exports.up = async (knex) => {
+  await knex.schema.createTable("console_settings", (table) => {
+    table.increments("id");
+    table.string("name");
+    table.timestamp("created_at", { useTz: true });
+    table.timestamp("updated_at", { useTz: false });
+  });
+  await knex("console_settings").insert({ name: "default", created_at: knex.fn.now(), updated_at: new Date() });
+};
+exports.down = () => {};
+`;
+// A value computed from the clock, which no PostgreSQL build can freeze.
+const TOMORROW = "exports.up = (knex) => knex(\"presets\").insert({ name: \"Tomorrow\", noted_at: knex.raw(\"now() + interval '1 day'\") });\n" +
+  "exports.down = () => {};\n";
+
 /**
  * An application in a directory of its own with `migrations`, whose TEST_DB_NAME is named after `suffix`; after the
  * test it and its snapshot database are dropped, with the directory.
@@ -103,9 +135,41 @@ test("on PostgreSQL a migration history that builds other rows, a column default
     "20200102000000_random.cjs": RANDOM
   });
   await prepareTestDatabases({ knexConfig, environment, appRoot });
+  // The rows that differ are named, as read, and so is a table whose rows are the same.
   await assert.rejects(proveMigrationHistory({ knexConfig, environment, appRoot }), new RegExp(
     `^Error: The migration history proof: ${name}, built from empty, differs from the test snapshot in books, labels, ` +
-    "limits, tags: ", "u"));
+    "limits, tags: books: 1 row\\(s\\) only in the replay \\(\\(2,[0-9a-f]{8}\\)\\) and 1 only in the snapshot \\(\\(2,[0-9a-f]{8}\\)\\); " +
+    "labels: the same rows, another definition; limits: the same rows, another definition; and 1 more\\. ", "u"));
   const titles = (database) => read(database, (db) => db("books").orderBy("id").pluck("title"));
   assert.deepEqual(await titles(name), await titles(`${name}_snapshot`));
+});
+
+test("on PostgreSQL a migration history whose seed rows come from the clock (column defaults, knex.fn.now(), JavaScript's Date) passes the proof at another time, each build's clock values compared as its own", {
+  skip: SKIP
+}, async (context) => {
+  const { appRoot, name, environment, knexConfig, read } = await application(context, "hist5", {
+    "20200101000000_clock.cjs": CLOCK,
+    "20200102000000_settings.cjs": SETTINGS
+  });
+  await prepareTestDatabases({ knexConfig, environment, appRoot });
+  const preset = (database) => read(database, async (db) => (await db.raw("SELECT p::text AS row FROM presets p")).rows);
+  const settings = (database) => read(database, async (db) => (await db.raw("SELECT s::text AS row FROM console_settings s")).rows);
+  const built = await preset(name);
+  const seeded = await settings(name);
+  const proof = await proveMigrationHistory({ knexConfig, environment, appRoot });
+  assert.match(proof.summary, /, the same tables, definitions and rows as the test snapshot \(4 tables\)$/u);
+  assert.deepEqual(await preset(name), built);
+  assert.deepEqual(await settings(name), seeded);
+});
+
+test("on PostgreSQL a value a migration computes from the clock fails the proof, naming its rows and why", { skip: SKIP }, async (context) => {
+  const { appRoot, name, environment, knexConfig } = await application(context, "hist6", {
+    "20200101000000_clock.cjs": CLOCK,
+    "20200102000000_tomorrow.cjs": TOMORROW
+  });
+  await prepareTestDatabases({ knexConfig, environment, appRoot });
+  await assert.rejects(proveMigrationHistory({ knexConfig, environment, appRoot }), new RegExp(
+    `^Error: The migration history proof: ${name}, built from empty, differs from the test snapshot in presets: presets: ` +
+    "1 row\\(s\\) only in the replay \\(\\(2,Tomorrow,[^)]*\\)\\) and 1 only in the snapshot \\(\\(2,Tomorrow,[^)]*\\)\\)\\. A migration " +
+    "builds something else on each replay \\(.*PostgreSQL's clock cannot be frozen.*now\\(\\) \\+ interval", "u"));
 });

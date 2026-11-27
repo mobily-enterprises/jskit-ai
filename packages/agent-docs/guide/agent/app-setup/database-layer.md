@@ -485,10 +485,22 @@ the application's `knexfile.js`:
   the migrations, or the knexfile's `testDatabaseSchema` build, from empty
   into `TEST_DB_NAME`; a second pass that must find nothing left; then the
   tables, definitions and rows it built compared with the snapshot the tests
-  run on, all but when each migration ran. It fails, naming what differs, when
-  a migration builds something else on each replay (from the clock, a random
-  value or what the server holds), and it leaves `TEST_DB_NAME` as the
-  snapshot, so it needs no database a test run does not
+  run on, all but when each migration ran. Rows a migration fills from the
+  clock match: on MySQL and MariaDB both builds run with the clock stopped at
+  the snapshot's own second, each session's SQL clock (`SET TIMESTAMP`:
+  `NOW()`, `CURRENT_TIMESTAMP`, `knex.fn.now()`, column defaults and the month
+  they give) and JavaScript's `Date`. PostgreSQL's clock cannot be stopped, so
+  there a date or time each build took from its clock as it was (`now()`,
+  `CURRENT_TIMESTAMP`, `CURRENT_DATE`, `knex.fn.now()`, `new Date()`, which a
+  column without a zone holds as this process's wall clock) compares as the
+  clock's, and one computed from it (`now() + interval '1 day'`, the month's
+  first day) still differs. It fails, naming the rows that differ and why,
+  when a migration builds something else on each replay (a random value, what
+  the server holds, or a clock the build cannot stop, such as MySQL's
+  `SYSDATE()`). A migration that has run is never edited: when one computes
+  such a value, the knexfile's `testDatabaseSchema.build` runs the migrations
+  and then sets those values to fixed ones, in test builds only. It leaves
+  `TEST_DB_NAME` as the snapshot, so it needs no database a test run does not
   (`jskit migration-history: 42 migrations replayed from empty into shop_test
   in 3104ms, nothing left for a second pass, the same tables, definitions and
   rows as the test snapshot (37 tables)`).

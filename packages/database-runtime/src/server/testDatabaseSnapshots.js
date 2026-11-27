@@ -5,6 +5,13 @@
 //   `node_modules/.cache/jskit-test-databases/` named after the snapshot's key and the server's version;
 // - PostgreSQL: a prepared database, `<name>_snapshot`, that every copy is created from with
 //   CREATE DATABASE ... TEMPLATE (STRATEGY FILE_COPY from PostgreSQL 15).
+//
+// A build that fills rows from the clock (a column default, NOW(), the month, JavaScript's Date) builds other values each
+// time, so the migration history proof (proveMigrationHistory()) could never match its replay with the snapshot. On
+// MySQL and MariaDB each build runs with the clock stopped at the snapshot's own second, stored with it: every session's
+// SQL clock (SET TIMESTAMP) and JavaScript's Date. PostgreSQL's clock cannot be stopped, so each build's time window on
+// the server is stored instead, and a date or time inside it compares as "clock" (each build's against its own window);
+// one outside it, such as one computed from the clock, still differs.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -28,6 +35,22 @@ const MYSQL_SNAPSHOT_CONNECTION = Object.freeze({
 });
 const MYSQL_GENERATED_COLUMN = /\b(?:VIRTUAL|STORED|PERSISTENT) GENERATED\b/iu;
 const INSERT_BATCH = 500;
+// The date and time columns whose values a PostgreSQL build can take from the clock, and how the bounds of a build's
+// window, in seconds since the epoch, read as each: in the session's time zone, as now() is stored in them, and for a
+// column without a zone also as this process's wall clock (localWallClock()), as a JavaScript Date written to it is.
+const POSTGRES_CLOCK_TYPES = Object.freeze({
+  "timestamp with time zone": { bound: "to_timestamp(?)", local: "" },
+  "timestamp without time zone": { bound: "to_timestamp(?)::timestamp", local: "?::timestamp" },
+  date: { bound: "to_timestamp(?)::date", local: "?::date" }
+});
+const POSTGRES_COLUMNS = `
+  SELECT c.relname AS "table", a.attname AS name, format_type(a.atttypid, NULL) AS type
+  FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p') AND a.attnum > 0 AND NOT a.attisdropped
+  ORDER BY c.relname, a.attnum`;
+const SNAPSHOT_LABEL = /^jskit-test-snapshot ([0-9a-f]+) (\d+) (\d+)$/u;
+const SYSTEM_DATE = globalThis.Date;
+let dateStopped = 0;
 // Each table, view and sequence of the current schema, by name, with its definition: a table's columns in order (type,
 // NOT NULL, default), its constraints and its indexes; a view's query; a sequence's type, bounds and last value.
 const POSTGRES_DEFINITIONS = `
@@ -47,13 +70,45 @@ const POSTGRES_DEFINITIONS = `
 
 const ledgerOf = (knexConfig) => knexConfig.migrations?.tableName || "knex_migrations";
 
-function knexOn(knexConfig, database, connectionOptions = {}) {
-  return loadKnexFactory()({
-    ...knexConfig,
-    connection: { ...knexConfig.connection, ...connectionOptions, database },
-    // The configuration's own pool settings stay, such as a PostgreSQL session's UTC time zone.
-    pool: { ...knexConfig.pool, min: 0, max: 1 }
+/** A Knex on `database`; a MySQL `session` statement runs on each connection it opens, after the configuration's own. */
+function knexOn(knexConfig, database, connectionOptions = {}, session = "") {
+  // The configuration's own pool settings stay, such as a PostgreSQL session's UTC time zone.
+  const pool = { ...knexConfig.pool, min: 0, max: 1 };
+  if (session) {
+    const own = knexConfig.pool?.afterCreate;
+    const run = (connection, done) => connection.query(session, (error) => done(error, connection));
+    pool.afterCreate = own
+      ? (connection, done) => own(connection, (error) => (error ? done(error, connection) : run(connection, done)))
+      : run;
+  }
+  return loadKnexFactory()({ ...knexConfig, connection: { ...knexConfig.connection, ...connectionOptions, database }, pool });
+}
+
+/**
+ * The wall-clock time of `seconds` since the epoch in this process's time zone, which node-postgres sends a JavaScript
+ * Date as (with its offset, which a column without a zone drops): `2026-11-27 14:55:36`.
+ */
+function localWallClock(seconds) {
+  const date = new SYSTEM_DATE(seconds * 1000);
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+/** Runs `work` with JavaScript's clock (new Date(), Date(), Date.now()) stopped at `milliseconds`. */
+async function withDateStopped(milliseconds, work) {
+  dateStopped += 1;
+  globalThis.Date = new Proxy(SYSTEM_DATE, {
+    construct: (target, args, newTarget) => Reflect.construct(target, args.length > 0 ? args : [milliseconds], newTarget),
+    apply: () => new SYSTEM_DATE(milliseconds).toString(),
+    get: (target, property, receiver) => (property === "now" ? () => milliseconds : Reflect.get(target, property, receiver))
   });
+  try {
+    return await work();
+  } finally {
+    dateStopped -= 1;
+    if (dateStopped === 0) globalThis.Date = SYSTEM_DATE;
+  }
 }
 
 async function withKnex(knexConfig, database, use, connectionOptions) {
@@ -82,6 +137,28 @@ function rowsDigest(rows) {
   return createHash("sha256").update(rows.map((row) => JSON.stringify(row)).sort().join("\n")).digest("hex");
 }
 
+/**
+ * What differs in `table` between a replay's rows and the snapshot's, each list a table's rows as read (null when the
+ * database lacks the table), the first three of each side shown.
+ */
+function rowDifference(table, built, captured) {
+  if (!built) return `${table}: only in the snapshot`;
+  if (!captured) return `${table}: only in the replay`;
+  const left = new Map();
+  for (const row of captured) left.set(row, (left.get(row) ?? 0) + 1);
+  const onlyBuilt = built.filter((row) => {
+    const count = left.get(row);
+    if (count) left.set(row, count - 1);
+    return !count;
+  });
+  const onlyCaptured = [...left].flatMap(([row, count]) => Array(count).fill(row));
+  if (onlyBuilt.length === 0 && onlyCaptured.length === 0) return `${table}: the same rows, another definition`;
+  const listed = (rows) => rows.slice(0, 3).map((row) => (row.length > 200 ? `${row.slice(0, 200)}...` : row)).join(", ") +
+    (rows.length > 3 ? ", ..." : "");
+  return `${table}: ${onlyBuilt.length} row(s) only in the replay (${listed(onlyBuilt)}) and ${onlyCaptured.length} only in ` +
+    `the snapshot (${listed(onlyCaptured)})`;
+}
+
 async function ledgerNames(knex, ledger, tables) {
   if (!tables.includes(ledger)) return [];
   const result = await knex.raw("SELECT name FROM ?? ORDER BY id", [ledger]);
@@ -89,6 +166,9 @@ async function ledgerNames(knex, ledger, tables) {
 }
 
 const mysql = {
+  unstopped: "a random value, what the server holds, or a clock the build does not stop: it stops the SQL clock (NOW(), " +
+    "CURRENT_TIMESTAMP, column defaults) and JavaScript's Date at the snapshot's own second, but not SYSDATE()",
+
   async tables(knex, database) {
     const [rows] = await knex.raw(
       "SELECT TABLE_NAME AS name, TABLE_TYPE AS type FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?", [database]
@@ -191,12 +271,14 @@ const mysql = {
     const server = createHash("sha256").update(String(version)).digest("hex").slice(0, 8);
     const file = path.join(appRoot, SNAPSHOT_DIRECTORY, `${key}-${server}.json`);
     if (existsSync(file)) {
-      const { migrations, tables } = JSON.parse(readFileSync(file, "utf8"));
-      return { key, file, migrations, tables: tables.map(({ name }) => name), replayed: false };
+      const { clock, migrations, tables } = JSON.parse(readFileSync(file, "utf8"));
+      // One stored before builds stopped the clock holds none, and is built again.
+      if (clock !== undefined) return { key, file, clock, migrations, tables: tables.map(({ name }) => name), replayed: false };
     }
+    const clock = Math.floor(Date.now() / 1000);
     await mysql.createDatabase(knexConfig, database);
     // The schema is built on the application's own connection settings; only the capture reads values as text.
-    await withKnex(knexConfig, database, async (knex) => {
+    await mysql.build(knexConfig, database, clock, async (knex) => {
       await mysql.replaceTables(knex, database, await mysql.tables(knex, database), []);
       await build(knex);
     });
@@ -204,9 +286,39 @@ const mysql = {
     const tables = await withKnex(knexConfig, database, (knex) => mysql.capture(knex, database), MYSQL_SNAPSHOT_CONNECTION);
     mkdirSync(path.dirname(file), { recursive: true });
     // Written whole, then renamed, so a run beside this one never reads half a snapshot.
-    writeFileSync(`${file}.${process.pid}`, JSON.stringify({ migrations, tables }));
+    writeFileSync(`${file}.${process.pid}`, JSON.stringify({ clock, migrations, tables }));
     renameSync(`${file}.${process.pid}`, file);
-    return { key, file, migrations, tables: tables.map(({ name }) => name), replayed: true };
+    return { key, file, clock, migrations, tables: tables.map(({ name }) => name), replayed: true };
+  },
+
+  /**
+   * Runs `use` on a Knex on `database` with the clock stopped at `clock`, in seconds since the epoch: the SQL clock of
+   * each session it opens (SET TIMESTAMP: NOW(), CURRENT_TIMESTAMP, column defaults, CURDATE()), and JavaScript's Date.
+   */
+  async build(knexConfig, database, clock, use) {
+    const knex = knexOn(knexConfig, database, {}, `SET TIMESTAMP = ${Number(clock)}`);
+    try {
+      return await withDateStopped(clock * 1000, () => use(knex));
+    } finally {
+      await knex.destroy();
+    }
+  },
+
+  /** A replay of the history into `database`, on the snapshot's own clock. */
+  async replay(knexConfig, database, snapshot, use) {
+    return { result: await mysql.build(knexConfig, database, snapshot.clock, use) };
+  },
+
+  /** Each of `tables` of `database` as rows read as the capture reads them, or null when `database` lacks it. */
+  async rows(knexConfig, database, tables) {
+    return withKnex(knexConfig, database, async (knex) => {
+      const present = new Set(await mysql.tables(knex, database));
+      const rows = new Map();
+      for (const name of tables) {
+        rows.set(name, present.has(name) ? (await knex.raw("SELECT * FROM ??", [name]))[0].map((row) => JSON.stringify(row)) : null);
+      }
+      return rows;
+    }, MYSQL_SNAPSHOT_CONNECTION);
   },
 
   /** Creates `database` unless it exists; false when the database user may not create it. */
@@ -272,6 +384,10 @@ const mysql = {
 };
 
 const postgres = {
+  unstopped: "a random value, what the server holds, or the clock: PostgreSQL's clock cannot be frozen, so a date or time " +
+    "a build took from it as it was (now(), CURRENT_TIMESTAMP, CURRENT_DATE, new Date()) compares equal, but not one " +
+    "computed from it, such as now() + interval '1 day' or the month's first day",
+
   // Tables and views alike: a copy made from the template database carries everything the migrations made.
   async tables(knex) {
     const { rows } = await knex.raw("SELECT table_name AS name FROM information_schema.tables WHERE table_schema = current_schema()");
@@ -282,28 +398,79 @@ const postgres = {
     return withKnex(knexConfig, POSTGRES_MAINTENANCE_DATABASE, use);
   },
 
+  /**
+   * The snapshot database, built again unless its label names this key and the window its build ran in (one built before
+   * builds recorded it names none).
+   */
   async ensureSnapshot(knexConfig, database, key, _appRoot, build) {
     const snapshotDatabase = `${database}_snapshot`;
-    const label = `jskit-test-snapshot ${key}`;
     const current = await postgres.maintenance(knexConfig, async (knex) => {
       const { rows } = await knex.raw(
         "SELECT shobj_description(oid, 'pg_database') AS label FROM pg_database WHERE datname = ?", [snapshotDatabase]
       );
       return rows[0]?.label || "";
     });
-    const replayed = current !== label;
+    const [, labelKey, start, end] = SNAPSHOT_LABEL.exec(current) ?? [];
+    let window = [Number(start), Number(end)];
+    const replayed = labelKey !== key;
     if (replayed) {
       await postgres.maintenance(knexConfig, async (knex) => {
         await knex.raw("DROP DATABASE IF EXISTS ??", [snapshotDatabase]);
         await knex.raw("CREATE DATABASE ??", [snapshotDatabase]);
       });
-      await withKnex(knexConfig, snapshotDatabase, build);
-      // The key is hexadecimal, so it is safe inline; COMMENT takes no bound parameters.
-      await postgres.maintenance(knexConfig, (knex) => knex.raw(`COMMENT ON DATABASE ?? IS '${label}'`, [snapshotDatabase]));
+      ({ window } = await postgres.replay(knexConfig, snapshotDatabase, null, build));
+      // The key is hexadecimal and the window integers, so they are safe inline; COMMENT takes no bound parameters.
+      await postgres.maintenance(knexConfig, (knex) => knex.raw(
+        `COMMENT ON DATABASE ?? IS 'jskit-test-snapshot ${key} ${window[0]} ${window[1]}'`, [snapshotDatabase]));
     }
     // Read, then closed: a template database is copied only while nothing is connected to it.
     const { tables, migrations } = await postgres.outline(knexConfig, snapshotDatabase);
-    return { key, database: snapshotDatabase, migrations, tables, replayed };
+    return { key, database: snapshotDatabase, migrations, tables, window, replayed };
+  },
+
+  /**
+   * Runs `use` on a Knex on `database`, and answers what it answers and the window it ran in, whole seconds since the
+   * epoch, wide enough for the server's clock and this process's (which a migration's new Date() reads).
+   */
+  async replay(knexConfig, database, _snapshot, use) {
+    const now = async () => [Date.now() / 1000, await postgres.maintenance(knexConfig, async (knex) =>
+      Number((await knex.raw("SELECT extract(epoch FROM clock_timestamp()) AS now")).rows[0].now))];
+    const started = await now();
+    const result = await withKnex(knexConfig, database, use);
+    const ended = await now();
+    return { result, window: [Math.floor(Math.min(...started)), Math.ceil(Math.max(...ended))] };
+  },
+
+  /**
+   * Each table's rows as text for the knex on its database, in a statement per table: a date or time inside `window`
+   * reads as "clock", since a build filled it from its own clock; without a window, or for a view, each row as it is.
+   * @returns {Promise<Map<string, { sql: string, bindings: unknown[] }>>}
+   */
+  async rowTexts(knex, window) {
+    const columns = new Map();
+    for (const { table, name, type } of (await knex.raw(POSTGRES_COLUMNS)).rows) {
+      columns.set(table, [...(columns.get(table) ?? []), { name, type }]);
+    }
+    const texts = new Map();
+    for (const [table, list] of columns) {
+      if (!window || !list.some(({ type }) => POSTGRES_CLOCK_TYPES[type])) continue;
+      const bindings = [];
+      const values = list.map(({ name, type }) => {
+        const clock = POSTGRES_CLOCK_TYPES[type];
+        if (!clock) {
+          bindings.push(name);
+          return "t.??::text";
+        }
+        const { bound, local } = clock;
+        bindings.push(name, window[0], window[1]);
+        if (local) bindings.push(name, localWallClock(window[0]), localWallClock(window[1]));
+        bindings.push(name);
+        return `CASE WHEN t.?? BETWEEN ${bound} AND ${bound}${local ? ` OR t.?? BETWEEN ${local} AND ${local}` : ""} ` +
+          "THEN 'clock' ELSE t.??::text END";
+      });
+      texts.set(table, { sql: `ROW(${values.join(", ")})::text`, bindings });
+    }
+    return texts;
   },
 
   /** Creates `database` anew, empty. */
@@ -316,25 +483,46 @@ const postgres = {
 
   /**
    * Each table, view and sequence of `database` by name, with its definition (POSTGRES_DEFINITIONS) and, for a table or
-   * view, a digest of its rows in any order, the migration ledger's aside: they hold when each migration ran.
+   * view, a digest of its rows in any order (rowTexts(): a date or time inside the build's `window` reads as "clock"),
+   * the migration ledger's aside: they hold when each migration ran.
    */
-  async definitions(knexConfig, database) {
+  async definitions(knexConfig, database, window) {
     return withKnex(knexConfig, database, async (knex) => {
+      const texts = await postgres.rowTexts(knex, window);
       const definitions = new Map();
       for (const { name, kind, definition } of (await knex.raw(POSTGRES_DEFINITIONS)).rows) {
-        const rows = kind === "S" || name === ledgerOf(knexConfig) ? "" : (await knex.raw(
-          "SELECT md5(COALESCE(string_agg(t::text, E'\\n' ORDER BY t::text), '')) AS digest FROM ?? AS t", [name])).rows[0].digest;
+        const { sql, bindings } = texts.get(name) ?? { sql: "t::text", bindings: [] };
+        const rows = kind === "S" || name === ledgerOf(knexConfig) ? "" : (await knex.raw("SELECT md5(COALESCE(string_agg(r, " +
+          `E'\\n' ORDER BY r), '')) AS digest FROM (SELECT ${sql} AS r FROM ?? AS t) AS s`, [...bindings, name])).rows[0].digest;
         definitions.set(name, `${definition}\n${rows}`);
       }
       return definitions;
     });
   },
 
-  /** The tables, views and sequences of `database` whose definition or rows differ from the snapshot database's. */
-  async differences(knexConfig, database, snapshot) {
-    const built = await postgres.definitions(knexConfig, database);
-    const captured = await postgres.definitions(knexConfig, snapshot.database);
+  /**
+   * The tables, views and sequences of `database`, built in `window`, whose definition or rows differ from the snapshot
+   * database's, each side's dates and times read against its own build's window.
+   */
+  async differences(knexConfig, database, snapshot, window) {
+    const built = await postgres.definitions(knexConfig, database, window);
+    const captured = await postgres.definitions(knexConfig, snapshot.database, snapshot.window);
     return [...new Set([...built.keys(), ...captured.keys()])].filter((name) => built.get(name) !== captured.get(name)).sort();
+  },
+
+  /** Each of `tables` of `database` as rows read as differences() reads them, or null when `database` lacks it. */
+  async rows(knexConfig, database, tables, window) {
+    return withKnex(knexConfig, database, async (knex) => {
+      const present = new Set(await postgres.tables(knex));
+      const texts = await postgres.rowTexts(knex, window);
+      const rows = new Map();
+      for (const name of tables) {
+        const { sql, bindings } = texts.get(name) ?? { sql: "t::text", bindings: [] };
+        rows.set(name, present.has(name)
+          ? (await knex.raw(`SELECT ${sql} AS r FROM ?? AS t`, [...bindings, name])).rows.map(({ r }) => r) : null);
+      }
+      return rows;
+    });
   },
 
   /**
@@ -393,6 +581,7 @@ export {
   POSTGRES_INSUFFICIENT_PRIVILEGE,
   dialectOf,
   ledgerOf,
+  rowDifference,
   settleAll,
   withKnex
 };
