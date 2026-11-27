@@ -15,12 +15,22 @@ const JSKIT_CLI = path.join(ROOT_DIR, "tooling", "jskit-catalog", "scripts", "js
 const BROWSER_RUN = /\.browser\.test\.js$/u;
 const SWITCH = /process\.env\.(JSKIT_[A-Z0-9_]+)\s*[!=]==\s*"1"/gu;
 
-/** Every package browser test file, relative to the repository and sorted, with the JSKIT_* switches it compares with "1". */
-function browserTestFiles(rootDir = ROOT_DIR) {
-  return packageTestFiles((entry) => BROWSER_RUN.test(entry), rootDir).map((file) => ({
+/** The package test files `keep` keeps, relative to the repository and sorted, each with the JSKIT_* switches it compares with "1". */
+function switchedFiles(keep, rootDir) {
+  return packageTestFiles(keep, rootDir).map((file) => ({
     file,
     switches: [...new Set([...readFileSync(path.join(rootDir, file), "utf8").matchAll(SWITCH)].map((match) => match[1]))].sort()
   }));
+}
+
+/** Every package browser test file, relative to the repository and sorted, with the JSKIT_* switches it compares with "1". */
+function browserTestFiles(rootDir = ROOT_DIR) {
+  return switchedFiles((entry) => BROWSER_RUN.test(entry), rootDir);
+}
+
+/** The package test files that are not browser test files yet compare a JSKIT_* switch with "1": no run runs what it turns on. */
+function switchedOtherTestFiles(rootDir = ROOT_DIR) {
+  return switchedFiles((entry) => !BROWSER_RUN.test(entry), rootDir).filter(({ switches }) => switches.length > 0);
 }
 
 /** The browser test files whose switches are all "1" in environment. */
@@ -45,4 +55,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {
   main();
 }
 
-export { browserTestFiles, switchedBrowserTestFiles };
+export { browserTestFiles, switchedBrowserTestFiles, switchedOtherTestFiles };

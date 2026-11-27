@@ -12,10 +12,13 @@ import { createClaudeConversationTurn } from "../src/server/conversation/claudeN
 const execute = promisify(execFile);
 
 test("native Claude replaces a recorded system prompt on resume and retains ordinary history", { timeout: 90_000 }, async (t) => {
-  try { await execute("claude", ["--version"]); }
-  catch (error) { if (error.code === "ENOENT") { t.skip("Claude Code is not installed."); return; } throw error; }
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-claude-instructions-"));
   t.after(() => rm(root, { recursive: true, force: true }));
+  // Claude Code runs only on this throwaway home and configuration, never the machine's own.
+  const home = { PATH: process.env.PATH, HOME: root, CLAUDE_CONFIG_DIR: path.join(root, "config"),
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1", DISABLE_AUTOUPDATER: "1" };
+  try { await execute("claude", ["--version"], { env: home }); }
+  catch (error) { if (error.code === "ENOENT") { t.skip("Claude Code is not installed."); return; } throw error; }
   const requests = [];
   const server = createServer(async (request, response) => {
     if (request.url.includes("count_tokens")) {
@@ -49,11 +52,9 @@ test("native Claude replaces a recorded system prompt on resume and retains ordi
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const env = {
-    PATH: process.env.PATH, HOME: root, CLAUDE_CONFIG_DIR: path.join(root, "config"),
-    ANTHROPIC_BASE_URL: `http://127.0.0.1:${server.address().port}`,
+    ...home, ANTHROPIC_BASE_URL: `http://127.0.0.1:${server.address().port}`,
     ANTHROPIC_AUTH_TOKEN: "local-test", ANTHROPIC_MODEL: "fixture-model",
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: "fixture-model", CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-    CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST: "1", DISABLE_AUTOUPDATER: "1"
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: "fixture-model", CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST: "1"
   };
   const runtime = createClaudeConversationTurn({ conversationId: "instruction-arguments", process: { getProcess: () => null,
     isActive: () => false, startProcess: () => {}, stopProcess: () => {} } });

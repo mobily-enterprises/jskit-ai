@@ -93,11 +93,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const headlessText = process.argv.slice(3).join(" ").trim();
   if (headless && !headlessText) throw new Error("Pass a task after --headless.");
   const { app, runHeadless } = await createExampleServer();
-  await app.listen({ host: "127.0.0.1", port: 3042 });
+  // 3042 unless VOICE_EXAMPLE_API_PORT names another port (vite.config.js proxies to the same one).
+  const port = Number(process.env.VOICE_EXAMPLE_API_PORT) || 3042;
+  await app.listen({ host: "127.0.0.1", port });
   for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => {
     app.close().catch(error => { app.log.error(error); process.exitCode = 1; });
   });
-  console.log("Voice example API ready on 127.0.0.1:3042");
+  console.log(`Voice example API ready on 127.0.0.1:${port}`);
   if (headless) {
     runHeadless(headlessText).then(answer => console.log(`Headless task: ${answer}`))
       .catch(error => console.error(`Headless task failed: ${error.message}`));

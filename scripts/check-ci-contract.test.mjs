@@ -225,6 +225,27 @@ test("CI contract verification refuses a browser test file whose switches no ste
   ]);
 });
 
+// The mounted voice starter's test sat in a test file that is not a browser test file, turned on by
+// JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION: `npm run verify` skipped it and no browser step picked it, so no run ran it.
+test("CI contract verification refuses a test that a browser switch turns on in a file that is not a browser test file", async () => {
+  const issues = await collectCiContractIssues({
+    packageJson: { engines: { node: "^24.0.0" }, scripts: { "test:browser": "x" } },
+    workflows: { "x.yml": "jobs:\n  browser:\n    steps:\n      - env:\n          JSKIT_SHELL: \"1\"\n        run: npm run test:browser\n" },
+    browserTests: [],
+    switchedOtherTests: [
+      { file: "packages/a/test/example.test.js", switches: ["JSKIT_SHELL"] },
+      { file: "packages/a/test/both.test.js", switches: ["JSKIT_SHELL", "JSKIT_OTHER"] }
+    ]
+  });
+
+  assert.deepEqual(issues.filter((issue) => /not a browser test file/u.test(issue)), [
+    "Test file \"packages/a/test/example.test.js\" turns a test on with JSKIT_SHELL: \"1\", but it is not a browser test file, " +
+      "and `npm run test:browser` picks only *.browser.test.js files, so no run runs that test: move it into a .browser.test.js file.",
+    "Test file \"packages/a/test/both.test.js\" turns a test on with JSKIT_SHELL: \"1\" and JSKIT_OTHER: \"1\", but it is not a browser " +
+      "test file, and `npm run test:browser` picks only *.browser.test.js files, so no run runs that test: move it into a .browser.test.js file."
+  ]);
+});
+
 test("CI contract verification finds every browser test file of this repository run by a CI step", async () => {
   const workflows = { "verify.yml": readFileSync(".github/workflows/verify.yml", "utf8") };
   const issues = await collectCiContractIssues({ packageJson: JSON.parse(readFileSync("package.json", "utf8")), workflows });

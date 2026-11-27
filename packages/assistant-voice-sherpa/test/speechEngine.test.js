@@ -102,13 +102,44 @@ test("streaming recognition uses bounded beam search and its installed technical
   await listening.acceptPcm(Buffer.alloc(320));
   assert.equal(endpoints.at(-1), "Acme Labs uses SQL");
   assert.equal(await listening.finish(), "Acme Labs uses SQL");
-  assert.equal(waveforms.at(-1).samples.length, 7200, "default finalization preserves the original 0.45-second lookahead");
+  assert.equal(waveforms.at(-1).samples.length, 12000, "default finalization feeds 0.75 seconds of lookahead");
   listening.cancel();
   assert.equal(await listening.isEndpoint(), false);
   result = "";
   assert.equal(await engine.createListeningSession().finish(), "");
-  assert.equal(waveforms.at(-1).samples.length, 7200, "default empty finalization still feeds native lookahead");
+  assert.equal(waveforms.at(-1).samples.length, 12000, "default empty finalization still feeds native lookahead");
   assert.equal(finishes, 2);
+});
+
+// Ten seconds of exact zeros (a muted microphone) made the default pack's recognizer hear "And" and "I am"; one-step
+// noise, or -60 dBFS noise, made it hear nothing (nativeSpeech.test.js).
+test("digital silence reaches the recognizer as noise of one 16-bit step, the same each time for the same input", () => {
+  const fed = [];
+  const recognizer = {
+    createStream: () => ({ acceptWaveform: ({ samples }) => fed.push(Array.from(samples)), inputFinished() {} }),
+    isReady: () => false,
+    getResult: () => ({ text: "" }),
+    isEndpoint: () => false,
+    reset() {}
+  };
+  const step = 1 / 32768;
+  const record = () => {
+    fed.length = 0;
+    const session = createRecognitionSession(recognizer);
+    const speech = Buffer.alloc(320);
+    speech.writeInt16LE(16384, 0);
+    session.acceptPcm(Buffer.alloc(320));
+    session.acceptPcm(speech);
+    session.finish();
+    return fed.slice();
+  };
+  const [silence, speech, lookahead] = record();
+  assert.equal(lookahead.length, 12000);
+  for (const [name, samples] of [["silence", silence], ["the lookahead", lookahead]]) {
+    assert.ok(samples.every(sample => sample !== 0 && Math.abs(sample) <= step), `${name} is one-step noise, never exact zeros`);
+  }
+  assert.ok(Math.abs(speech[0] - 0.5) <= step, "speech changes by one step at most");
+  assert.deepEqual(record(), [silence, speech, lookahead], "the same recording feeds the same samples");
 });
 
 test("an explicit RMS floor gates only onset and retains configured final lookahead", async () => {

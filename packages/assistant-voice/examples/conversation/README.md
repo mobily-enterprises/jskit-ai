@@ -32,7 +32,9 @@ SPEECH_ENDPOINT=ws://127.0.0.1:3092/v1/voice \
 SPEECH_TOKEN_FILE=/run/secrets/example-speech-token npm run server
 ```
 
-5. In another terminal run `npm run dev` and open `http://127.0.0.1:5176`.
+5. In another terminal run `npm run dev` and open `http://127.0.0.1:5176`. The server
+   listens on 127.0.0.1:3042, and the dev server proxies `/api` there; set
+   `VOICE_EXAMPLE_API_PORT` for both commands to use another port.
    Each text card uses `AssistantConversationClientElement`. Send a short request in two
    cards to see independent output and Stop controls on the one connection.
 6. Open **Voice chat with Planning**. Tap Talk for hands-free listening or hold

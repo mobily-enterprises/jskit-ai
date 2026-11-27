@@ -7,6 +7,25 @@ import {
 /** A listener that does not follow the recognized words ignores them. */
 function ignoreRecognizedText() {}
 
+// Digital silence, exact zeros (a muted microphone, finish()'s lookahead), is outside what the model learned from: on
+// ten seconds of it the default pack's recognizer heard "And" and "I am". As Kaldi's dither does, every sample a session
+// feeds the recognizer gets noise of at most one 16-bit step, from a fixed sequence, so the same input gives the same
+// words.
+const DITHER_STEP = 1 / 32768;
+
+function createDither() {
+  let state = 0x9e3779b9;
+  return samples => {
+    for (let index = 0; index < samples.length; index += 1) {
+      state ^= state << 13;
+      state ^= state >>> 17;
+      state ^= state << 5;
+      samples[index] += ((state >>> 0) / 0xffffffff * 2 - 1) * DITHER_STEP;
+    }
+    return samples;
+  };
+}
+
 function decodeAvailable(recognizer, stream, vocabulary) {
   while (recognizer.isReady(stream)) {
     recognizer.decode(stream);
@@ -29,12 +48,13 @@ function decodeAvailable(recognizer, stream, vocabulary) {
 function createRecognitionSession(recognizer, {
   vocabulary = {},
   minimumRms = 0,
-  tailPaddingSeconds = 0.45,
+  tailPaddingSeconds = 0.75,
   onPartial = ignoreRecognizedText,
   onEndpoint = ignoreRecognizedText,
   continuous = false
 } = {}) {
   const stream = recognizer.createStream();
+  const dither = createDither();
   let acceptedSamples = 0;
   let closed = false;
   let latestText = "";
@@ -55,7 +75,7 @@ function createRecognitionSession(recognizer, {
     acceptedSamples += samples.length;
     stream.acceptWaveform({
       sampleRate: VOICE_INPUT_SAMPLE_RATE,
-      samples
+      samples: dither(samples)
     });
     const text = decodeAvailable(recognizer, stream, vocabulary);
     if (text && text !== latestText) {
@@ -88,7 +108,7 @@ function createRecognitionSession(recognizer, {
     stream.acceptWaveform({
       sampleRate: VOICE_INPUT_SAMPLE_RATE,
       // Supply the model's lookahead when push-to-talk ends on the final word.
-      samples: new Float32Array(Math.floor(VOICE_INPUT_SAMPLE_RATE * tailPaddingSeconds))
+      samples: dither(new Float32Array(Math.floor(VOICE_INPUT_SAMPLE_RATE * tailPaddingSeconds)))
     });
     stream.inputFinished();
     const finalText = decodeAvailable(recognizer, stream, vocabulary);

@@ -158,13 +158,15 @@ const gesture = useVoiceLauncher({
 .assistant-voice-controls__tools--icons .assistant-voice__talk-action p { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .assistant-voice-controls__feedback--compact .assistant-voice__review {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 4px;
   max-height: 128px;
   padding: 0;
 }
-.assistant-voice-controls__feedback--compact .assistant-voice__review-input { flex: 1 1 auto; min-width: 0; }
-.assistant-voice-controls__feedback--compact .assistant-voice__review-actions { flex: 0 0 auto; }
+/* The editor keeps 160px beside Discard and Send; in a narrower panel (a 320px chat) they go below it, at its end. */
+.assistant-voice-controls__feedback--compact .assistant-voice__review-input { flex: 1 1 160px; min-width: 0; }
+.assistant-voice-controls__feedback--compact .assistant-voice__review-actions { flex: 0 0 auto; margin-inline-start: auto; }
 .assistant-voice-controls__feedback--compact .assistant-voice__error { margin: 0; padding: 0; }
 @media (max-height: 650px) { .assistant-voice__talk-action { padding-top: 8px; } }
 </style>
