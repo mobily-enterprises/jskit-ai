@@ -120,10 +120,12 @@ async function createStartedApp({
   logger = null,
   configureExtensions = null,
   signInEvents = null,
-  emailChangeSender = null
+  emailChangeSender = null,
+  // The auth.local.backend to install: the file backend in the app's store directory unless a test gives its own.
+  installBackend = (storeDir) => createLocalFileBackend({ storeDir })
 } = {}) {
   const storeDir = await temporaryStoreDir("jskit-auth-local-");
-  const backend = createLocalFileBackend({ storeDir });
+  const backend = installBackend(storeDir);
   const extensions = createAuthExtensions();
   const runtimeLogger = logger || {
     info() {},
@@ -461,6 +463,38 @@ test("local auth provider rejects dev login-as enablement in staging and product
       APP_ENV
     );
   }
+});
+
+// auth-provider-local-core 0.2.47 (JSKIT 0.2.111) made withRecords a method every auth.local.backend gives. An app's
+// own backend without it started, and then every signed-in request failed ("backend.withRecords is not a function":
+// 1,536 answers of 500 on one app); a backend without a method local auth calls now refuses to start, naming it, what
+// it must do and the fix.
+test("an installed auth.local.backend without withRecords or withTransaction refuses to start, naming each and what it must do", async () => {
+  const startup = async (omitted) => {
+    try {
+      await createStartedApp({
+        installBackend(storeDir) {
+          const backend = { ...createLocalFileBackend({ storeDir }) };
+          for (const name of omitted) delete backend[name];
+          return backend;
+        }
+      });
+      return "started";
+    } catch (error) {
+      return String(error.details?.cause?.message || error.message || "");
+    }
+  };
+  const withTransaction = "withTransaction(callback) runs the callback in one transaction on the backend's records " +
+    "and answers what it answered.";
+  const withRecords = "withRecords(callback) runs the callback on the same records outside a transaction, each call " +
+    "on its own, and answers what it answered: local auth reads each signed-in request's session and user through it " +
+    "since @jskit-ai/auth-provider-local-core 0.2.47 (JSKIT 0.2.111). A backend with no cheaper reads can give its " +
+    "withTransaction, as the file backend does.";
+  const fix = "to the provider of auth.local.backend (@jskit-ai/auth-provider-local-core's CHANGELOG says how).";
+  assert.equal(await startup(["withRecords"]), `The installed auth.local.backend has no withRecords. ${withRecords} Add it ${fix}`);
+  assert.equal(await startup(["withTransaction", "withRecords"]),
+    `The installed auth.local.backend has no withTransaction and no withRecords. ${withTransaction} ${withRecords} Add them ${fix}`);
+  assert.equal(await startup([]), "started", "a backend with both starts");
 });
 
 test("a production server with AUTH_LOCAL_RECOVERY_DEV_OUTPUT set refuses to start, saying what to remove", async () => {
