@@ -1,3 +1,4 @@
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import WorkspaceProfileSurfaceSwitchMenuItem from "../components/WorkspaceProfileSurfaceSwitchMenuItem.vue";
 import WorkspaceSelector from "../components/WorkspaceSelector.vue";
 import WorkspaceToolsWidget from "../components/WorkspaceToolsWidget.vue";
@@ -88,4 +89,3 @@ const WorkspacesWebClientProvider = defineProvider({
 });
 
 export { WorkspacesWebClientProvider };
-import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";

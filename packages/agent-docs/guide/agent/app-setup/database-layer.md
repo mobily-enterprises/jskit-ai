@@ -371,15 +371,25 @@ script) does this with `@jskit-ai/database-runtime/server/testDatabases`, from
 the application's `knexfile.js`:
 
 - Each test file running at once gets a database of its own for as long as it
-  runs, as both `DB_NAME` and `TEST_DB_NAME`: `TEST_DB_NAME` itself, then
-  copies named `<TEST_DB_NAME>_1`, `_2`, ... up to the machine's test budget,
-  as many as the database user may create. With no usable `TEST_DB_NAME`
+  runs, as both `DB_NAME` and `TEST_DB_NAME`, with the app's `DB_CLIENT`:
+  `TEST_DB_NAME` itself, then copies named `<TEST_DB_NAME>_1`, `_2`, ... up to
+  the machine's test budget, as many as the database user may create. So the
+  user needs them all: on MySQL and MariaDB a grant on `TEST_DB_NAME` and on
+  `` `<TEST_DB_NAME>\_%`.* `` (a grant reads an unescaped `_` as any
+  character), on PostgreSQL `CREATEDB`. A run that gets fewer databases than
+  the files its budget would run at once says so, and why, at its start and
+  its end (`jskit test: test files run 1 at a time, not the 4 this machine's
+  test budget allows: the database user may not create shop_test_1. ...`),
+  and fails once its tests have run: a machine meant to run files in parallel
+  never runs them one at a time unnoticed. With no usable `TEST_DB_NAME`
   (unset, the connected database itself, or one the database user may not
-  prepare), the files run one at a time on the connected database. A copy
-  named like the application's database, `STAGING_DB_NAME` or
-  `PRODUCTION_DB_NAME`, or a server that cannot be reached, fails the run
-  instead. So does a run while `PROD_DB_NAME`, which those two replaced, is
-  set.
+  prepare) the files run one at a time on the connected database, the same
+  way. To run that way on purpose, set the budget to what the databases allow
+  (`V64_TEST_CONCURRENCY=1`); a focused run of one file loses nothing and only
+  says which database it used. A copy named like the application's database,
+  `STAGING_DB_NAME` or `PRODUCTION_DB_NAME`, or a server that cannot be
+  reached, fails the run instead. So does a run while `PROD_DB_NAME`, which
+  those two replaced, is set.
   Every file starts from the snapshot, rows included: a copy an earlier file of
   the run used is restored before the next file takes it, so no file sees what
   another wrote.
@@ -429,6 +439,17 @@ the application's `knexfile.js`:
   `knex.migrate.latest()`), and `files` lists every file it reads, its own
   module included, relative to the application root: their contents join the
   digest, so changing one takes a new snapshot.
+- A test file that needs a scratch database beside its own copy, an empty one
+  for tables the test creates or several at once, takes each from
+  `createPackageTestKnex(t, { environment: process.env })` (from
+  `@jskit-ai/resource-runtime/test`): with the run's `DB_CLIENT` in the file's
+  environment, each call on MySQL or MariaDB claims one of the 26 lettered
+  copies of the run's designated database, `<TEST_DB_NAME>_a` to `_z`,
+  recreated empty and dropped after the test, and on PostgreSQL a schema of
+  its own in the file's database
+  ([data access tests](/guide/framework/data-access#tests)). A file is the
+  unit that starts from the snapshot: tests that each need the snapshot's
+  database afresh go in files of their own.
 - A test that runs migrations up or down, or otherwise changes the tables,
   leaves its database dirty: its tables or migration ledger differ from the
   snapshot's. The harness restores the snapshot before another test file uses

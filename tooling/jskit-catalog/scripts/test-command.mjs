@@ -18,7 +18,11 @@ import { reportTestTimes, writeFileStops } from "./test-time-report.mjs";
 // --test-shard=<index>/<total> it runs only its shard's alone files, picked the way node --test picks a shard's files.
 // Given no files, it fails instead of leaving out a file under tests/ named as a test that node's default misses.
 // Every run also reports to test-time-report.mjs, which times the command's files against coarse bounds, and preloads
-// test-file-stop.mjs, which stops a file still running at a generous multiple of its time.
+// test-file-stop.mjs, which stops a file still running at a generous multiple of its time. With --databases, a run whose
+// test databases let fewer files run at once than the budget asked for (no usable TEST_DB_NAME, or copies the database
+// user may not create) says so, and why, at its start and its end, and fails once its tests have run: a machine that
+// should run files in parallel never silently runs them one at a time. A budget set to what the databases allow
+// (V64_TEST_CONCURRENCY) runs that way on purpose.
 
 // node --test's own default (Node 26) when it is given no files.
 const DEFAULT_PATTERN = "**/{test,test/**/*,test-*,*[._-]test}.{js,mjs,cjs,ts,mts,cts}";
@@ -179,6 +183,21 @@ function withTimeReporter(run, destination) {
   ];
 }
 
+/**
+ * What a run says, at its start and its end, when its test databases let fewer files run at once than it asked for, or
+ * "" when they gave all it asked. An installed @jskit-ai/database-runtime from before `shortfall` is read by its summary.
+ * @param {{ concurrency: number, shortfall?: string, summary: string }} databases
+ * @param {number} asked
+ */
+function databaseShortfall(databases, asked) {
+  if (databases.concurrency >= asked) return "";
+  const copies = asked > 2 ? `\`<TEST_DB_NAME>_1\` to \`<TEST_DB_NAME>_${asked - 1}\`` : "`<TEST_DB_NAME>_1`";
+  return `test files run ${databases.concurrency} at a time, not the ${asked} this machine's test budget allows: ` +
+    `${databases.shortfall || databases.summary}. Each file running at once needs a database of its own: TEST_DB_NAME, ` +
+    `then ${copies}, which the database user creates and drops (MySQL and MariaDB: grant it \`<TEST_DB_NAME>\\_%\`; ` +
+    `PostgreSQL: CREATEDB). To run this way on purpose, set ${BUDGET_VARIABLE}=${databases.concurrency}.`;
+}
+
 function runNode(args, env) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, args, { stdio: "inherit", env: { ...process.env, ...env } });
@@ -206,11 +225,12 @@ async function runTests(args) {
   let plan = planTestRuns(nodeArgs);
   const source = process.env[BUDGET_VARIABLE] ? BUDGET_VARIABLE : "half of this machine";
   // A database for each file that can run at once: a focused run of one file prepares one.
-  const databases = nodeArgs.length < args.length
-    ? await testDatabaseRunFor(Math.max(1, Math.min(plan.concurrency, plan.files)))
-    : null;
+  const asked = Math.max(1, Math.min(plan.concurrency, plan.files));
+  const databases = nodeArgs.length < args.length ? await testDatabaseRunFor(asked) : null;
+  const shortfall = databases ? databaseShortfall(databases, asked) : "";
   if (databases) {
     process.stderr.write(`jskit test: ${databases.summary}.\n`);
+    if (shortfall) process.stderr.write(`jskit test: ${shortfall}\n`);
     plan = planTestRuns(nodeArgs, { concurrency: databases.concurrency });
   }
   process.stderr.write(`jskit test: ${plan.concurrency} test file(s) at a time (${databases ? "test databases" : source}).\n`);
@@ -241,6 +261,10 @@ async function runTests(args) {
         filtered: nodeArgs.some((argument) => TEST_FILTER.test(argument)) });
     if (times) process.stderr.write(times.report);
     if (times?.overruns.length > 0 && exitCode === 0) exitCode = 1;
+    if (shortfall && !interrupted) {
+      process.stderr.write(`jskit test: ${shortfall}\njskit test: the run fails: its test databases cost it concurrency.\n`);
+      if (exitCode === 0) exitCode = 1;
+    }
   } finally {
     // However the run ended, it drops its numbered test databases, and says what it dropped.
     const ended = await databases?.cleanup();

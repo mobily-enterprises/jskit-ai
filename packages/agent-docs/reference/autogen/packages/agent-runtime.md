@@ -124,7 +124,7 @@ Exports
 
 ### `src/server/summaryStore.js`
 Exports
-- `createSummaries({ resources, systemContext, model, app = "the app", history, track = runSummaryUnmetered, notices, channel = "agent-summaries", summarize = (input) => writeSummary({ model, app, ...input, limits }), limits = SUMMARY_LIMITS, ...removed })`
+- `createSummaries({ resources, systemContext, model, app = "the app", history, track = runSummaryUnmetered, notices, channel = "agent-summaries", limits = SUMMARY_LIMITS, summarize = (input) => writeSummary({ model, app, ...input, limits }), ...removed })`
 Local functions
 - `runSummaryUnmetered(_conversationId, work)`
 

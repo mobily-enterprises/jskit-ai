@@ -46,8 +46,8 @@ export function createSummaries({
   track = runSummaryUnmetered,
   notices,
   channel = "agent-summaries",
-  summarize = (input) => writeSummary({ model, app, ...input, limits }),
   limits = SUMMARY_LIMITS,
+  summarize = (input) => writeSummary({ model, app, ...input, limits }),
   ...removed
 }) {
   requireStoreDependencies("createSummaries", { resources, systemContext, ...removed }, ["agentSummaries", "agentSummaryQueue"]);

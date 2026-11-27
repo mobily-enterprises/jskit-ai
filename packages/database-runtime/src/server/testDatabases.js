@@ -418,10 +418,10 @@ function dialectOf(knexConfig) {
 /**
  * Prepares the disposable databases for up to `count` test files or browser workers at once, each holding the current
  * migrations' schema afresh, then the seed's rows when given: the database `variable` names, then the numbered copies
- * the database user may create. It first drops the numbered copies an earlier run that never reached its end left
- * and this one will not make, none a session is connected to (dropLeftTestDatabaseCopies()). A throw drops the copies
- * made so far; the process keeps those it returns, which a browser run's launcher drops when it stops
- * (testDatabaseCopies.js).
+ * the database user may create; `shortfall` names the first it may not. It first drops the numbered copies an earlier
+ * run that never reached its end left and this one will not make, none a session is connected to
+ * (dropLeftTestDatabaseCopies()). A throw drops the copies made so far; the process keeps those it returns, which a
+ * browser run's launcher drops when it stops (testDatabaseCopies.js).
  * @param {object} options
  * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig The application's Knex
  *   migration configuration (its knexfile.js), from `createKnexMigrationConfigFromApp()`.
@@ -461,14 +461,16 @@ async function prepareTestDatabases({
     withKnex(knexConfig, database, (knex) => knex.transaction(seed)))));
   const seedMs = milliseconds(seedStarted);
   const { replayed, ...stored } = snapshot;
+  const shortfall = databases.length < names.length ? `the database user may not create ${names[databases.length]}` : "";
   return {
     databases: rememberTestDatabaseCopies(knexConfig, databases),
     snapshot: stored,
-    summary: `${databases.length} test database(s) from ${name} ready in ${milliseconds(started)}ms: ` +
+    shortfall,
+    summary: `${databases.length}${shortfall ? ` of ${count}` : ""} test database(s) from ${name} ready in ${milliseconds(started)}ms: ` +
       (replayed && schema.build ? "schema built once for a new snapshot, " : "") +
       (replayed && !schema.build ? `${migrations.length} migrations replayed once for a new snapshot, ` : "") +
       (replayed ? "" : "stored snapshot, ") +
-      `restore ${restoreMs}ms${seed ? `, seed ${seedMs}ms` : ""}${swept ? `; ${swept}` : ""}`
+      `restore ${restoreMs}ms${seed ? `, seed ${seedMs}ms` : ""}${swept ? `; ${swept}` : ""}${shortfall ? `; ${shortfall}` : ""}`
   };
 }
 
@@ -504,9 +506,10 @@ function refusedPrivilege(error) {
 /**
  * How `jskit test --databases` runs the Node test files: in parallel, each file with a database of its own for as long
  * as it runs (`testDatabaseFile.js`, preloaded into every file's process); or, with no usable TEST_DB_NAME (unset, the
- * connected database itself, or one the database user may not prepare), one file at a time on the connected database,
- * as before. Anything else that stops the preparation, such as a TEST_DB_NAME copy named like a protected database or
- * an unreachable server, fails the run. Its cleanup() ends the run, removing its settings and dropping its copies.
+ * connected database itself, or one the database user may not prepare), one file at a time on the connected database.
+ * Of the `asked` files at once, `concurrency` run; when fewer, `shortfall` says why, for the runner to report and fail
+ * on. Anything else that stops the preparation, such as a TEST_DB_NAME copy named like a protected database or an
+ * unreachable server, fails the run. Its cleanup() ends the run, removing its settings and dropping its copies.
  * @param {object} options
  * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig
  * @param {Record<string, string | undefined>} options.environment
@@ -520,6 +523,8 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
   assertNoRetiredVariables(environment);
   const oneAtATime = (reason) => ({
     concurrency: 1,
+    asked: count,
+    shortfall: count > 1 ? reason : "",
     env: {},
     preload: "",
     summary: `test files run one at a time on the connected database: ${reason}`,
@@ -550,6 +555,8 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
   }), { mode: 0o600 });
   return {
     concurrency: prepared.databases.length,
+    asked: count,
+    shortfall: prepared.shortfall,
     env: { JSKIT_TEST_DATABASES: directory },
     preload: TEST_DATABASE_FILE,
     summary: `${prepared.summary}${checked ? `; ${checked}` : ""}`,

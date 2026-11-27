@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdtemp, mkdir, rename, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import knexFactory from "knex";
 import { createKnexMigrationConfig } from "../src/server/knexMigrationConfig.js";
 import {
@@ -132,7 +134,56 @@ test("with no usable test database, a run's test files run one at a time on the 
     assert.equal(run.preload, "");
     assert.match(run.summary, /^test files run one at a time on the connected database: /u);
     assert.match(run.summary, reason);
+    // The run asked for 4 at once and got 1: it says why, for the runner to report and fail on.
+    assert.equal(run.asked, 4);
+    assert.match(run.shortfall, reason);
+    // A run that asked for one file at a time lost nothing.
+    const alone = await testDatabaseRun({ knexConfig, environment, count: 1 });
+    assert.equal(alone.asked, 1);
+    assert.equal(alone.shortfall, "");
   }
+});
+
+const JSKIT_CLI = fileURLToPath(new URL("../../../tooling/jskit-catalog/scripts/jskit.mjs", import.meta.url));
+const REPO_NODE_MODULES = fileURLToPath(new URL("../../../node_modules", import.meta.url));
+
+test("a jskit test --databases run whose databases let fewer files run at once than the budget says so at its start and end, and fails", async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-short-"));
+  context.after(() => rm(appRoot, { recursive: true, force: true }));
+  await mkdir(path.join(appRoot, "migrations"));
+  await mkdir(path.join(appRoot, "test"));
+  await mkdir(path.join(appRoot, "node_modules"));
+  await symlink(path.join(REPO_NODE_MODULES, "@jskit-ai"), path.join(appRoot, "node_modules", "@jskit-ai"), "dir");
+  await symlink(path.join(REPO_NODE_MODULES, "knex"), path.join(appRoot, "node_modules", "knex"), "dir");
+  await writeFile(path.join(appRoot, "package.json"), JSON.stringify({ name: "short-fixture", type: "module", private: true }));
+  await writeFile(path.join(appRoot, "knexfile.js"), "import { createKnexMigrationConfig } from " +
+    "\"@jskit-ai/database-runtime/server/knexMigrationConfig\";\nexport default createKnexMigrationConfig({ client: \"mysql2\", " +
+    "environment: process.env });\n");
+  for (const name of ["a", "b"]) {
+    await writeFile(path.join(appRoot, "test", `${name}.test.js`), `import test from "node:test";\ntest("${name}", () => {});\n`);
+  }
+  // No TEST_DB_NAME: preparing it needs no database server, since the run never reaches one.
+  const environment = { ...process.env, ...connectionEnvironment };
+  for (const name of ["NODE_TEST_CONTEXT", "TEST_DB_NAME", "BROWSER_TEST_DB_NAME", "DATABASE_URL"]) delete environment[name];
+  const run = (budget) => new Promise((resolve) => {
+    execFile(process.execPath, [JSKIT_CLI, "test", "--databases"], {
+      cwd: appRoot, env: { ...environment, V64_TEST_CONCURRENCY: String(budget) }
+    }, (error, stdout, stderr) => resolve({ code: error ? error.code : 0, stderr }));
+  });
+
+  // A budget of 2 and two files: one at a time loses half the run's concurrency, so the run fails once its tests pass.
+  const short = await run(2);
+  const said = /jskit test: test files run 1 at a time, not the 2 this machine's test budget allows: TEST_DB_NAME is not set\./gu;
+  assert.equal(short.stderr.match(said)?.length, 2, short.stderr);
+  assert.match(short.stderr, /`<TEST_DB_NAME>_1`/u, "it names the copies the database user must be able to create");
+  assert.match(short.stderr, /jskit test: the run fails: its test databases cost it concurrency\./u);
+  assert.equal(short.code, 1, short.stderr);
+
+  // With a budget of one, one at a time is the plan: it is said once, and the run passes.
+  const planned = await run(1);
+  assert.match(planned.stderr, /test files run one at a time on the connected database: TEST_DB_NAME is not set/u);
+  assert.doesNotMatch(planned.stderr, /the run fails/u);
+  assert.equal(planned.code, 0, planned.stderr);
 });
 
 test("a test database copy named like a protected database fails the run instead of running on it", async () => {

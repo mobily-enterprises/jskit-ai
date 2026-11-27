@@ -16,6 +16,10 @@ import { CodexAppServerJsonRpcClient } from "../src/server/conversation/codexCli
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import { createSchema } from "json-rest-schema";
 import { createAiConnectionResolver } from "../../connectors-catalog/src/server/ai.js";
+import { CodexAppServerAgentProvider } from "../src/server/conversation/codexProvider.js";
+import { createCodexAppServerRunOwner, codexAppServerTurnState } from "../src/server/conversation/codexTurn.js";
+import { codexApplicationToolConfiguration, ensureCodexAppServerThread } from "../src/server/conversation/codexProviderThreads.js";
+import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 
 const configuration = { systemPrompt: "Keep these instructions fresh.", model: "test-model", effort: "high" };
 const input = { messageId: "first", text: "Hello" };
@@ -2317,7 +2321,6 @@ test("Codex rejects mismatched model identities and unsupported effort before di
   }
   await assert.rejects(readFile(path.join(f.directory, "trace.jsonl")), { code: "ENOENT" });
 });
-import { CodexAppServerAgentProvider } from "../src/server/conversation/codexProvider.js";
 
 const nativeAttachmentFiles = [
   { attachmentId: "image", fileName: "a b.png", path: "/session/artifacts/a b.png", contentType: "image/png", size: 16, reference: "[Image #1]" },
@@ -2735,10 +2738,6 @@ test("held lifecycle catalogue rejection preserves a newer same-runtime tail and
 // The bound-host contract on the native app-server fixture: schemas, tool-call
 // framing, transcript store and run owner. Identity, authority and readiness
 // composition belongs to the bound application.
-import { createCodexAppServerRunOwner, codexAppServerTurnState } from "../src/server/conversation/codexTurn.js";
-import { codexApplicationToolConfiguration, ensureCodexAppServerThread } from "../src/server/conversation/codexProviderThreads.js";
-import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
-
 async function boundCodexToolsFixture(t, options = {}) {
   let sharedProvider;
   const runRequest = CodexAppServerAgentProvider.prototype.runRequest;
