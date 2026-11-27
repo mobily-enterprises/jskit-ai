@@ -85,18 +85,24 @@ the kernel's own (`runtime.actions`, `runtime.events`, `runtime.http`,
 `runtime.bootstrap`) and those the package provides itself.** Late
 capabilities are required; optional ones are not. A requirement no feature has stays only when
 the package needs it at install time, such as the database its migrations
-need.
+need, and `installRequires` marks it so; it stays in `requires` too.
 
 Why: start-up resolves every package's requirements from the manifests, and
-refuses a manifest that disagrees with the package's features. Plain
-`jskit check` loads each application package's features (the server providers
-`jskit.runtime.server.providers` declares) and reports the drift before that
-(`manifest/capabilities`), each capability to add or remove; it lists the
-requirements no feature has for review.
+refuses a manifest that disagrees with the package's features, including an
+`installRequires` mark on a capability a feature requires or `requires` does
+not list. It logs, at every start, each requirement no feature has that
+`installRequires` does not mark. Plain `jskit check` loads each application
+package's features (the server providers `jskit.runtime.server.providers`
+declares) and reports the drift before that (`manifest/capabilities`), each
+capability to add or remove; it lists the unmarked requirements no feature has
+for review.
 
 ```jsonc
 // good: BooksFeature provides app.books and requires crud.contracts and runtime.actions
 "capabilities": { "provides": ["app.books"], "requires": ["crud.contracts"] }
+
+// good: the migrations need the database, which no feature requires
+"capabilities": { "provides": ["app.books"], "requires": ["crud.contracts", "runtime.database"], "installRequires": ["runtime.database"] }
 
 // bad: app.books missing from provides, crud.contracts from requires
 "capabilities": { "provides": ["app.book"], "requires": [] }

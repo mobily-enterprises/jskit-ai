@@ -199,9 +199,9 @@ function providerCapabilityIds(providers, key) {
  * Where a package's manifest (`jskit.capabilities`) and the server providers it declares disagree. The manifest
  * provides exactly what the providers provide, client capabilities aside. It requires every capability a provider
  * requires, late ones included, apart from the kernel's own and those the package provides; optional ones are never
- * required. A manifest
- * requirement no provider has may be an install-time one, such as the database a migration needs.
- * @param {{ packageMetadata?: { capabilities?: { provides?: unknown, requires?: unknown } } }} packageEntry
+ * required. A manifest requirement no provider has is one only install time needs, such as the database a migration
+ * needs, which `installRequires` marks, or else a stale one; `installRequires` marks only such requirements.
+ * @param {{ packageMetadata?: { capabilities?: { provides?: unknown, requires?: unknown, installRequires?: unknown } } }} packageEntry
  * @param {ReadonlyArray<ProviderDefinition>} packageProviders
  * @returns {ManifestCapabilityDrift}
  */
@@ -209,6 +209,7 @@ function manifestCapabilityDrift(packageEntry, packageProviders) {
   const manifest = packageEntry.packageMetadata?.capabilities;
   const manifestProvides = [...manifestCapabilityIds(manifest?.provides)].filter((id) => !CLIENT_CAPABILITY.test(id));
   const manifestRequires = manifestCapabilityIds(manifest?.requires);
+  const installRequires = manifestCapabilityIds(manifest?.installRequires);
   const provided = providerCapabilityIds(packageProviders, "provides");
   const required = new Set([
     ...providerCapabilityIds(packageProviders, "requires"),
@@ -221,15 +222,20 @@ function manifestCapabilityDrift(packageEntry, packageProviders) {
     extraProvides: sortStrings(manifestProvides.filter((id) => !provided.has(id))),
     unlistedRequires: sortStrings([...required].filter((id) =>
       !KERNEL_PROVIDED_CAPABILITIES.has(id) && !provided.has(id) && !manifestRequires.has(id))),
-    extraRequires: sortStrings([...manifestRequires].filter((id) => !CLIENT_CAPABILITY.test(id) && !required.has(id)))
+    extraRequires: sortStrings([...manifestRequires].filter((id) =>
+      !CLIENT_CAPABILITY.test(id) && !required.has(id) && !installRequires.has(id))),
+    installRequires: sortStrings([...installRequires]),
+    unlistedInstallRequires: sortStrings([...installRequires].filter((id) => !manifestRequires.has(id))),
+    requiredInstallRequires: sortStrings([...installRequires].filter((id) => required.has(id)))
   });
 }
 
 /**
  * Checks a package's manifest against the server providers it declares (manifestCapabilityDrift), so the two cannot
- * drift: a capability the manifest or the providers miss is refused. A manifest requirement no provider has is an
- * install-time one, so it is logged, not refused.
- * @param {{ packageId: string, packageMetadata?: { capabilities?: { provides?: unknown, requires?: unknown } } }} packageEntry
+ * drift: a capability the manifest or the providers miss is refused, and so is an `installRequires` mark on a
+ * capability the manifest does not require or a provider does. A manifest requirement no provider has and
+ * `installRequires` does not mark may still be one only install time needs, so it is logged, not refused.
+ * @param {{ packageId: string, packageMetadata?: { capabilities?: { provides?: unknown, requires?: unknown, installRequires?: unknown } } }} packageEntry
  * @param {ReadonlyArray<ProviderDefinition>} packageProviders
  * @param {{ logger: RuntimeLogger }} options
  */
@@ -243,6 +249,14 @@ function assertManifestMatchesProviders(packageEntry, packageProviders, { logger
   }
   if (drift.unlistedRequires.length > 0) {
     throw new Error(`Package ${packageId} requires capability ${drift.unlistedRequires[0]} in its providers but not in its manifest.`);
+  }
+  if (drift.unlistedInstallRequires.length > 0) {
+    throw new Error(`Package ${packageId} marks capability ${drift.unlistedInstallRequires[0]} install-time only ` +
+      "(installRequires), but its manifest does not require it.");
+  }
+  if (drift.requiredInstallRequires.length > 0) {
+    throw new Error(`Package ${packageId} marks capability ${drift.requiredInstallRequires[0]} install-time only ` +
+      "(installRequires), but its providers require it.");
   }
   for (const capabilityId of drift.extraRequires) {
     logger.warn({ packageId, capabilityId }, "Package manifest requires a capability its providers do not.");

@@ -168,7 +168,10 @@ test("a manifest's drift names each capability to add or remove, the kernel's ow
     extraProvides: ["feature.authors"],
     // runtime.actions and runtime.events are the kernel's own; runtime.realtime is only optional.
     unlistedRequires: ["runtime.database"],
-    extraRequires: ["runtime.realtime", "runtime.storage"]
+    extraRequires: ["runtime.realtime", "runtime.storage"],
+    installRequires: [],
+    unlistedInstallRequires: [],
+    requiredInstallRequires: []
   });
 });
 

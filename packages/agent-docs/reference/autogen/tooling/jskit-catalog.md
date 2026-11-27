@@ -196,7 +196,7 @@ Exports
 - `checkManifestCapabilities({ projectRoot, manifests })`
 - `formatManifestCapabilitiesReport(result)`
 Local functions
-- `capabilityLine(contents, capabilityId = "")`
+- `capabilityLine(contents, capabilityId = "", within = "capabilities")`
 - `kernelPlatform(manifestPath, root)`
 
 ### `scripts/material3-source.mjs`

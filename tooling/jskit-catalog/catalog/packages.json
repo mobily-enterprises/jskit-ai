@@ -386,6 +386,9 @@
             "runtime.http",
             "runtime.http-web",
             "runtime.logger"
+          ],
+          "installRequires": [
+            "runtime.http-web"
           ]
         },
         "runtime": {
@@ -3429,6 +3432,9 @@
             "runtime.resources",
             "runtime.storage",
             "runtime.uploads"
+          ],
+          "installRequires": [
+            "runtime.database"
           ]
         },
         "runtime": {
@@ -3850,6 +3856,9 @@
             "users.extensions",
             "users.profiles",
             "users.settings"
+          ],
+          "installRequires": [
+            "runtime.database"
           ]
         },
         "runtime": {

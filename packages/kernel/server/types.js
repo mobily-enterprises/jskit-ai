@@ -64,8 +64,11 @@
  * @property {ReadonlyArray<string>} extraProvides Provided by the manifest, by no provider.
  * @property {ReadonlyArray<string>} unlistedRequires Required by a provider, not by the manifest, and neither the kernel's
  *   own nor provided by the package.
- * @property {ReadonlyArray<string>} extraRequires Required by the manifest, by no provider: an install-time requirement,
- *   or a stale one.
+ * @property {ReadonlyArray<string>} extraRequires Required by the manifest, by no provider, and not marked install-time
+ *   only (`installRequires`): an install-time requirement still to mark, or a stale one.
+ * @property {ReadonlyArray<string>} installRequires What the manifest marks install-time only.
+ * @property {ReadonlyArray<string>} unlistedInstallRequires Marked install-time only, not required by the manifest.
+ * @property {ReadonlyArray<string>} requiredInstallRequires Marked install-time only, required by a provider.
  */
 
 /**
