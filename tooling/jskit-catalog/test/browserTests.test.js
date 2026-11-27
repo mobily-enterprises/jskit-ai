@@ -12,7 +12,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build as viteBuild } from "vite";
 import { createJskitClientBootstrapPlugin } from "../../../packages/kernel/client/vite/clientBootstrapPlugin.js";
 import { buildFrontend } from "../scripts/browser-test-build.mjs";
-import { SETTINGS_VARIABLE, browserTestConfig, browserTestWorkers } from "../scripts/browser-tests.mjs";
+import { SETTINGS_VARIABLE, browserTestConfig, browserTestServerPeakBytes, browserTestWorkers } from "../scripts/browser-tests.mjs";
 import { discoverProjectManifests } from "../scripts/project-manifests.mjs";
 import { checkTestRuns } from "../scripts/test-runs.mjs";
 
@@ -130,8 +130,11 @@ test("a local run starts no more workers than the memory available holds at its 
       availableMemory: () => gib * GIB });
     // No run has measured its servers yet: half the budget.
     assert.equal(workers(5), 4);
+    assert.equal(browserTestServerPeakBytes({ cwd: root }), 0);
     await mkdir(path.dirname(path.join(root, SERVER_MEMORY)), { recursive: true });
     await writeFile(path.join(root, SERVER_MEMORY), JSON.stringify({ serverPeakBytes: 2 * GIB }));
+    // A host sizing a managed run reads the same peak.
+    assert.equal(browserTestServerPeakBytes({ cwd: root }), 2 * GIB);
     assert.equal(workers(5), 2);
     assert.equal(workers(1), 1, "never fewer than one");
     assert.equal(workers(64), 4, "memory for more than the budget: the budget");
@@ -477,6 +480,8 @@ test("a local run starts one server per worker, each on its own port and with it
       assert.equal(browserTestConfig({ environment: worker, cwd: root }).use.baseURL, `http://127.0.0.1:${basePort + 1}`);
       assert.equal(worker.DB_NAME, "app_browser_1");
       assert.equal(worker.PUBLIC_APP_URL, `http://127.0.0.1:${basePort + 1}`);
+      // And opens no other database (database-runtime's testDatabaseGuard.js).
+      assert.deepEqual(JSON.parse(worker.JSKIT_TEST_DATABASE_GUARD).databases, ["app_browser_1"]);
       const runner = { PLAYWRIGHT_PORT: String(basePort), DB_NAME: "app_development" };
       browserTestConfig({ environment: runner, cwd: root });
       assert.equal(runner.DB_NAME, "app_development");
@@ -801,6 +806,104 @@ test("jskit browser-test-server serves as many app servers as a host asks, each 
       assert.equal(await exitOf(target.child), 143);
       for (const index of [0, 1, 2]) assert.equal(await answers(port + index), false);
     } finally {
+      if (target.child.exitCode === null) process.kill(-target.child.pid, "SIGKILL");
+    }
+  });
+});
+
+// The app's knexfile settings, which a spec that opens the database itself reads.
+const KNEX_MIGRATION_CONFIG = pathToFileURL(fileURLToPath(new URL("../../../packages/database-runtime/src/server/knexMigrationConfig.js",
+  import.meta.url))).href;
+// A server whose "rows" are files named after its database, so a spec's row reaches it only through that database.
+const ROW_SERVER = `import { existsSync, readFileSync } from "node:fs";
+import http from "node:http";
+http.createServer((request, response) => {
+  response.setHeader("content-type", "application/json");
+  const rows = \`rows/\${process.env.DB_NAME}.json\`;
+  response.end(request.url === "/api/rows" && existsSync(rows) ? readFileSync(rows, "utf8") : "{}");
+}).listen(Number(process.env.PORT), process.env.HOST);
+`;
+// A spec that writes a row through the app's knexfile settings, as one confirming an email does, and asks its own
+// server for it. It first waits for the other worker, so each of the two runs at once on its own worker and server.
+const ROW_SPEC = `import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { setTimeout as delay } from "node:timers/promises";
+import { expect, test } from "@playwright/test";
+import { createKnexMigrationConfig } from ${JSON.stringify(KNEX_MIGRATION_CONFIG)};
+test("a row the spec writes through the app's knex reaches its own server", async ({ request }, testInfo) => {
+  mkdirSync("started", { recursive: true });
+  writeFileSync(\`started/\${testInfo.parallelIndex}\`, "");
+  for (let waited = 0; readdirSync("started").length < 2 && waited < 15_000; waited += 50) await delay(50);
+  const { connection } = createKnexMigrationConfig({ client: "mysql2", environment: process.env });
+  mkdirSync("rows", { recursive: true });
+  writeFileSync(\`rows/\${connection.database}.json\`, JSON.stringify({ worker: testInfo.parallelIndex }));
+  expect(await (await request.get("/api/rows")).json()).toEqual({ worker: testInfo.parallelIndex });
+});
+`;
+
+/** A proxy on a port of its own to `port`, as a host's direct application endpoint reaches a server. */
+async function proxyTo(port) {
+  const proxy = net.createServer((socket) => {
+    const upstream = net.connect(port, "127.0.0.1");
+    socket.pipe(upstream).pipe(socket);
+    for (const end of [socket, upstream]) end.on("error", () => { socket.destroy(); upstream.destroy(); });
+  });
+  await new Promise((resolve) => proxy.listen(0, "127.0.0.1", resolve));
+  return proxy;
+}
+
+/** `playwright test` in `root` as a host's managed run, with this environment; its exit code and output. */
+async function managedSuite(root, env) {
+  const environment = { ...process.env, ...env };
+  for (const name of ["NODE_TEST_CONTEXT", "PLAYWRIGHT_WORKERS", "TEST_PARALLEL_INDEX", "PLAYWRIGHT_STORAGE_STATE"]) {
+    delete environment[name];
+  }
+  const child = spawn(process.execPath, [path.join(PLAYWRIGHT, "cli.js"), "test"], {
+    cwd: root, env: environment, stdio: ["ignore", "pipe", "pipe"], detached: true
+  });
+  let output = "";
+  for (const stream of [child.stdout, child.stderr]) stream.on("data", (chunk) => { output += chunk; });
+  try {
+    return { code: await exitOf(child, 60_000), output };
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) process.kill(-child.pid, "SIGKILL");
+  }
+}
+
+test("a managed run gives each Playwright worker its own server's database, so a row a spec writes through the app's knex reaches that server", async () => {
+  await withProject({
+    ...LAUNCHER_APP,
+    "server.mjs": ROW_SERVER,
+    "tests/e2e/sign-in.mjs": SIGN_IN,
+    "tests/e2e/row-0.spec.mjs": ROW_SPEC,
+    "tests/e2e/row-1.spec.mjs": ROW_SPEC,
+    "playwright.config.mjs": TARGET_CONFIG
+  }, async (root) => {
+    await mkdir(path.join(root, "node_modules", "@playwright"), { recursive: true });
+    await symlink(PLAYWRIGHT, path.join(root, "node_modules", "@playwright", "test"));
+    const port = await freeConsecutivePorts(2);
+    const target = serveTarget(root, ["127.0.0.1", String(port), "2"]);
+    // The host reaches each server through a port of its own, so no target's port is the one its server was given.
+    const proxies = await Promise.all([proxyTo(port), proxyTo(port + 1)]);
+    try {
+      await outputMatches(target, [/^jskit browser tests: 2 server\(s\) ready/mu]);
+      const targets = proxies.map((proxy) => ({ baseURL: `http://127.0.0.1:${proxy.address().port}` }));
+      // The host's suite runs with the session's own database settings, a development database's name among them.
+      const host = { PLAYWRIGHT_BASE_URL: targets[0].baseURL, PLAYWRIGHT_WORKER_TARGETS: JSON.stringify(targets),
+        DB_CLIENT: "mysql2", DB_HOST: "127.0.0.1", DB_USER: "app", DB_PASSWORD: "", DB_NAME: "app_development" };
+
+      // Without the port it started the servers on, a worker cannot know its server's database: it opens none.
+      const unknown = await managedSuite(root, host);
+      assert.equal(unknown.code, 1, unknown.output);
+      assert.match(unknown.output, /DB_NAME names app_development, which is not one of the test databases this Playwright worker was given \(none\)/u);
+      assert.match(unknown.output, /PLAYWRIGHT_PORT/u);
+      await assert.rejects(readdir(path.join(root, "rows")), { code: "ENOENT" }, "nothing was written");
+
+      const known = await managedSuite(root, { ...host, PLAYWRIGHT_PORT: String(port) });
+      assert.equal(known.code, 0, known.output);
+      assert.match(known.output, /2 passed/u);
+      assert.deepEqual((await readdir(path.join(root, "rows"))).sort(), ["app_browser_0.json", "app_browser_1.json"]);
+    } finally {
+      await Promise.all(proxies.map((proxy) => new Promise((resolve) => proxy.close(resolve))));
       if (target.child.exitCode === null) process.kill(-target.child.pid, "SIGKILL");
     }
   });
