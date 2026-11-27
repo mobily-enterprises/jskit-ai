@@ -45,7 +45,7 @@ and one sign-in shared by several apps
   the default invitation role is `member`.
 - Only the invited address may accept, unless the person asks for any signed-in
   account holding the link.
-- Invitations expire as JSKIT's default says; the owner can withdraw one.
+- Invitations last 7 days; the owner can withdraw one.
 - Outside production invitation email is logged and the inviter copies the
   link; production sends it through the app's email provider.
 - Existing records move into their owner's personal workspace.
@@ -56,7 +56,11 @@ Write a careful saved plan first, then implement it item by item, proving each
 one:
 
 1. Set `tenancyMode` and `tenancyPolicy` in `config/public.js` after reading
-   [Decide the tenancy model first](/guide/app-setup/multi-homing#decide-the-tenancy-model-first).
+   [Decide the tenancy model first](/guide/app-setup/multi-homing#decide-the-tenancy-model-first),
+   and the two server settings the server refuses to start without,
+   `config.workspaceSettings.defaults.invitesEnabled` and
+   `config.workspaceMembers.defaults.inviteExpiresInMs`, in `config/server.js`
+   ([Server composition](/guide/app-setup/multi-homing#server-composition)).
 2. Install `@jskit-ai/workspaces-web` and run `npm run db:migrate`.
 3. Add the workspace surfaces and the `workspace_member` access policy from the
    [workspace surfaces pattern](/patterns/workspaces/workspace-surfaces).

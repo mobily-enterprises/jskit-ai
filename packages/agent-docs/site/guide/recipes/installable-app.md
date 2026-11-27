@@ -110,6 +110,10 @@ Each item is proven before it is ticked:
 10. Proven: server tests, client tests, browser tests and preview checks as
     Proof describes.
 
+After the plan, where the project runs Genesis passes, run the Review,
+Security pass, Data pass, Quality pass and Deslop, each on this plan's
+changes.
+
 ## Technical details
 
 JSKIT has no installable-app, service-worker or push package. Everything below
@@ -375,5 +379,3 @@ real push service. Each fix is seen failing first.
 - Real installs on their own phones: notches, Safari's text-box zoom, every
   sign-in method inside the installed app.
 - Real pushes, after a production release.
-- Then, if the project runs Genesis passes: Review, Security pass, Data pass,
-  Quality pass and Deslop, each on this plan's changes.

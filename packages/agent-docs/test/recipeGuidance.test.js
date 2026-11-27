@@ -147,7 +147,7 @@ test("the installable app answers with the website install first and Capacitor p
   assert.match(other, /\]\(\/guide\/app-extras\/mobile-capacitor\)/u, "The other option links the Mobile Capacitor guide.");
   assert.match(other, /Packaging/u, "The other option names the host's Packaging.");
   for (const kept of ["15 seconds", "`APP_ENV=production`", "`logSideEffect`", "Send a test notification", "`claim(", "`expectFlatQueries()`",
-    "`serviceWorkers: \"block\"`", "409", "410", "focus-existing", "maskable", "`share_target`"]) {
+    "serviceWorkers: \"block\"", "409", "410", "focus-existing", "maskable", "`share_target`"]) {
     assert.ok(installable.includes(kept), `The installable app keeps ${kept}.`);
   }
   const capacitor = await readFile(path.join(siteRoot, "guide", "app-extras", "mobile-capacitor.md"), "utf8");

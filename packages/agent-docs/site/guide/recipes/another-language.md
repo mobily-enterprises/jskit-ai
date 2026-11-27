@@ -109,14 +109,14 @@ Prove each behaviour at the cheapest level, never against development data
 and never through a translation service.
 
 - `npx jskit i18n check <code>` passes.
-- **Client tests:** each of the app's screens rendered in a pseudo-locale
-  (every value marked, as JSKIT's own check exports one with
-  `jskit i18n export`) shows no unmarked text; a placement label key renders
-  translated.
+- **Client tests:** a placement label key and a refusal code render in the
+  new language.
 - **Server tests:** an email of the app's renders in the recipient's saved
   language and time zone; a refusal carries its code.
-- **Browser tests** (`npm run test:e2e`): a person saves the language in
-  account preferences and the app switches at once and after a reload; the
+- **Browser tests** (`npm run test:e2e`): with a pseudo-locale (every value
+  marked, exported with `jskit i18n export` as JSKIT's own browser test does),
+  the app's main screens show no unmarked English; a person saves the language
+  in account preferences and the app switches at once and after a reload; the
   sign-in, settings and a main task in the new language at 390 and 1280 px,
   where longer words must not break the layout.
 
