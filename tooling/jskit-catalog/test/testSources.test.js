@@ -7,6 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { checkTestSources, formatTestSourcesReport } from "../scripts/test-sources.mjs";
+import { planTestRuns } from "../scripts/test-command.mjs";
 
 const execFileAsync = promisify(execFile);
 const CLI_PATH = fileURLToPath(new URL("../scripts/jskit.mjs", import.meta.url));
@@ -141,6 +142,9 @@ const POLLS = [
   "  await sleep(10);",
   "} while (!(await ready()));",
   "const program = `while (existsSync(${JSON.stringify(gate)})) await new Promise(resolve => setTimeout(resolve, 10));`;",
+  "// mobilynet's hostdLockedApps: a function named of, and the in operator, in a loop's condition.",
+  "for (let tries = 0; tries < 150 && of().length === 0; tries += 1) await sleep(20);",
+  "while (\"slow\" in pending) await sleep(10);",
   ""
 ].join("\n");
 
@@ -224,6 +228,29 @@ test("test/fixed-sleep reads a loop past regular expressions, divisions, templat
     ].join("\n")
   }, async (root) => {
     assert.deepEqual(await findings(root), ["tests/client/notice.test.jsx:2 test/fixed-sleep"]);
+  });
+});
+
+// The marker excuses a stand-in's latency for jskit check, and jskit test runs the file that carries it: the marker is
+// jskit check's, on whatever line the wait is, never one of jskit test's first-line file markers.
+test("a stand-in's latency marker on a later line excuses its wait in jskit check, and jskit test runs its file", async () => {
+  await withProject({
+    "package.json": { name: "stand-ins", private: true },
+    "test/a.test.js": "",
+    "test/mail.test.js": [
+      "import test from \"node:test\";",
+      "import { setTimeout as sleep } from \"node:timers/promises\";",
+      "export async function send() {",
+      "  // jskit-test: fixed-wait - the latency of the mail provider this stand-in simulates",
+      "  await sleep(200);",
+      "}",
+      ""
+    ].join("\n")
+  }, async (root) => {
+    assert.deepEqual(await findings(root), []);
+    const plan = planTestRuns([], { cwd: root, concurrency: 4 });
+    assert.deepEqual(plan.alone, []);
+    assert.deepEqual(plan.runs, [["--test", "--test-concurrency=4"]]);
   });
 });
 
