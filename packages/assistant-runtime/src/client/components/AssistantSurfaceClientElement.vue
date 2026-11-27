@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onScopeDispose, reactive, ref, toRef, watch, watchPostEffect } from "vue";
+import { computed, onMounted, onScopeDispose, reactive, ref, toRef, toValue, watch, watchPostEffect } from "vue";
 import { AssistantConversationElement } from "@jskit-ai/assistant-core/client/conversation";
 import { useAssistantRuntime } from "../composables/useAssistantRuntime.js";
 import { mapAssistantConversationTurns, toolStatusText } from "../support/assistantRuntimeState.js";
@@ -23,14 +23,17 @@ const props = defineProps({
   suggestions: { type: /** @type {import("vue").PropType<AssistantSuggestions>} */ (Object), default: null },
   goal: { type: /** @type {import("vue").PropType<AssistantConversationAdapter["goal"]>} */ (Object), default: null },
   activity: { type: /** @type {import("vue").PropType<AssistantConversationAdapter["activity"]>} */ (Object), default: undefined },
-  configurationMode: { type: String, default: "editable", validator: value => ["hidden", "readonly", "editable"].includes(value) }
+  configurationMode: { type: String, default: "editable", validator: value => ["hidden", "readonly", "editable"].includes(value) },
+  // The page the person has open, or a function that answers it, read as each message is sent: a hint, never permission.
+  pageContext: { type: /** @type {import("vue").PropType<import("../types.js").AssistantPageContext | (() => import("../types.js").AssistantPageContext | null)>} */ ([Object, Function]), default: null }
 });
 const integrationId = defineModel("integrationId", { type: String, default: "" });
 const { t } = useJskitText();
 const assistantLabelText = computed(() => props.assistantLabel ?? t("jskit.assistant.runtime.conversation.assistantLabel"));
 const draftIntegrationId = ref(integrationId.value);
 watch(integrationId, value => { draftIntegrationId.value = value; });
-const runtime = useAssistantRuntime({ surfaceId: toRef(props, "surfaceId"), integrationId });
+const runtime = useAssistantRuntime({ surfaceId: toRef(props, "surfaceId"), integrationId,
+  pageContext: () => toValue(props.pageContext) });
 const state = reactive(runtime.state);
 const conversation = ref(null);
 const root = ref(null);

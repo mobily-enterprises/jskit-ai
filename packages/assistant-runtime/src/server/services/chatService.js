@@ -8,6 +8,7 @@ import { conversationAttachmentIds } from "@jskit-ai/assistant-core/server/conve
 import { ASSISTANT_STREAM_EVENT_TYPES, MAX_INPUT_CHARS } from "@jskit-ai/assistant-core/shared";
 import { errorMessageFields, exposedAppErrorDetails, errorStatus } from "../support/assistantErrors.js";
 import { requireAssistantSurface } from "../support/assistantSurface.js";
+import { pageContextNote } from "../support/pageContext.js";
 
 const CLOCK_INSTRUCTION = "For current or relative date and time questions, use the current time in the system's state note, or an available authoritative workspace clock action for another time zone; never infer the current date or time from model knowledge.";
 
@@ -391,8 +392,10 @@ function createChatService({
         workspaceSlug: resolveWorkspaceSlug(assistantContext, payload), customSystemPrompt
       }), { conversationId, targetSurfaceId: assistantSurface.targetSurfaceId, context: assistantContext, workspace });
       const configuration = { systemPrompt, ...(request.integrationId ? { integrationId: request.integrationId } : {}) };
+      // The page the person had open reaches the model with this turn's message alone: it is in
+      // neither the saved message, the turn request nor the conversation's instructions.
       const runtimeContext = { ...assistantContext, assistantRequest: {
-        conversation, workspace, resolvedAttachments
+        conversation, workspace, resolvedAttachments, pageNote: pageContextNote(payload.pageContext)
       } };
       const handle = await openConversationTurn(conversationId, async () => {
         try { return await conversationRuntime.open({ id: conversationId, context: runtimeContext, configuration }); }

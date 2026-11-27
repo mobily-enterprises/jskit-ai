@@ -27,6 +27,18 @@ const clientContextSchema = createSchema({
   }
 });
 
+// The page the person had open as they sent a message: a hint about what they mean, never permission.
+const pageContextRecordSchema = createSchema({
+  type: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  id: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  label: { type: "string", required: false, maxLength: 200 }
+});
+const pageContextSchema = createSchema({
+  path: { type: "string", required: false, maxLength: 2048 },
+  title: { type: "string", required: false, maxLength: 200 },
+  records: { type: "array", required: false, maxItems: 10, items: pageContextRecordSchema }
+});
+
 const chatStreamBodySchema = createSchema({
   attachmentIds: attachmentIdsField,
   integrationId: { type: "string", required: false, minLength: 1, maxLength: 128 },
@@ -52,6 +64,11 @@ const chatStreamBodySchema = createSchema({
     type: "object",
     required: false,
     schema: clientContextSchema
+  },
+  pageContext: {
+    type: "object",
+    required: false,
+    schema: pageContextSchema
   }
 });
 

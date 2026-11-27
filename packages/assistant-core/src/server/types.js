@@ -58,6 +58,12 @@
  */
 
 /**
+ * The application's note for one API turn, read with the turn's context: the model reads it before that turn's
+ * message alone, and it is never saved, so no later turn reads it. "" adds nothing.
+ * @typedef {(request: { context: object }) => string | Promise<string>} ConversationApiTurnNote
+ */
+
+/**
  * Receives each stage of one message's delivery; its result is never awaited.
  * @typedef {(event: { engine: string, conversationId: string, messageId?: string, stage: string, previousStage: string,
  *   durationMs: number, elapsedMs: number, timings: Record<string, number> }) => unknown} ConversationDeliveryTimingObserver

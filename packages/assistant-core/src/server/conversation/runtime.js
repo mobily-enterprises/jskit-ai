@@ -34,6 +34,7 @@ const DEFAULT_LIMITS = Object.freeze({});
  * @param {import("../types.js").ConversationConnections} [options.connections]
  * @param {import("../types.js").ConversationApiClientFactory} [options.apiClientFactory]
  * @param {import("../types.js").ConversationApiHistory} [options.apiHistory]
+ * @param {import("../types.js").ConversationApiTurnNote} [options.apiTurnNote]
  * @param {object} [options.actions] Application actions offered as tools, with toolPolicy.
  * @param {(action: object, context: object) => boolean} [options.toolPolicy]
  * @param {import("../types.js").ServiceToolCatalog} [options.toolCatalog] An existing tool catalogue, instead of actions.
@@ -48,7 +49,7 @@ const DEFAULT_LIMITS = Object.freeze({});
  */
 // readable-check: allow method-probe - input validation: the facilities an application hands the runtime are checked before it is built
 export function createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage: suppliedStorage, authorize, connections,
-  apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments: suppliedAttachments, fetch, host: defaultHost, onDeliveryTiming,
+  apiClientFactory, apiHistory, apiTurnNote, actions, toolPolicy, toolCatalog, attachments: suppliedAttachments, fetch, host: defaultHost, onDeliveryTiming,
   hostDeliveryStages, persistCommentary = true, completedEnvelope = false, limits = DEFAULT_LIMITS }) {
   if (typeof authorize !== "function") throw new TypeError("Conversation access requires an authorize function.");
   if (onDeliveryTiming !== undefined && typeof onDeliveryTiming !== "function") throw new TypeError("Delivery timing requires a server-owned observer.");
@@ -56,6 +57,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   if (typeof completedEnvelope !== "boolean") throw new TypeError("Completed envelope policy requires a server-side boolean.");
   if (typeof persistCommentary !== "boolean") throw new TypeError("Conversation commentary persistence requires an explicit server-side boolean.");
   if (apiHistory !== undefined && typeof apiHistory !== "function") throw new TypeError("API request history requires a server-owned selector.");
+  if (apiTurnNote !== undefined && typeof apiTurnNote !== "function") throw new TypeError("An API turn note requires a server-owned selector.");
   if (toolCatalog && (actions || toolPolicy)) throw new TypeError("Supply the existing tool catalog or actions and toolPolicy, not both.");
   // Whether the configured host prepares its own conversations, which then need no runtime storage.
   const hostPrepares = Boolean(defaultHost?.conversation);
@@ -103,7 +105,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   const completedResponses = createCompletedResponses({ storage, transcript, events, catalog, isClosed, completedEnvelope, maximumToolCalls });
   const turnDelivery = createConversationTurnDelivery({ storage, streams, events, reads, delivery, attachments, persistCommentary, maximumContinuity,
     maximumAttachmentBytes });
-  const turns = createConversationTurns({ storage, streams, events, entries, reads, delivery, turnDelivery, catalog, apiHistory, isClosed,
+  const turns = createConversationTurns({ storage, streams, events, entries, reads, delivery, turnDelivery, catalog, apiHistory, apiTurnNote, isClosed,
     completedEnvelope, maximumToolCalls, maximumFinalReply, maximumCompletedOutput, timeoutMs: limits.timeoutMs });
   const sending = createConversationSending({ storage, events, entries, reads, turns, onDeliveryTiming, deliveryHostStages, completedEnvelope,
     maximumInput });

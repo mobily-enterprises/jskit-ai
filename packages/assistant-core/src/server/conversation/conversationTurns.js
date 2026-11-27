@@ -68,6 +68,7 @@ async function saveTools(entry, transaction, request, calls) {
  * @param {import("./conversationTurnDelivery.js").ConversationTurnDelivery} dependencies.turnDelivery
  * @param {import("../types.js").ServiceToolCatalog | null} dependencies.catalog
  * @param {import("../types.js").ConversationApiHistory | undefined} dependencies.apiHistory
+ * @param {import("../types.js").ConversationApiTurnNote | undefined} dependencies.apiTurnNote
  * @param {() => boolean} dependencies.isClosed Whether the runtime has closed.
  * @param {boolean} dependencies.completedEnvelope
  * @param {number} dependencies.maximumToolCalls
@@ -75,7 +76,7 @@ async function saveTools(entry, transaction, request, calls) {
  * @param {number} dependencies.maximumCompletedOutput
  * @param {number | undefined} dependencies.timeoutMs The time limit of one request, when the application sets one.
  */
-function createConversationTurns({ storage, streams, events, entries, reads, delivery, turnDelivery, catalog, apiHistory, isClosed,
+function createConversationTurns({ storage, streams, events, entries, reads, delivery, turnDelivery, catalog, apiHistory, apiTurnNote, isClosed,
   completedEnvelope, maximumToolCalls, maximumFinalReply, maximumCompletedOutput, timeoutMs }) {
   /**
    * Starts the turn of a request no turn was running for.
@@ -416,7 +417,11 @@ function createConversationTurns({ storage, streams, events, entries, reads, del
         const seen = summary ? { ...metadata.runtime.seen, ...conversationHistoryVersions(activeHistory) }
           : conversationHistoryVersions(activeHistory);
         const priorFiles = await readAttachments(metadata.runtime.continuityAttachments || []);
-        const input = { ...initial.input, text: conversationRequestText(initial.input), contextText: "",
+        // The application's note for this turn goes before the request, to the model alone: the saved
+        // message is the authored one, so no later turn reads the note.
+        const note = apiTurnNote ? await apiTurnNote({ context: initial.context }) : "";
+        if (typeof note !== "string") throw new TypeError("An API turn note must be a string.");
+        const input = { ...initial.input, text: [note, conversationRequestText(initial.input)].filter(Boolean).join("\n\n"), contextText: "",
           content: [...priorFiles.content, ...files.content] };
         await storage.write(entry.id, async transaction => {
           const metadata = await transaction.readMetadata();

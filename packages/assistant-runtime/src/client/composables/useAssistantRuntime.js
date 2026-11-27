@@ -146,10 +146,12 @@ function ignoreAcceptance() {}
  * @param {{
  *   api?: import("@jskit-ai/assistant-core/client/types").AssistantApi,
  *   surfaceId?: import("vue").MaybeRefOrGetter<string>,
- *   integrationId?: import("vue").MaybeRefOrGetter<string>
- * }} options `api` replaces the surface's standard assistant API.
+ *   integrationId?: import("vue").MaybeRefOrGetter<string>,
+ *   pageContext?: import("vue").MaybeRefOrGetter<import("../types.js").AssistantPageContext | null>
+ * }} options `api` replaces the surface's standard assistant API. `pageContext` is the page the person has open,
+ * read as each message is sent and sent with it: a hint for the model, never permission.
  */
-function useAssistantRuntime({ api, surfaceId = "", integrationId = "" }) {
+function useAssistantRuntime({ api, surfaceId = "", integrationId = "", pageContext = null }) {
   const runtimePolicy = resolveRuntimePolicy();
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();
@@ -438,6 +440,8 @@ function useAssistantRuntime({ api, surfaceId = "", integrationId = "" }) {
     if (retryMessageId && retry?.status !== "failed") return false;
     const message = normalizeText(input.value).slice(0, MAX_INPUT_CHARS) || (attachments.length ? "Please review the attached files." : "");
     const parsedConversationId = normalizeRecordId(conversationId.value, { fallback: null });
+    // The page open as this message is sent; a resend keeps the one its message was first sent with.
+    const page = retry ? null : toValue(pageContext);
     const payload = retry?.payload || {
       message,
       displayAttachments: attachments,
@@ -445,7 +449,8 @@ function useAssistantRuntime({ api, surfaceId = "", integrationId = "" }) {
         input: message,
         ...(parsedConversationId ? { conversationId: parsedConversationId } : {}),
         ...(attachments.length ? { attachmentIds: attachments.map(file => file.attachmentId) } : {}),
-        ...(toValue(integrationId) ? { integrationId: toValue(integrationId) } : {})
+        ...(toValue(integrationId) ? { integrationId: toValue(integrationId) } : {}),
+        ...(page ? { pageContext: page } : {})
       }
     };
     if (!payload.message) return false;

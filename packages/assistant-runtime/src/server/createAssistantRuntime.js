@@ -179,6 +179,8 @@ function createAssistantConversationRuntime({ storage, conversationsRepository, 
     },
     apiClientFactory: { resolveClient: ({ context, configuration }) => aiClientFactory.resolveClient(context.surface,
       { context, integrationId: configuration.integrationId }) },
+    // The page the person had open as they sent this turn's message, for the model alone.
+    apiTurnNote: ({ context }) => context.assistantRequest.pageNote ?? "",
     toolCatalog,
     ...(attachments ? { attachments: {
       // The facade authorized the new message's files before admission; files saved

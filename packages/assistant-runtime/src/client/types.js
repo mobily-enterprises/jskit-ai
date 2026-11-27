@@ -12,6 +12,16 @@
  */
 
 /**
+ * The page the person has open, sent with each message as a hint for the model, never permission: its path (at most
+ * 2048 characters), its title (at most 200) and up to 10 records it shows, each a type and an id (at most 64 each)
+ * and an optional label (at most 200). The server refuses any other field, and any value past its limit.
+ * @typedef {object} AssistantPageContext
+ * @property {string} [path]
+ * @property {string} [title]
+ * @property {Array<{ type: string, id: string, label?: string }>} [records]
+ */
+
+/**
  * The workspace route scope workspaces-web provides (`jskit.workspaces.web.scope-support`).
  * @typedef {object} WorkspaceScopeSupport
  * @property {boolean} available Whether the application has workspaces.
