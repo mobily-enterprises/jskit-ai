@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { publicationFixture } from "./npm-publication-fixture.mjs";
@@ -258,4 +258,101 @@ test("pin follows released versions, keeps range prefixes, retries npm propagati
   const repeat = f.run(["pin", "--from", f.repo], {}, consumer);
   assert.equal(repeat.status, 0, repeat.stderr);
   assert.match(repeat.stdout, /pins already match the released versions/u);
+});
+
+// The consumer's root package.json declares an after-pin command, committed and pushed as a release needs it.
+async function declareAfterPin(consumer, git, afterPin) {
+  const file = path.join(consumer, "package.json");
+  const root = JSON.parse(await readFile(file, "utf8"));
+  root.jskitRelease = { ...root.jskitRelease, afterPin };
+  await writeFile(file, JSON.stringify(root, null, 2) + "\n");
+  git("commit", "-am", "Declare an after-pin command"); git("push", "origin", "main");
+}
+
+// What a run of the after-pin command saw: where it ran, how many installs the pin had made by then, and PATH's first entry.
+const AFTER_PIN_SCRIPT = `
+const fs = require("node:fs");
+const path = require("node:path");
+const installs = fs.readFileSync(process.env.RELEASE_TEST_LOG, "utf8").trim().split("\\n").filter(line => JSON.parse(line).args[0] === "install").length;
+fs.appendFileSync("after-pin.jsonl", JSON.stringify({ cwd: process.cwd(), installs, firstPath: process.env.PATH.split(path.delimiter)[0] }) + "\\n");
+console.log("synced the files that follow the pins");
+`;
+
+test("pin runs the repository's afterPin command on the installed versions, and its changes join the pin commit", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git } = await consumerRepository(f);
+  await declareAfterPin(consumer, git, [process.execPath, "-e", AFTER_PIN_SCRIPT]);
+  const runs = async () => existsSync(path.join(consumer, "after-pin.jsonl"))
+    ? (await readFile(path.join(consumer, "after-pin.jsonl"), "utf8")).trim().split("\n").map(line => JSON.parse(line)) : [];
+
+  const dry = f.run(["pin", "--from", f.repo, "--dry-run"], {}, consumer);
+  assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /^consumer: would run \[".+"\] after the install \(jskitRelease\.afterPin\)$/mu, "one line, the argv as JSON");
+  assert.deepEqual(await runs(), [], "a dry run runs nothing");
+
+  const result = f.run(["pin", "--from", f.repo], {}, consumer);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /synced the files that follow the pins/u, "its output is shown");
+  const root = await realpath(consumer);
+  assert.deepEqual(await runs(), [{ cwd: root, installs: 1, firstPath: path.join(root, "node_modules", ".bin") }],
+    "it ran once, in the repository root, after the install, with the repository's installed bins first");
+  assert.equal(git("log", "-1", "--format=%s").toString().trim(), "Consume released packages");
+  const committed = git("show", "--name-only", "--format=", "HEAD").toString().trim().split("\n");
+  assert.ok(["after-pin.jsonl", "package.json", "packages/x/package.json"].every(file => committed.includes(file)), committed.join(", "));
+  assert.equal(git("rev-parse", "HEAD").toString(), git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0] + "\n");
+
+  const repeat = f.run(["pin", "--from", f.repo], {}, consumer);
+  assert.equal(repeat.status, 0, repeat.stderr);
+  assert.match(repeat.stdout, /pins already match the released versions/u);
+  assert.equal((await runs()).length, 1, "nothing pinned, nothing run");
+});
+
+test("pin --no-commit and --no-push run the afterPin command too, leaving or committing its changes with the pins", async t => {
+  {
+    const f = await publicationFixture(t, "jskit");
+    const { consumer, git } = await consumerRepository(f);
+    await declareAfterPin(consumer, git, [process.execPath, "-e", AFTER_PIN_SCRIPT]);
+    const head = git("rev-parse", "HEAD").toString();
+    const rehearsal = f.run(["pin", "--from", f.repo, "--no-commit"], {}, consumer);
+    assert.equal(rehearsal.status, 0, rehearsal.stderr);
+    assert.match(rehearsal.stdout, /pins installed; not committed/u);
+    assert.equal(git("rev-parse", "HEAD").toString(), head);
+    assert.match(git("status", "--porcelain").toString(), /\?\? after-pin\.jsonl/u);
+  }
+  {
+    const f = await publicationFixture(t, "jskit");
+    const { consumer, git } = await consumerRepository(f);
+    await declareAfterPin(consumer, git, [process.execPath, "-e", AFTER_PIN_SCRIPT]);
+    const origin = git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0];
+    const committed = f.run(["pin", "--from", f.repo, "--no-push"], {}, consumer);
+    assert.equal(committed.status, 0, committed.stderr);
+    assert.match(git("show", "--name-only", "--format=", "HEAD").toString(), /^after-pin\.jsonl$/mu);
+    assert.equal(git("status", "--porcelain").toString(), "");
+    assert.equal(git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0], origin, "nothing pushed");
+  }
+});
+
+test("a failing afterPin command fails the pin before its commit, showing its output, and a malformed one is refused before any change", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git } = await consumerRepository(f);
+  await declareAfterPin(consumer, git, [process.execPath, "-e", "console.error('the copies could not be synced'); process.exit(3)"]);
+  const head = git("rev-parse", "HEAD").toString();
+  const failed = f.run(["pin", "--from", f.repo], {}, consumer);
+  assert.notEqual(failed.status, 0, failed.stdout);
+  assert.match(failed.stderr, /jskitRelease\.afterPin \[".+\] failed with exit code 3, so the pin was not committed\. the copies could not be synced/u);
+  assert.equal(git("rev-parse", "HEAD").toString(), head);
+  assert.equal(git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0] + "\n", head, "nothing pushed");
+
+  for (const afterPin of ["genesis skills sync", [], ["genesis", 3], ["genesis", " "], null]) {
+    const g = await publicationFixture(t, "jskit");
+    const other = await consumerRepository(g);
+    await declareAfterPin(other.consumer, other.git, afterPin);
+    for (const args of [[], ["--dry-run"], ["--no-commit"]]) {
+      const refused = g.run(["pin", "--from", g.repo, ...args], {}, other.consumer);
+      assert.notEqual(refused.status, 0, `${JSON.stringify(afterPin)} ${args}: ${refused.stdout}`);
+      assert.match(refused.stderr, /package\.json jskitRelease\.afterPin must be a command and its arguments, a non-empty array of non-empty strings run without a shell/u);
+    }
+    assert.equal((await g.calls()).filter(call => call.args[0] === "install").length, 0, "nothing installed");
+    assert.equal(other.git("status", "--porcelain").toString(), "", "nothing changed");
+  }
 });
