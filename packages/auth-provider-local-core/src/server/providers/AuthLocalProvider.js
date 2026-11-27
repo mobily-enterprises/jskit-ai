@@ -40,7 +40,8 @@ const BACKEND_METHODS = Object.freeze({
  * @param {import("../types.js").AuthLocalBackend} backend
  */
 function requireBackendMethods(backend) {
-  const missing = Object.keys(BACKEND_METHODS).filter((name) => typeof backend[name] !== "function");
+  // readable-check: allow method-probe - input validation: an application supplies its own auth.local.backend
+  const missing =Object.keys(BACKEND_METHODS).filter((name) => typeof backend[name] !== "function");
   if (missing.length === 0) return;
   throw new Error([
     `The installed auth.local.backend has no ${missing.join(" and no ")}.`,

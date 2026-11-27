@@ -305,6 +305,7 @@ Local functions
 Exports
 - `AuthLocalProvider`
 Local functions
+- `requireBackendMethods(backend)`
 - `sendAsAppEnvironmentSays({ env, logger, sender, name })`
 
 ### `src/server/types.js`
