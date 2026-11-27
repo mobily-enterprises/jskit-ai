@@ -137,9 +137,12 @@ severity and file.
 Run focused tests for a slice and the application's `npm run verify` for a
 whole changeset. Use the current-state owners in application operations and
 Playwright for affected UI. Where the host provides a managed browser runner,
-every Playwright suite runs through it from the first run, never through
-`npx playwright test`, `playwright test` or a package script such as
-`npm run test:e2e`. There is no current JSKIT Doctor command; ignore
+such as Vibe64's, every Playwright suite runs through it from the first run, on
+a declared test target: give the runner the package script (on Vibe64,
+`vibe64-helper playwright --target test-app npm-run test:e2e`), and never start
+`npx playwright test`, `playwright test` or `npm run test:e2e` yourself. Specs
+that write run only on a test target with its own database, never on the
+person's development target or database. There is no current JSKIT Doctor command; ignore
 old CLI authoring-history diagnoses. Never expose environment values.
 
 Tests and requests take the time their work needs, no more: count a list's or

@@ -11,7 +11,7 @@ Use when:
 
 Rules:
 
-- Where the host provides a managed browser runner, every Playwright suite runs through it from the first run, never through `npx playwright test`, `playwright test` or a package script such as `npm run test:e2e`. Do not try a direct start first to see whether it is allowed, and do not install a browser. See Run verification below.
+- Where the host provides a managed browser runner, such as Vibe64's, every Playwright suite runs through it from the first run, on a declared test target: give the runner the package script (on Vibe64, `vibe64-helper playwright --target test-app npm-run test:e2e`), and never start `npx playwright test`, `playwright test` or `npm run test:e2e` yourself. Specs that write run only on a test target with its own database, never on the person's development target or database. Do not try a direct start first to see whether it is allowed, and do not install a browser. See Run verification below.
 - Any chunk that adds or changes user-facing UI proves the changed behavior with an automated test before the chunk is done, at the cheapest level that can: a component's content, states and conditional display in a client component test (Vitest); only what needs a real browser (navigation, a flow across screens, layout at the standard widths, focus, the real sign-in) in Playwright.
 - Put a new browser check in the existing spec that already reaches that screen with the data it needs. Add a new spec only for a new flow, using the app's shared server, sign-in and fixture setup. A browser test that pays its own server start, sign-in or seeding to check one card, label or state is not acceptable: every run pays for it for as long as it exists. Move that check to a component test or an existing spec, and report the spec's time and the suite's time before and after.
 - Never wait out the app's own delays (request retries, debounce, polling) in real time, and never change the scenario to skip them: install Playwright's `page.clock` before the page loads and advance it with `page.clock.runFor(...)`, or use Vitest's fake timers in a component test. Change the scenario only when another test already proves the skipped path.
@@ -158,12 +158,15 @@ Do not call `loginAsExistingUser()` against a managed preview. It is deliberatel
 
 ## Run verification
 
-Where the host provides a managed browser runner, every Playwright suite runs
-through it from the first run, never through `npx playwright test`,
-`playwright test` or a package script such as `npm run test:e2e`. The host's
-own instructions name its command. Give it the declared test target and the
-file and case selection; when the suite runs through a package script, give the
-runner that script instead of running it.
+Where the host provides a managed browser runner, such as Vibe64's, every
+Playwright suite runs through it from the first run, on a declared test target:
+give the runner the package script (on Vibe64,
+`vibe64-helper playwright --target test-app npm-run test:e2e`), and never start
+`npx playwright test`, `playwright test` or `npm run test:e2e` yourself. Specs
+that write run only on a test target with its own database, never on the
+person's development target or database. The host's own instructions name its
+command; give it the file and case selection too. The UI operations guide's
+browser verification shows the test target's declaration.
 
 Only a machine with no managed browser runner runs Playwright directly, for
 example:

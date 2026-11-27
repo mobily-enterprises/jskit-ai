@@ -14,6 +14,17 @@ Use this on demand; do not load the full index at startup.
 
 ### scripts
 
+### `scripts/agents-block.mjs`
+Exports
+- `checkAgentsBlock({ projectRoot })`
+- `formatAgentsBlockReport(result)`
+- `formatAgentsBlockWrite({ version, placed, changed })`
+- `writeAgentsBlock({ projectRoot })`
+Local functions
+- `readOptional(file)`
+- `catalogBlock()`
+- `locateBlock(text)`
+
 ### `scripts/browser-test-build.mjs`
 Exports
 - `buildFrontend({ appRoot = process.cwd(), build = "npm run build", run = runToCompletion } = {})`

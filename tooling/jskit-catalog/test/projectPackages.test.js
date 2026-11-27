@@ -874,6 +874,16 @@ test("jskit CLI updates a project through its npm-style executable symlink", asy
     assert.equal(manifest.scripts["jskit:check"], CHECK_SCRIPT);
     assert.match(stdout, /Skipped npm install; run it before jskit check\./u);
     assert.match(stdout, /If it installs new package migrations, run npm run db:migrate before the app serves requests\./u);
+    // The update writes the catalog's JSKIT block in AGENTS.md, as jskit agents does, so jskit check finds it current.
+    const catalogManifest = await readJson(new URL("../package.json", import.meta.url));
+    assert.ok(stdout.endsWith(
+      `Wrote the JSKIT block of @jskit-ai/jskit-catalog ${catalogManifest.version} in a new AGENTS.md. Commit AGENTS.md.\n`
+    ), stdout);
+    const block = await readFile(new URL("../app-guidance/AGENTS.block.md", import.meta.url), "utf8");
+    assert.equal(
+      await readFile(path.join(projectRoot, "AGENTS.md"), "utf8"),
+      `<!-- jskit:begin app guidance (written by npx jskit agents; edit outside this block) -->\n${block}<!-- jskit:end app guidance -->\n`
+    );
   });
 });
 

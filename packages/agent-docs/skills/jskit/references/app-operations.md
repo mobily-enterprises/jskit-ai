@@ -113,6 +113,15 @@ ids, environment, and configuration. Builds own client imports; migration
 status and disposable rebuilds own schema state. App lint, tests, audit,
 browser checks, and CI own security, runtimes, and behavior.
 
+Keep verification output small: save each run's complete output to a local
+file and keep its exit status, then report counts, duration, failed case names
+and the file's path, and read only actionable failure excerpts. Never feed full
+JSON or TAP reports, passing assertions, request logs or traces into an agent's
+context, restart a run to recover its logs, or print unchanged output again;
+wait on the running one. Keep startup and cleanup errors visible. Browser
+evidence comes from automated cases, targeted locators and meaningful visual
+checkpoints, never a DOM snapshot or screenshot after every action.
+
 There is no supported `jskit doctor` command. Old CLI authoring-history
 warnings do not describe AI-first apps. Diagnose current contracts; never add
 metadata to satisfy an old tool.

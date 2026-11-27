@@ -1453,6 +1453,26 @@ each other's rows; a test database that is the application's own is replaced
 from the snapshot; and a build that writes into its own sources is never
 reused.
 
+### Agent instructions
+
+`npx jskit agents` writes JSKIT's app guidance, the guide's links and the
+rules no check enforces, in the app's `AGENTS.md`, between these markers:
+
+```md
+<!-- jskit:begin app guidance (written by npx jskit agents; edit outside this block) -->
+<!-- jskit:end app guidance -->
+```
+
+It replaces what lies between them and leaves the text outside as it is; in a
+file without them it puts the block at the top, and it makes the file when
+there is none. `npm run jskit:update` writes it after updating the packages, so
+commit `AGENTS.md` with the manifests. Write the app's own rules outside the
+block.
+
+| Rule | Reports | Section |
+| --- | --- | --- |
+| `agents/jskit-block` | an app whose `package.json` declares `@jskit-ai/jskit-catalog` without that catalog's block in `AGENTS.md`, or with the block changed | [Agent instructions](#agent-instructions) |
+
 ### Exceptions
 
 A justified exception carries a comment on the line before it, naming the
