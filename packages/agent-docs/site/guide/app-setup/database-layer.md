@@ -390,7 +390,14 @@ the application's `knexfile.js`:
   those two replaced, is set.
   Every file starts from the snapshot, rows included: a copy an earlier file of
   the run used is restored before the next file takes it, so no file sees what
-  another wrote.
+  another wrote. On MySQL and MariaDB the restore replaces only the tables that
+  differ from the snapshot, found exactly: a table's definition and its
+  `AUTO_INCREMENT` counter (`SHOW CREATE TABLE`, so a row written and deleted,
+  or a write rolled back, counts), a trigger on it, a row in a table the
+  snapshot holds empty, rows that are not the snapshot's, and tables missing or
+  added. A file that wrote three tables costs three tables, not the whole
+  schema. On PostgreSQL the copy is made again from the snapshot database,
+  which costs less than finding the tables.
 - When the run ends, whether its test files passed, failed or were stopped
   (Ctrl-C, `SIGTERM`), or its foreign key check failed before the first file,
   it drops the numbered copies it made and says so

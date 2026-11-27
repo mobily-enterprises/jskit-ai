@@ -7,7 +7,8 @@
 // database, whose numbered copies the others are, stays named in JSKIT_DESIGNATED_TEST_DB_NAME: a package data test on
 // MySQL or MariaDB claims its lettered copies (mysqlPackageTestDatabase.js), not a copy's own. Every file starts
 // from the snapshot, rows included: a database an earlier file of the run used is restored before the next file takes
-// it, since that file may have written rows, or changed tables or the migration ledger (a migration test).
+// it, since that file may have written rows, or changed tables or the migration ledger (a migration test); on MySQL and
+// MariaDB only the tables it changed are replaced.
 //
 // The directory holds the run's settings (only this user may read them: they include the connection password, which
 // reaches only the test files' own processes), a lock file per database holding its user's process id, and a marker

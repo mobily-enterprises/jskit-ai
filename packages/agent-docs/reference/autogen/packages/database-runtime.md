@@ -122,16 +122,23 @@ Exports
 Local functions
 - `folded(value)`
 - `milliseconds(since)`
-- `ledgerOf(knexConfig)`
 - `connectedDatabaseName(environment)`
-- `knexOn(knexConfig, database, connectionOptions = {})`
-- `withKnex(knexConfig, database, use, connectionOptions)`
-- `settleAll(promises)`
-- `ledgerNames(knex, ledger, tables)`
-- `dialectOf(knexConfig)`
 - `refusedPrivilege(error)`
 - `recordStatements(listen, work)`
 - `dropPackageTestData(knex, admin, statement, name)`
+
+### `src/server/testDatabaseSnapshots.js`
+Exports
+- `DIALECTS`
+- `POSTGRES_INSUFFICIENT_PRIVILEGE`
+- `dialectOf(knexConfig)`
+- `ledgerOf(knexConfig)`
+- `settleAll(promises)`
+- `withKnex(knexConfig, database, use, connectionOptions)`
+Local functions
+- `knexOn(knexConfig, database, connectionOptions = {})`
+- `rowsDigest(rows)`
+- `ledgerNames(knex, ledger, tables)`
 
 ### `src/server/types.js`
 Exports
