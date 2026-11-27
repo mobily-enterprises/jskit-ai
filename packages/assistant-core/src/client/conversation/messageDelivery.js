@@ -18,6 +18,12 @@ function turnMatchesOptimisticMessage(turn = {}, optimistic = {}) {
   return Number.isFinite(userAtMs) && userAtMs >= optimistic.createdAtMs - 5000;
 }
 
+// An accepted send answers with the conversation route's receipt whichever settles it first: the route's own answer,
+// the message's transcript turn or an accept() made before the answer came, the last two from what they know.
+function acceptedReceipt(messageId, turnId) {
+  return { ok: true, status: "accepted", messageId, ...(turnId ? { turnId } : {}) };
+}
+
 function unmatchedOptimisticMessages(turns = [], optimisticMessages = [], { receiptsOnly = false } = {}) {
   const conversationTurns = Array.isArray(turns) ? turns : [];
   const matchedTurnIndexes = new Set();
@@ -161,8 +167,9 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
         receipt = Promise.withResolvers();
         settled.receipt = receipt;
         stopReceipt = watch([current, () => toValue(receiptTurns)], ([isCurrent, turns]) => {
+          const receiptTurn = turns?.find(turn => turn.user?.messageId === messageId && turn.user.receipt !== false);
           if (!isCurrent) receipt.resolve(false);
-          else if (turns?.some(turn => turn.user?.messageId === messageId && turn.user.receipt !== false)) receipt.resolve({ ok: true });
+          else if (receiptTurn) receipt.resolve(acceptedReceipt(messageId, receiptTurn.turnId));
         }, { immediate: true });
       }
       const submitted = deliver({ ...snapshot, messageId });
@@ -176,7 +183,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
       return response;
     } catch (error) {
       if (!current()) return false;
-      if (find(messageId)?.status === "accepted") return { ok: true };
+      if (find(messageId)?.status === "accepted") return acceptedReceipt(messageId);
       fail(messageId, error, uncertainOnError || error?.status === "uncertain" ? "uncertain" : "failed");
       throw error;
     } finally {
@@ -204,7 +211,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   function accept(messageId) {
     const message = find(messageId);
     if (message) { message.status = "accepted"; message.error = ""; }
-    pendingSends.get(messageId)?.receipt?.resolve({ ok: true });
+    pendingSends.get(messageId)?.receipt?.resolve(acceptedReceipt(messageId));
     if (message) {
       const entry = toRaw(message);
       const acknowledge = acceptanceCallbacks.get(entry);

@@ -472,7 +472,11 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
                     failure.details?.delivery && (failure.details.delivery.status !== "not-sent" ||
                       failure.details.delivery.messageId !== messageId)) throw failure;
                 const retained = delivery.find(messageId);
-                if (retained?.status === "accepted" || turns.value.some(turn => turn.user?.messageId === messageId && turn.user.receipt !== false)) return { ok: true };
+                // Already accepted: it answers as an accepted send does, with the route's receipt.
+                const acceptedTurn = turns.value.find(turn => turn.user?.messageId === messageId && turn.user.receipt !== false);
+                if (retained?.status === "accepted" || acceptedTurn) {
+                  return { ok: true, status: "accepted", messageId, ...(acceptedTurn?.turnId ? { turnId: acceptedTurn.turnId } : {}) };
+                }
                 if (!current.value || accessDenied.value || controller.signal.aborted || !retained || retained.status !== "pending") return false;
                 const { steer: _finishedTurn, ...nextRequest } = request;
                 request = nextRequest;
