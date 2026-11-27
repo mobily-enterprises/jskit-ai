@@ -111,7 +111,7 @@ test("test/fixed-database-name names a test script, Playwright config or test so
       private: true,
       scripts: {
         test: "jskit test --databases",
-        "test:db": "TEST_DB_NAME=shop_test jskit test --databases tests/server",
+        "test:db": "TEST_DB_NAME=shop_test jskit test --databases",
         "test:e2e": "BROWSER_TEST_DB_NAME=shop_e2e playwright test",
         dev: "DB_NAME=shop_dev node ./bin/develop.js"
       }

@@ -1408,6 +1408,7 @@ that must run alone says so on its own first line instead.
 | `test/playwright-isolation` | a Playwright webServer every worker shares, without `browserTestConfig()` | [Test files run in parallel](#test-files-run-in-parallel) |
 | `test/playwright-global-timeout` | a Playwright config without a `globalTimeout` (or `browserTestConfig()`), or with `globalTimeout: 0` | [Test files run in parallel](#test-files-run-in-parallel) |
 | `test/vitest-workers` | `--maxWorkers`, `--minWorkers` or `--no-file-parallelism` passed to Vitest, or its config without `maxWorkers: testConcurrency()` or with `fileParallelism: false` | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/script-files` | a script that gives `jskit test` files or globs (`jskit test --databases tests/*.test.js`), so `npm test -- <file>` runs every file and that one; drop them, as `jskit test` finds test files by node's default pattern | [Test files run in parallel](#test-files-run-in-parallel) |
 
 The rules see shapes, not intent. Feature files, owned state beyond
 registries, shutdown, loggers, shared action fields, strict inputs, the action

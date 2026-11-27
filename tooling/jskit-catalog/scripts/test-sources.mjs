@@ -12,6 +12,7 @@ import { fileExists } from "./files.mjs";
 //   or its host names it, `jskit test --databases` gives each file its own copy, and browserTestConfig()'s prepare module
 //   derives each browser worker's.
 // - test/test-database-is-app-database: a CI workflow gives TEST_DB_NAME or BROWSER_TEST_DB_NAME the value of its DB_NAME.
+// - test/script-files: a script gives `jskit test` its files, so `npm test -- <file>` runs every file and that one.
 // - test/generated-into-src: the app's Vite config writes a generated file (`dts`) into src, which the browser tests'
 //   frontend build reads, so a build is never kept for reuse.
 // No other comment excuses them.
@@ -36,6 +37,12 @@ const PROMISE_SLEEP = new RegExp(
 );
 const AWAITED_SLEEP = /\bawait\s+(?:[A-Za-z_$][\w$]*\.)?(?:setTimeout|sleep|delay|wait|pause)\s*\(\s*(\d[\d_]*(?:\.\d+)?)\s*[,)]/u;
 
+// The options of `jskit test` (node's test runner) that take the next argument as their value.
+const VALUE_OPTIONS = new Set([
+  "--test-name-pattern", "--test-skip-pattern", "--test-reporter", "--test-reporter-destination", "--test-global-setup",
+  "--test-timeout", "--test-shard", "--test-coverage-include", "--test-coverage-exclude", "--test-isolation", "--import",
+  "--require", "-r", "--env-file", "--watch-path", "--conditions", "-C", "--experimental-loader", "--loader"
+]);
 const DATABASE_VARIABLE = "(?:BROWSER_TEST_|TEST_)?DB_NAME";
 const STRING_LITERAL = "(?:\"[^\"\\n]+\"|'[^'\\n]+'|`[^`$\\n]+`)";
 const ENV_READ = `process\\.env(?:\\.(${DATABASE_VARIABLE})\\b|\\[\\s*["'](${DATABASE_VARIABLE})["']\\s*\\])`;
@@ -128,6 +135,22 @@ function lineOf(contents, needle, after = "") {
   return offset < 0 ? 1 : text.slice(0, offset).split("\n").length;
 }
 
+/** The files and globs a script's `jskit test` commands name, past their options and the options' values. */
+function jskitTestFiles(script) {
+  const files = [];
+  for (const command of String(script).split(/&&|\|\||[;|\n]/u)) {
+    const tokens = command.trim().split(/\s+/u).map((token) => token.replace(/^['"(]+|['")]+$/gu, "")).filter(Boolean);
+    const at = tokens.findIndex((token, index) => (token === "jskit" || token.endsWith("/jskit")) && tokens[index + 1] === "test");
+    if (at < 0) continue;
+    for (let index = at + 2; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      if (VALUE_OPTIONS.has(token)) index += 1;
+      else if (!token.startsWith("-") && !token.startsWith("$") && !/^\d*>/u.test(token)) files.push(token);
+    }
+  }
+  return files;
+}
+
 function checkScripts(file, contents, report) {
   let manifest;
   try {
@@ -136,12 +159,19 @@ function checkScripts(file, contents, report) {
     return;
   }
   for (const [name, script] of Object.entries(manifest?.scripts || {})) {
+    const line = lineOf(contents, `"${name}"`, '"scripts"');
+    const files = jskitTestFiles(script);
+    if (files.length > 0) {
+      const run = name === "test" ? "npm test" : `npm run ${name}`;
+      report({ file, line, rule: "test/script-files",
+        message: `${file}'s ${name} script names ${files.join(" ")}: drop ${files.length > 1 ? "them" : "it"}. \`jskit test\` finds ` +
+          `test files by node's default pattern, so \`${run} -- <file>\` runs exactly that file.` });
+    }
     if (!TEST_SCRIPT_NAME.test(name) && !TEST_COMMAND.test(String(script))) continue;
     for (const token of String(script).split(/\s+/u).map((part) => part.replace(/^['"(]+|['");]+$/gu, ""))) {
       const pin = token.match(SCRIPT_PIN);
       if (!pin) continue;
-      report({ file, line: lineOf(contents, `"${name}"`, '"scripts"'), rule: "test/fixed-database-name",
-        message: `scripts.${name} pins ${pin[1]}=${pin[2]}; drop it: ${DATABASE_FIX}` });
+      report({ file, line, rule: "test/fixed-database-name", message: `scripts.${name} pins ${pin[1]}=${pin[2]}; drop it: ${DATABASE_FIX}` });
     }
   }
 }

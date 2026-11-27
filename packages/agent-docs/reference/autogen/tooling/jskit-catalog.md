@@ -490,6 +490,7 @@ Local functions
 - `checkFixedWaits(file, lines, report)`
 - `checkDatabaseNames(file, lines, { configFile }, report)`
 - `lineOf(contents, needle, after = "")`
+- `jskitTestFiles(script)`
 - `checkScripts(file, contents, report)`
 - `unquoted(value)`
 - `workflowPairs(lines)`
