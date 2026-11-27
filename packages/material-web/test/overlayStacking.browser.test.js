@@ -53,9 +53,10 @@ async function drawn(page) {
 // `contain: layout` with `display: contents`, which draws none, so for the browser it contains nothing; axe made it a
 // stacking context at the page's base level and ranked every overlay in it under any of the page's elements with a
 // z-index of 1 or more. Over such an element, axe found the page over the dialog's text and judged none of it
-// (color-contrast incomplete, bgOverlap): mobilynet's dialogs, over its pages' content at z-index 1. axe-core 4.11 did
-// not read `contain`. material.css sets the container's `contain` to none, which the browser draws the same: the same
-// elements under every text, and the same pixels, as with Vuetify's own value.
+// (color-contrast incomplete, bgOverlap): mobilynet's dialogs, over its pages' content at z-index 1. axe-core 4.11
+// read `contain` too, but ranked the container by its position, an entry the overlay's own stacking context took out
+// of the order; 4.14 keeps a stacking context in the order. material.css sets the container's `contain` to none, which
+// the browser draws the same: the same elements under every text, and the same pixels, as with Vuetify's own value.
 test("axe judges every text of a dialog open over page content with a z-index of its own, and the page draws the same as with Vuetify's `contain: layout` on the overlay container", {
   skip: SKIP,
   timeout: 120_000
