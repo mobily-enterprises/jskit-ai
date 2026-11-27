@@ -62,8 +62,10 @@ function contrastRatio(foreground, background) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-// The computed colour of a theme role, read from a probe painted with it.
+// The computed colour of a theme role, read from a probe painted with it once the app has mounted: the fixture,
+// like an app, mounts after its boot request, so its page can load first.
 async function readRoleColor(page, role) {
+  await page.locator(".v-application").waitFor({ state: "attached" });
   return page.evaluate((name) => {
     const probe = document.createElement("div");
     probe.style.background = `rgb(var(--v-theme-${name}))`;
