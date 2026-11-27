@@ -35,8 +35,9 @@ export default defineConfig({
     }),
     VueRouter({
       routesFolder: "src/pages",
-      // Generated on the first Vite dev/build scan and intentionally gitignored.
-      dts: "src/typed-router.d.ts",
+      // Generated on the first Vite dev/build scan and intentionally gitignored. It stays outside src, which the
+      // browser tests' frontend build reads: a file written there while it builds keeps that build from being reused.
+      dts: "types/typed-router.d.ts",
       nestedChildren: false
     }),
     vue(),

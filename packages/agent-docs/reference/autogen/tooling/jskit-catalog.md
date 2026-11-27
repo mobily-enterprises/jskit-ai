@@ -477,6 +477,26 @@ Local functions
 - `checkLoggerLevel({ root, report })`
 - `checkRunnerConfig({ root, configPath, directory, runner, report })`
 
+### `scripts/test-sources.mjs`
+Exports
+- `checkTestSources({ projectRoot })`
+- `formatTestSourcesReport(result)`
+Local functions
+- `listFiles(root, relative = "")`
+- `listWorkflows(root)`
+- `isTestFile(file)`
+- `asNumber(literal)`
+- `fixedWait(line)`
+- `checkFixedWaits(file, lines, report)`
+- `checkDatabaseNames(file, lines, { configFile }, report)`
+- `lineOf(contents, needle, after = "")`
+- `jskitTestFiles(script)`
+- `checkScripts(file, contents, report)`
+- `unquoted(value)`
+- `workflowPairs(lines)`
+- `checkWorkflow(file, lines, report)`
+- `checkViteConfig(file, contents, report)`
+
 ### `scripts/test-time-report.mjs`
 Exports
 - `BOUNDS_FILE`

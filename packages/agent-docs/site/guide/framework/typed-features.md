@@ -1406,12 +1406,43 @@ that must run alone says so on its own first line instead.
 | `test/playwright-isolation` | a Playwright webServer every worker shares, without `browserTestConfig()` | [Test files run in parallel](#test-files-run-in-parallel) |
 | `test/playwright-global-timeout` | a Playwright config without a `globalTimeout` (or `browserTestConfig()`), or with `globalTimeout: 0` | [Test files run in parallel](#test-files-run-in-parallel) |
 | `test/vitest-workers` | `--maxWorkers`, `--minWorkers` or `--no-file-parallelism` passed to Vitest, or its config without `maxWorkers: testConcurrency()` or with `fileParallelism: false` | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/script-files` | a script that gives `jskit test` files or globs (`jskit test --databases tests/*.test.js`), so `npm test -- <file>` runs every file and that one; drop them, as `jskit test` finds test files by node's default pattern | [Test files run in parallel](#test-files-run-in-parallel) |
 
 The rules see shapes, not intent. Feature files, owned state beyond
 registries, shutdown, loggers, shared action fields, strict inputs, the action
 policy, request context, validated input, one reader per fact, routes,
 internal failures, swallowed failures, test doubles, tests as callers, data
 modules and names are checked by reading.
+
+### Test-source rules
+
+`jskit check` also reads an application's test files (`*.test.*`,
+`*.spec.*` and every file under a `test` or `tests` folder), its test
+scripts, its Playwright and Vitest configs, its CI workflows and its root
+Vite config, and reports what makes a test run slow, fragile or unsafe.
+
+| Rule | Reports | Fix |
+| --- | --- | --- |
+| `test/fixed-sleep` | in a test file, `page.waitForTimeout(…)`, a `new Promise` that resolves on `setTimeout(…, <ms>)`, or an awaited `setTimeout`, `sleep`, `delay`, `wait` or `pause` of a number of milliseconds | wait for the condition: a web-first assertion (`await expect(locator).toBeVisible()`), `expect.poll()`, the event itself, or a fake clock (`mock.timers`, `vi.useFakeTimers()`, `page.clock`) |
+| `test/fixed-database-name` | a test script that sets `TEST_DB_NAME`, `BROWSER_TEST_DB_NAME` or `DB_NAME`; a test file or runner config that falls back to or assigns a name for one (`process.env.TEST_DB_NAME \|\| "shop_test"`); a runner config that names one (`DB_NAME: "shop_e2e"`) | drop the name: the run's test-only env file or the host names the database, `jskit test --databases` gives each test file its own copy of `TEST_DB_NAME`, and `browserTestConfig()`'s `prepare` module derives each worker's from `BROWSER_TEST_DB_NAME` |
+| `test/test-database-is-app-database` | a CI workflow whose `TEST_DB_NAME` or `BROWSER_TEST_DB_NAME` is its `DB_NAME`, by value or as an `env.DB_NAME` expression | give it a name of its own, such as `<DB_NAME>_test`: a test run replaces its test databases from the snapshot, and JSKIT refuses to run one on `DB_NAME` |
+| `test/generated-into-src` | a `dts` path under `src/` in the root `vite.config.*`, such as vue-router's `src/typed-router.d.ts` or a components declaration file | write it outside `src`, such as `dts: "types/typed-router.d.ts"`, and move the file and its `.gitignore` line: a file written into `src` while the frontend builds keeps the browser tests from reusing that build (`not kept for reuse, as src changed while it ran`) |
+
+A 0 ms timer yields a turn and is not reported. The one fixed wait a test
+needs is a window that proves nothing happens, such as no second read within
+it, and it says so on the line before, with its reason; a marker without a
+reason is a finding itself, and no other comment excuses these rules:
+
+```js
+// jskit-test: fixed-wait - the window in which the list must make no second read
+await page.waitForTimeout(2000);
+```
+
+Why: a fixed sleep makes every run as slow as its longest guess and fails on
+a loaded machine; a test database name in the project makes two runs wipe
+each other's rows; a test database that is the application's own is replaced
+from the snapshot; and a build that writes into its own sources is never
+reused.
 
 ### Exceptions
 

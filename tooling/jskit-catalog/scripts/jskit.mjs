@@ -20,6 +20,7 @@ import { checkProject, updateProject } from "./project-packages.mjs";
 import { runTests } from "./test-command.mjs";
 import { runMigrationHistory } from "./test-databases.mjs";
 import { checkTestRuns, formatTestRunsReport } from "./test-runs.mjs";
+import { checkTestSources, formatTestSourcesReport } from "./test-sources.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
@@ -56,8 +57,14 @@ function usage() {
     "               budget, as each worker drives a browser and often its own app server). A Playwright",
     "               config with a webServer uses browserTestConfig() of @jskit-ai/jskit-catalog/browser-tests (one",
     "               production-build server and database per worker), never a development server, and every one",
-    "               has a globalTimeout. It fails when two table resources (defineTableResource) of the app and its",
-    "               installed JSKIT packages share a table or a name (data/one-resource-per-table), or when a system",
+    "               has a globalTimeout. It fails on the app's test sources (test/*): a test file that waits a fixed",
+    "               time (waitForTimeout, a setTimeout promise, an awaited sleep) without `// jskit-test: fixed-wait -",
+    "               <reason>` on the line before, a test script, runner config or test file that names the test",
+    "               database itself, a script that gives jskit test its files (so npm test -- <file> would run them",
+    "               all), a CI workflow whose TEST_DB_NAME or BROWSER_TEST_DB_NAME is its DB_NAME, and a root Vite",
+    "               config whose dts writes a generated file into src. It fails when two table resources",
+    "               (defineTableResource) of the app and its installed JSKIT packages share a table or a name",
+    "               (data/one-resource-per-table), or when a system",
     "               scope (a feature's systemScope, a systemContext() call) gives no literal reason (data/system-scope),",
     "               and it lists every system scope and every file the infrastructure exception lifts past the",
     "               data-access lint rules for review. It fails when an application package's manifest",
@@ -375,6 +382,7 @@ async function main(argv = process.argv.slice(2)) {
   });
   const ui = await checkMaterial3({ projectRoot: options.projectRoot });
   const tests = await checkTestRuns({ projectRoot: options.projectRoot, manifests: result.manifests });
+  const sources = await checkTestSources({ projectRoot: options.projectRoot });
   const data = await checkDataAccess({ projectRoot: options.projectRoot });
   const capabilities = await checkManifestCapabilities({ projectRoot: options.projectRoot, manifests: result.manifests });
   const nixPackage = await checkPackageNix({ projectRoot: options.projectRoot });
@@ -387,10 +395,11 @@ async function main(argv = process.argv.slice(2)) {
       : `JSKIT project graph is inconsistent:\n- ${result.issues.join("\n- ")}`,
     formatMaterial3Report(ui),
     formatTestRunsReport(tests),
+    formatTestSourcesReport(sources),
     formatManifestCapabilitiesReport(capabilities),
     formatPackageNixReport(nixPackage)
   ];
-  if (!result.ok || !ui.ok || !tests.ok || !data.ok || !capabilities.ok || !nixPackage.ok) {
+  if (!result.ok || !ui.ok || !tests.ok || !sources.ok || !data.ok || !capabilities.ok || !nixPackage.ok) {
     throw new Error(reports.join("\n"));
   }
   process.stdout.write(`${reports.join("\n")}\n`);
