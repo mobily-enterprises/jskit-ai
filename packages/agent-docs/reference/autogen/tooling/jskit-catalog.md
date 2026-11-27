@@ -45,10 +45,12 @@ Local functions
 - `waitUntilReady(url, server, name)`
 - `running(server)`
 - `delay(ms)`
+- `processTree(pid)`
+- `treeTotal(pid, read)`
 - `treePeakBytes(pid)`
+- `treeCpuSeconds(pid)`
 - `recordServerMemory()`
 - `stopServers()`
-- `dropPreparedCopies(exited)`
 - `stopAndExit(code)`
 
 ### `scripts/browser-test-times.mjs`

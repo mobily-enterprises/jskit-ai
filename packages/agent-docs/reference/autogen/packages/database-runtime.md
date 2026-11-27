@@ -139,7 +139,7 @@ Exports
 - `settleAll(promises)`
 - `withKnex(knexConfig, database, use, connectionOptions)`
 Local functions
-- `knexOn(knexConfig, database, connectionOptions = {}, session = "")`
+- `knexOn(knexConfig, database, connectionOptions = {}, session = "", connections = 1)`
 - `localWallClock(seconds)`
 - `withDateStopped(milliseconds, work)`
 - `ledgerNames(knex, ledger, tables)`
