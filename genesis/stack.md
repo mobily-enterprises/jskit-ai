@@ -36,7 +36,7 @@
 - Default.
 - Mode: `interactive`
 - Runtimes: `nodejs`
-- Run `Develop`: `npm` `run` `docs:dev` `--` `--host` `0.0.0.0` `--port` `3000`
+- Run `Develop`: `npm` `run` `docs:dev` `--` `--host` `{host}` `--port` `{port}`
 
 #### Presentation
 
