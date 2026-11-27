@@ -219,8 +219,12 @@ async function prepareTestDatabases({
   const databases = await dropCopiesIfThrows(knexConfig, names, () => dialect.provide(knexConfig, names, snapshot));
   const restoreMs = milliseconds(restoreStarted);
   const seedStarted = performance.now();
+  // A seed's rows are sampled for the planner as a restore's are (refreshStatistics()).
   if (seed) await dropCopiesIfThrows(knexConfig, databases, () => settleAll(databases.map((database) =>
-    withKnex(knexConfig, database, (knex) => knex.transaction(seed)))));
+    withKnex(knexConfig, database, async (knex) => {
+      await knex.transaction(seed);
+      await dialect.refreshStatistics(knex, database);
+    }))));
   const seedMs = milliseconds(seedStarted);
   const { replayed, ...stored } = snapshot;
   const shortfall = databases.length < names.length ? `the database user may not create ${names[databases.length]}` : "";

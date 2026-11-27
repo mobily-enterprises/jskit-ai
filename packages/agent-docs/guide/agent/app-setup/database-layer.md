@@ -402,9 +402,13 @@ the application's `knexfile.js`:
   TABLE` is not the snapshot's, and tables missing or added; each replaced
   table is made on the server, its definition and then its rows copied from
   the snapshot database (`INSERT ... SELECT`), so no row passes through Node.
+  The tables it fills are then sampled for the planner in one `ANALYZE TABLE`:
+  InnoDB keeps the statistics it took of the empty table until it samples it
+  again, and the planner would read a filled table as empty.
   A file that wrote three tables costs three tables, not the whole schema. On
   PostgreSQL the copy is made again from the snapshot database, which costs
-  less than finding the tables.
+  less than finding the tables; the snapshot database is analyzed once when
+  it is built (`ANALYZE`), so each copy has its statistics.
 - When the run ends, whether its test files passed, failed or were stopped
   (Ctrl-C, `SIGTERM`), or its foreign key check failed before the first file,
   it drops the numbered copies it made and says so
@@ -488,7 +492,8 @@ the application's `knexfile.js`:
   snapshot's. The harness restores the snapshot before another test file uses
   that database, instead of running `migrate.latest()` over the whole history.
 - A browser run's seed is not part of the snapshot: it runs in each restored
-  database, in one transaction ([Browser test preparation](#browser-test-preparation)).
+  database, in one transaction, and its tables are then sampled for the
+  planner (`ANALYZE`) ([Browser test preparation](#browser-test-preparation)).
 - Only `jskit migration-history`, the full-history check in
   [Verification](#verification), replays the whole history, as its own step:
   the migrations, or the knexfile's `testDatabaseSchema` build, from empty

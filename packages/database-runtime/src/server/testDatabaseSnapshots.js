@@ -186,8 +186,9 @@ const mysql = {
   /**
    * Drops the tables `names` lists that `database` holds, then creates those of them the snapshot has, from its
    * definitions, and copies their rows from the snapshot database on the server (INSERT ... SELECT, generated columns
-   * left to the server). Runs on the pool's one connection, so FOREIGN_KEY_CHECKS applies to every statement: a table
-   * another one's foreign key references is dropped and created again, and the key holds again once it is.
+   * left to the server), then samples those that hold rows (analyze()). Runs on the pool's one connection, so
+   * FOREIGN_KEY_CHECKS applies to every statement: a table another one's foreign key references is dropped and created
+   * again, and the key holds again once it is.
    */
   async replaceTables(knex, database, names, snapshot) {
     const [[actual]] = await knex.raw("SELECT DATABASE() AS name");
@@ -205,6 +206,25 @@ const mysql = {
     } finally {
       await knex.raw("SET FOREIGN_KEY_CHECKS = 1");
     }
+    // An empty table's CHECKSUM TABLE is 0, and its statistics, taken when it was created, already hold.
+    await mysql.analyze(knex, replaced.filter(({ checksum }) => checksum !== "0").map(({ name }) => name));
+  },
+
+  /**
+   * Samples `names` again for the planner, in one ANALYZE TABLE. InnoDB keeps the statistics it took when a table was
+   * created, so a table created and then filled reads as empty until the server samples it again, seconds later at
+   * best: the planner would read a whole table where an index serves (whs2: 356 s, 34 s once sampled).
+   */
+  async analyze(knex, names) {
+    if (names.length < 1) return;
+    const [results] = await knex.raw(`ANALYZE TABLE ${names.map(() => "??").join(", ")}`, names);
+    const failed = results.find((result) => String(result.Msg_type).toLowerCase() === "error");
+    if (failed) throw new Error(`ANALYZE TABLE ${failed.Table} failed: ${failed.Msg_text}`);
+  },
+
+  /** Samples every table of `database` again (analyze()), as after a seed filled some. */
+  async refreshStatistics(knex, database) {
+    await mysql.analyze(knex, await mysql.tables(knex, database));
   },
 
   /**
@@ -405,6 +425,16 @@ const postgres = {
   },
 
   /**
+   * Samples every table of the knex's database for the planner, in one ANALYZE: a table no ANALYZE has read has no
+   * column statistics until autovacuum reaches it, and a copy of a template takes the template's.
+   */
+  async refreshStatistics(knex) {
+    const { rows } = await knex.raw("SELECT table_name AS name FROM information_schema.tables WHERE table_schema = " +
+      "current_schema() AND table_type = 'BASE TABLE'");
+    if (rows.length > 0) await knex.raw(`ANALYZE ${rows.map(() => "??").join(", ")}`, rows.map(({ name }) => name));
+  },
+
+  /**
    * The snapshot database, built again unless its label names this key and the window its build ran in (one built before
    * builds recorded it names none).
    */
@@ -425,6 +455,8 @@ const postgres = {
         await knex.raw("CREATE DATABASE ??", [snapshotDatabase]);
       });
       ({ window } = await postgres.replay(knexConfig, snapshotDatabase, null, build));
+      // Sampled once here, every copy of the template takes its statistics.
+      await withKnex(knexConfig, snapshotDatabase, (knex) => postgres.refreshStatistics(knex));
       // The key is hexadecimal and the window integers, so they are safe inline; COMMENT takes no bound parameters.
       await postgres.maintenance(knexConfig, (knex) => knex.raw(
         `COMMENT ON DATABASE ?? IS 'jskit-test-snapshot ${key} ${window[0]} ${window[1]}'`, [snapshotDatabase]));
