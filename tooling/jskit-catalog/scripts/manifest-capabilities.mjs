@@ -12,10 +12,10 @@ import { toPosixPath } from "./files.mjs";
 const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features#package-manifest";
 const KERNEL_PLATFORM = "@jskit-ai/kernel/server/platform";
 
-// The line naming a capability in a manifest's `capabilities` block, else the block's own line.
-function capabilityLine(contents, capabilityId = "") {
+// The line naming a capability in a manifest's `capabilities` block (or in its `within` list), else the block's own line.
+function capabilityLine(contents, capabilityId = "", within = "capabilities") {
   const text = String(contents);
-  const block = text.indexOf('"capabilities"');
+  const block = text.indexOf(`"${within}"`);
   if (block < 0) return 1;
   const named = capabilityId ? text.indexOf(`"${capabilityId}"`, block) : -1;
   return text.slice(0, named < 0 ? block : named).split("\n").length;
@@ -38,13 +38,14 @@ async function kernelPlatform(manifestPath, root) {
 async function checkManifestCapabilities({ projectRoot, manifests }) {
   const root = path.resolve(projectRoot);
   const findings = [];
-  const installTime = [];
+  const extraRequires = [];
   let packages = 0;
   for (const manifest of manifests) {
     const jskit = manifest.value?.jskit;
     if (!Array.isArray(jskit?.runtime?.server?.providers) || jskit.runtime.server.providers.length < 1) continue;
     const file = toPosixPath(path.relative(root, manifest.absolutePath)) || "package.json";
-    const at = (capabilityId, message) => findings.push({ file, line: capabilityLine(manifest.contents, capabilityId), rule: "manifest/capabilities", message });
+    const at = (capabilityId, message, within) =>
+      findings.push({ file, line: capabilityLine(manifest.contents, capabilityId, within), rule: "manifest/capabilities", message });
     const kernel = await kernelPlatform(manifest.absolutePath, root);
     if (typeof kernel?.packageCapabilityDrift !== "function") {
       at("", `declares server providers, but no installed ${KERNEL_PLATFORM} compares a manifest with them; run jskit update.`);
@@ -66,18 +67,25 @@ async function checkManifestCapabilities({ projectRoot, manifests }) {
     for (const id of drift.unlistedProvides) at("", `its features provide ${id}, which jskit.capabilities.provides does not list; add it.`);
     for (const id of drift.extraProvides) at(id, `jskit.capabilities.provides lists ${id}, which none of its features provides; remove it.`);
     for (const id of drift.unlistedRequires) at("", `its features require ${id}, which jskit.capabilities.requires does not list; add it.`);
-    for (const id of drift.extraRequires) installTime.push({ file, line: capabilityLine(manifest.contents, id), capabilityId: id });
+    for (const id of drift.requiredInstallRequires || []) {
+      at(id, `jskit.capabilities.installRequires lists ${id}, which its features require; remove it from installRequires.`, "installRequires");
+    }
+    for (const id of drift.unlistedInstallRequires || []) {
+      at(id, `jskit.capabilities.installRequires lists ${id}, which jskit.capabilities.requires does not list; add it to requires or remove it.`, "installRequires");
+    }
+    for (const id of drift.extraRequires) extraRequires.push({ file, line: capabilityLine(manifest.contents, id), capabilityId: id });
   }
   findings.sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line);
-  return { ok: findings.length < 1, findings, installTime, packages };
+  return { ok: findings.length < 1, findings, extraRequires, packages };
 }
 
 function formatManifestCapabilitiesReport(result) {
   const lines = result.findings.flatMap(({ file, line, rule, message }) => [`${file}:${line}  ${rule}  ${message}`, `  ${GUIDE}`]);
-  if (result.installTime.length > 0) {
-    lines.push(`Manifest requirements no feature has (${result.installTime.length}), each needed only at install time, such as ` +
-      `the database a migration needs; remove any other (${GUIDE}):`);
-    for (const { file, line, capabilityId } of result.installTime) lines.push(`  ${file}:${line}  ${capabilityId}`);
+  if (result.extraRequires.length > 0) {
+    lines.push(`Manifest requirements no feature has and installRequires does not mark (${result.extraRequires.length}): mark ` +
+      "each one only install time needs, such as the database a migration needs, in jskit.capabilities.installRequires; " +
+      `remove any other (${GUIDE}):`);
+    for (const { file, line, capabilityId } of result.extraRequires) lines.push(`  ${file}:${line}  ${capabilityId}`);
   }
   lines.push(result.ok
     ? `JSKIT package manifests name what their features provide and require in ${result.packages} package(s).`

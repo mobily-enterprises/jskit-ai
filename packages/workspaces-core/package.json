@@ -52,6 +52,9 @@
         "users.extensions",
         "users.profiles",
         "users.settings"
+      ],
+      "installRequires": [
+        "runtime.database"
       ]
     },
     "runtime": {

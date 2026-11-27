@@ -45,6 +45,9 @@
         "runtime.resources",
         "runtime.storage",
         "runtime.uploads"
+      ],
+      "installRequires": [
+        "runtime.database"
       ]
     },
     "runtime": {

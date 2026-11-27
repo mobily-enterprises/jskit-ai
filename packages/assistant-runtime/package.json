@@ -47,6 +47,9 @@
         "runtime.http",
         "runtime.http-web",
         "runtime.logger"
+      ],
+      "installRequires": [
+        "runtime.http-web"
       ]
     },
     "runtime": {
