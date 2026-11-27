@@ -41,6 +41,43 @@ function secondFactorCases(open, { database = false, skip = false } = {}) {
     assert.match(factor.secret_sealed, /^v1\./u);
   });
 
+  test("accountStateOf reads the named account in one statement and writes nothing (database backend)", { skip }, async (t) => {
+    if (database) requireTestDatabase(process.env);
+    const { knex, backend } = await open(t, "da_local_account_state");
+    const at = "2026-11-13T10:00:00.000Z";
+    await backend.withTransaction(async (tx) => {
+      await tx.users.create({ id: "usr_ada", email: "ada@example.com", displayName: "Ada", password: {}, createdAt: at });
+      await tx.users.create({ id: "usr_off", email: "off@example.com", displayName: "Off", password: {}, disabled: true, createdAt: at });
+      await tx.secondFactors.save({
+        userId: "usr_ada", secretSealed: "v1.nonce.body.tag", confirmedAt: at, lastUsedStep: 0, recoveryCodes: ["hash-one"],
+        failures: 2, lastFailedAt: at, lockedUntil: "", createdAt: at, updatedAt: at
+      });
+    });
+    const { options } = secondFactorServiceOptions();
+    const service = createLocalAuthService({ ...options, backend });
+    const stored = async () => JSON.stringify([
+      await knex(LOCAL_AUTH_DB_TABLES.users).orderBy("id").select(),
+      await knex(LOCAL_AUTH_DB_TABLES.secondFactors).select()
+    ]);
+    const before = await stored();
+    const statements = [];
+    const record = ({ sql }) => statements.push(String(sql).trim());
+    knex.on("query", record);
+    const states = [];
+    for (const userId of ["usr_ada", "usr_off", "usr_missing"]) {
+      statements.length = 0;
+      states.push(await service.accountStateOf({ userId }));
+      // A transaction's own BEGIN, COMMIT or SAVEPOINT aside, one statement: a read of the account.
+      const sent = statements.filter((sql) => !/^(begin|commit|rollback|start transaction|savepoint|release savepoint)\b/iu.test(sql));
+      assert.equal(sent.length, 1, `${userId}: ${JSON.stringify(statements)}`);
+      assert.match(sent[0], /^select\b/iu);
+      assert.ok(sent[0].includes(LOCAL_AUTH_DB_TABLES.users), sent[0]);
+    }
+    knex.removeListener("query", record);
+    assert.deepEqual(states, ["active", "disabled", "missing"]);
+    assert.equal(await stored(), before, "no account or factor changed: the two failures still count");
+  });
+
   test("the second factor migration runs again, goes down and up, and deleting an account deletes its factor", { skip }, async (t) => {
     if (database) requireTestDatabase(process.env);
     const { knex, backend } = await open(t, "da_local_2fa_migration");

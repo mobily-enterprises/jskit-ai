@@ -109,6 +109,7 @@ test("the second factor is a capability of its own, which every second factor op
     "confirmSecondFactorSetup",
     "verifySecondFactor",
     "verifySecondFactorOf",
+    "accountStateOf",
     "replaceSecondFactorRecoveryCodes",
     "removeSecondFactor",
     "listSecondFactors",

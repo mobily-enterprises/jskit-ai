@@ -251,6 +251,36 @@ test("verifySecondFactorOf refuses an unknown account, a disabled one, one witho
   assert.equal((await service.verifySecondFactorOf({ userId: adaId, proof: { code: codeAt(secret) } })).method, "code");
 });
 
+// An application that asks for an account's code first checks the account is still there and enabled (mobilynet
+// refuses a release-key change whose key maker's account is gone or disabled before asking for a code). The read
+// spends nothing: no attempt on the account's factor, no event, no write.
+test("accountStateOf answers whether the named account is active, disabled or missing, and spends no attempt", async (t) => {
+  const { service, backend, events, adaId, bobId, secret } = await enrolledAda(t);
+  await backend.withTransaction((tx) => tx.users.create({
+    id: "usr_off", email: "off@example.com", displayName: "Off", password: NO_PASSWORD, disabled: true
+  }));
+  // One wrong code already counted on Ada's factor.
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: wrongCode(secret) } }), CODE_INVALID);
+  const factorBefore = await backend.withTransaction((tx) => tx.secondFactors.find(adaId));
+  const eventsBefore = events.length;
+
+  assert.equal(await service.accountStateOf({ userId: adaId }), "active");
+  assert.equal(await service.accountStateOf({ userId: ` ${bobId} ` }), "active", "an account without an authenticator is active");
+  assert.equal(await service.accountStateOf({ userId: "usr_off" }), "disabled");
+  assert.equal(await service.accountStateOf({ userId: "usr_missing" }), "missing");
+  await assert.rejects(service.accountStateOf({}), TypeError);
+
+  assert.deepEqual(await backend.withTransaction((tx) => tx.secondFactors.find(adaId)), factorBefore,
+    "the factor's attempts, wait and codes are untouched");
+  assert.equal(factorBefore.failures, 1);
+  assert.equal(events.length, eventsBefore, "no event is recorded");
+  // Four more wrong codes still make the account wait: accountStateOf forgot nothing.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: wrongCode(secret) } }), CODE_INVALID);
+  }
+  await assert.rejects(service.verifySecondFactorOf({ userId: adaId, proof: { code: codeAt(secret) } }), lockedFor(30));
+});
+
 test("the file store keeps a factor and its session's proof across restarts, and another key cannot open it", async (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: SCENARIO_START });
   const storeDir = await storeDirFor(t);
@@ -290,6 +320,7 @@ test("a production server has a second factor only with its key, at least 32 cha
   assert.throws(() => service.listSecondFactors({ userIds: [] }), { status: 501, code: "AUTH_OPERATION_UNSUPPORTED" });
   assert.throws(() => service.verifySecondFactorOf({ userId: "usr_1", proof: { code: "123456" } }),
     { status: 501, code: "AUTH_OPERATION_UNSUPPORTED" });
+  assert.throws(() => service.accountStateOf({ userId: "usr_1" }), { status: 501, code: "AUTH_OPERATION_UNSUPPORTED" });
 
   const resolve = (env) => resolveLocalAuthConfig({
     appRoot: os.tmpdir(),
