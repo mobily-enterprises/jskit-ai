@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { ROOT, lintIgnores, sourceFiles, vueFiles } from "./data-access-files.mjs";
+import { sourceFiles } from "./data-access-files.mjs";
 import { toPosixPath } from "./files.mjs";
+import { ROOT, formatSkipped, lintIgnores } from "./lint-ignores.mjs";
 import {
   assignedVariable, blank, closingOffset, enclosingObject, identifierAt, keyValue, nextCodeOffset, objectArgument, objectAt,
   objectKeys, readSourceFile, readValue, topLevelKeys
@@ -545,7 +546,7 @@ async function readTableResourceSources({ projectRoot = process.cwd() } = {}) {
  */
 async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
   const root = path.resolve(projectRoot);
-  const { sources, lint, skipped } = await sourceFiles(root);
+  const { sources, vue, lint, skipped } = await sourceFiles(root);
   const resources = [];
   const contracts = [];
   const scopes = [];
@@ -574,7 +575,7 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
         : disable.rules.length > 0 ? `eslint-disable turns off ${disable.rules.join(", ")}` : "eslint-disable names no rule");
     }
   }
-  for (const { file, absolute } of await vueFiles(root)) {
+  for (const { file, absolute } of vue) {
     const source = await readFile(absolute, "utf8");
     if (source.includes("useCrudListScreen")) searches.push(readSearches(file, readSourceFile(vueScripts(source))));
   }
@@ -620,10 +621,7 @@ function formatDataAccessReport(result) {
       `name one in a contract's fields to offer it (data/unnamed-fields; ${GUIDE}#${SECTIONS["data/unnamed-fields"]}):`);
     for (const { file, line, name, fields } of result.unnamedFields) lines.push(`  ${file}:${line}  ${name}: ${fields.join(", ")}`);
   }
-  if (result.skipped.length > 0) {
-    lines.push(`Skipped, as the app's ESLint config ignores them and they hold no server code (${result.skipped.length}):`);
-    for (const skipped of result.skipped) lines.push(`  ${skipped}`);
-  }
+  lines.push(...formatSkipped(result.skipped));
   const listed = `${result.systemScopes.length} system scope(s) and ${result.excuses.length} infrastructure exception(s) listed for review`;
   lines.push(result.ok
     ? `JSKIT data access: ${result.resources} table resource(s), each table and name defined once; ${listed}.`

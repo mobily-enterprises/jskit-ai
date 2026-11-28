@@ -99,18 +99,11 @@ Local functions
 
 ### `scripts/data-access-files.mjs`
 Exports
-- `ROOT`
-- `lintIgnores({ governed, config })`
 - `sourceFiles(root)`
-- `vueFiles(root)`
 Local functions
 - `skipsDirectory(name)`
 - `walk(root, directory, files, pattern = SOURCE_FILE)`
 - `frameworkPackages(root)`
-- `appEslint(root)`
-- `configIgnoredBy(root, { eslint, ESLint })`
-- `lintConfigs(root, files)`
-- `skippedPaths(files, skipped)`
 
 ### `scripts/data-access-source.mjs`
 Exports
@@ -212,6 +205,18 @@ Local functions
 - `runMaterial3({ projectRoot, paths })`
 - `runI18n({ subcommand, locale, projectRoot })`
 - `readCatalog()`
+
+### `scripts/lint-ignores.mjs`
+Exports
+- `ROOT`
+- `formatSkipped(paths)`
+- `lintIgnores({ governed, config })`
+- `lintSkipped(root, files)`
+Local functions
+- `appEslint(root)`
+- `configIgnoredBy(root, { eslint, ESLint })`
+- `lintConfigs(root, files)`
+- `skippedPaths(files, skipped)`
 
 ### `scripts/manifest-capabilities.mjs`
 Exports
@@ -542,6 +547,7 @@ Local functions
 - `workflowPairs(lines)`
 - `checkWorkflow(file, lines, report)`
 - `checkViteConfig(file, contents, report)`
+- `kindOf(file)`
 
 ### `scripts/test-time-report.mjs`
 Exports
