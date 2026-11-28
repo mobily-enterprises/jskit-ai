@@ -10,6 +10,7 @@ import { materialThemes, createMaterialVuetifyOptions } from "@jskit-ai/material
 import { shellScrollBehavior } from "@jskit-ai/kernel/client";
 import App from "./App.vue";
 import ActionsFormPage from "./ActionsFormPage.vue";
+import AccountButton from "./AccountButton.vue";
 import ActionsPage from "./ActionsPage.vue";
 import ButtonContrastPage from "./ButtonContrastPage.vue";
 import ButtonStatesPage from "./ButtonStatesPage.vue";
@@ -25,6 +26,7 @@ import NotesPage from "./NotesPage.vue";
 import PendingActionsPage from "./PendingActionsPage.vue";
 import DialogFeedbackPage from "./DialogFeedbackPage.vue";
 import ReportsPage from "./ReportsPage.vue";
+import ReviewPage from "./ReviewPage.vue";
 import ScreenPage from "./ScreenPage.vue";
 import StudioPage from "./StudioPage.vue";
 import SettingsPage from "./SettingsPage.vue";
@@ -53,7 +55,8 @@ const COMPONENTS = new Map([
   ["fixture.surface-menu-link", ShellSurfaceAwareMenuLinkItem],
   ["fixture.tab-link", ShellTabLinkItem],
   ["fixture.section-tab-link", ShellSectionTabLinkItem],
-  ["fixture.status-button", StatusButton]
+  ["fixture.status-button", StatusButton],
+  ["fixture.account-button", AccountButton]
 ]);
 
 // Main navigation as literal data, one placement per destination, as jskit check reads it.
@@ -276,6 +279,11 @@ const statusPlacements = [
   order: 10 + index,
   props: { icon, label, surface: Boolean(surface) }
 }));
+// `?account=<name>` makes the third item the account, its name beside its avatar where the bar has room for it.
+const accountName = new URLSearchParams(window.location.search).get("account");
+if (accountName && statusPlacements[2]) {
+  Object.assign(statusPlacements[2], { componentToken: "fixture.account-button", props: { name: accountName } });
+}
 
 const menuRenderers = Object.freeze({ link: "fixture.surface-menu-link" });
 const tabRenderers = Object.freeze({ link: "fixture.tab-link" });
@@ -397,6 +405,8 @@ const routes = [
   { path: "/home/actions/new", component: ActionsFormPage, meta: { jskit: { title: "New entry", parent: "/actions" } } },
   // Labelled actions wider than a medium window's bar holds beside the title.
   { path: "/home/long-actions", component: LongActionsPage, meta: { jskit: { title: "Hosted service" } } },
+  // whs2's record page: Close and the primary Submit.
+  { path: "/home/review", component: ReviewPage, meta: { jskit: { title: "Module record" } } },
   // Actions whose work the test holds, to check they keep keyboard focus while it runs.
   { path: "/home/pending", component: PendingActionsPage, meta: { jskit: { title: "Pending actions" } } },
   { path: "/home/pending-dialog", component: () => import("./PendingDialogPage.vue"), meta: { jskit: { title: "Invites" } } },

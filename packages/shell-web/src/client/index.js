@@ -22,6 +22,7 @@ export { useShellAppBar } from "./composables/useShellAppBar.js";
 export { useShellLayoutState } from "./composables/useShellLayoutState.js";
 export { useShellPageTitle } from "./composables/useShellPageTitle.js";
 export { useShellPageClose } from "./composables/useShellPageClose.js";
+export { useShellTopRightLabels } from "./composables/useShellTopRightLabels.js";
 export { useShellWindowSizeClass } from "./composables/useShellWindowSizeClass.js";
 export { vPending } from "./directives/vPending.js";
 export { useShellNavigation } from "./navigation/useShellNavigation.js";

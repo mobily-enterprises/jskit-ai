@@ -1,6 +1,13 @@
 import { nextTick, onBeforeUnmount, onMounted, watch } from "vue";
 import { PAGE_TITLE_ID } from "../navigation/shellNavigationRuntime.js";
-import { ICON_BUTTON_WIDTH, WIDE_BAR_TITLE_FLOOR, contentWidth, wholeTitleWidth, widthInRow } from "../support/appBarWidths.js";
+import {
+  ICON_BUTTON_WIDTH,
+  WIDE_BAR_TITLE_FLOOR,
+  contentWidth,
+  wholeTitleWidth,
+  widthInRow,
+  widthOfChildren
+} from "../support/appBarWidths.js";
 import { resolveFoldedPageActions } from "../support/pageActions.js";
 
 /**
@@ -33,18 +40,14 @@ function actionsRoom(row, target, menuButton, wholeTitle) {
   return room;
 }
 
-/** @param {Element} element */
-function widthOfChildren(element) {
-  return [...element.children].reduce((total, child) => total + widthInRow(child), 0);
-}
-
 /**
  * Folds a medium, expanded or large top app bar's page actions that don't fit beside its title into its overflow
  * menu, the last first (resolveFoldedPageActions), measured on the bar as drawn, so the overflow button and the bar's
  * own items after the actions always stay on screen. A medium bar keeps its whole title (`wholeTitle`); a wider one has
  * room for its actions, so its title truncates first, down to WIDE_BAR_TITLE_FLOOR. It measures again when the bar's
  * content changes (a new title, an action's label, a page's actions), when the bar is resized and when fonts load. A
- * folded action keeps the width it had in the bar; a compact bar folds by its own rule (`enabled`).
+ * folded action keeps the width it had in the bar (the registry's `widths`); a compact bar folds by its own rule
+ * (`enabled`).
  * @param {object} options
  * @param {import("vue").Ref<boolean>} options.enabled
  * @param {import("vue").Ref<boolean>} options.wholeTitle Whether the actions fold to leave the title whole.
@@ -53,7 +56,7 @@ function widthOfChildren(element) {
  * @param {() => boolean} options.ownMenu Whether the overflow menu holds the bar's own items now.
  */
 function useShellPageActionsFold({ enabled, wholeTitle, registry, target, ownMenu }) {
-  const widths = new Map();
+  const widths = registry.widths;
   let menuButtonWidth = ICON_BUTTON_WIDTH;
   let row = null;
   let resizeObserver = null;

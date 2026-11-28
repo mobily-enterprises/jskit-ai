@@ -25,4 +25,46 @@ function resolveTopRightItemsInMenu({ room, title, items, menuButton, menuShown,
   return most;
 }
 
-export { resolveTopRightItemsInMenu };
+/**
+ * What a medium, expanded or large top app bar does with its own items (its top-right placements, in bar order):
+ * whether they show their labels (an account's name beside its avatar), and how many go into its overflow menu. The
+ * labels show only when the title (`title`: a medium bar's whole title, a wider bar's up to its floor), every page
+ * action and every labelled item fit together, so a label gives way before an action folds. Without labels, items move
+ * into the menu, farthest from the corner first, only when the title, the primary action and the overflow button still
+ * leave too little room for them once every other action has folded (resolveTopRightItemsInMenu); the actions that fit
+ * beside what stays are useShellPageActionsFold's.
+ * @param {object} options
+ * @param {number} options.room The width the title, the page actions, the overflow button and the items share.
+ * @param {number} options.title The width the title needs.
+ * @param {number} options.primary The width of the actions that stay in the bar whatever room is left (the primary).
+ * @param {number} options.actions The width of the actions the bar folds when it has no room for them.
+ * @param {readonly { labelled: number, bare: number }[]} options.items Each item's width with its label and without.
+ * @param {number} options.menuButton The overflow button's width.
+ * @param {boolean} options.menuShown Whether the bar shows the overflow button anyway, for actions marked `overflow`.
+ * @param {boolean} options.keepLast Whether the item nearest the corner stays in the bar whatever room is left.
+ * @returns {{ labels: boolean, inMenu: number }} Whether the items show their labels; how many, from the first, are in
+ *   the menu.
+ */
+function resolveWideBarItems({ room, title, primary, actions, items, menuButton, menuShown, keepLast }) {
+  const labelled = items.reduce((total, item) => total + item.labelled, 0);
+  if (title + primary + actions + labelled + (menuShown ? menuButton : 0) <= room) {
+    return { labels: true, inMenu: 0 };
+  }
+  const inMenu = resolveTopRightItemsInMenu({
+    room: room - primary,
+    title,
+    items: items.map((item) => item.bare),
+    menuButton,
+    menuShown: menuShown || actions > 0,
+    keepLast
+  });
+  return { labels: false, inMenu };
+}
+
+// Where ShellLayout says whether its top-right items show their labels (useShellTopRightLabels): null while it does
+// not lay them out, as outside its bar, where the window's size class decides.
+const SHELL_TOP_RIGHT_LABELS_KEY = "jskit.shell-web.layout.top-right-labels";
+/** @type {{ readonly value: boolean | null }} */
+const NO_SHELL_TOP_RIGHT_LABELS = Object.freeze({ value: null });
+
+export { NO_SHELL_TOP_RIGHT_LABELS, SHELL_TOP_RIGHT_LABELS_KEY, resolveTopRightItemsInMenu, resolveWideBarItems };

@@ -19,7 +19,13 @@ whole page title; those that don't follow the actions into the menu, farthest
 from the corner first, and the item nearest the corner stays unless the
 `primary` action takes its place. An item keeps running while it is in the
 menu, closed or open, so its live count, its panel or a floating button it shows
-elsewhere on the page stay. Medium and wider bars show them all.
+elsewhere on the page stay. Medium and wider bars fold their page actions first
+(beside the whole title on medium bars, beside 200px of it on wider ones) and
+move items the same way only when that leaves the title too little room. On
+expanded and large windows an item shows its label, such as the account's name
+(`useShellTopRightLabels()`), only when the title, every page action and every
+labelled item fit; otherwise, before any action folds, it is its round icon
+button. Compact and medium windows never show the labels.
 
 `ShellErrorHost` centres its snackbar above the navigation bar on compact
 windows and starts it at the content's start edge, at most half the content's

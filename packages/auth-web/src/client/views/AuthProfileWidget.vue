@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
-import { useShellWindowSizeClass } from "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass";
+import { useShellTopRightLabels } from "@jskit-ai/shell-web/client/composables/useShellTopRightLabels";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { useAuthStore } from "../stores/useAuthStore.js";
 import { useJskitText } from "../i18n.js";
@@ -9,14 +9,13 @@ import { useJskitText } from "../i18n.js";
 const auth = useAuthStore();
 const { t } = useJskitText();
 const { context: shellPlacementContext } = useWebPlacementContext();
-// On expanded windows the activator is a pill with the name beside the avatar, the name ending in an ellipsis past
-// 12rem; on medium and compact windows, where the app bar's title and actions need the room, it is a round icon
-// button around the avatar, named by its aria-label. A control's name holds the text it shows (WCAG 2.5.3 Label in
+// Where the top app bar shows its items' labels (useShellTopRightLabels), the activator is a pill with the name beside
+// the avatar, the name ending in an ellipsis past 12rem; elsewhere it is a round icon button around the avatar, named
+// by its aria-label. A control's name holds the text it shows (WCAG 2.5.3 Label in
 // Name), the words a person using speech input says to press it, and every word drawn on the screen counts, hidden
 // from assistive technology or not; so without a picture that name begins with the initials the avatar shows,
 // "AN ana.ferreira". The avatar itself stays hidden from assistive technology: the name says whose account it is.
-const { isExpanded, isLarge } = useShellWindowSizeClass();
-const showsName = computed(() => isExpanded.value || isLarge.value);
+const { showsLabels: showsName } = useShellTopRightLabels();
 
 const shellUser = computed(() => {
   const user = shellPlacementContext.value?.user;
