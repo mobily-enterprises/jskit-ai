@@ -111,7 +111,8 @@ export const theme = {
   doubles it on a colour of the opposite tone, which took a hovered or focused
   primary button's label under 4.5:1), a tonal button's label, icons and spinner
   in its colour's on-container role (primary, secondary, tertiary, error,
-  success, warning and info), no activated state layer on a filled or elevated
+  success, warning and info), a tonal alert in such a colour as its container
+  with on-container text, no activated state layer on a filled or elevated
   button (it took a primary button's label under 4.5:1), `on-surface` text on a
   tonal card of the
   default colour, 40dp outlined segmented buttons and outlined

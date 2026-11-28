@@ -301,40 +301,66 @@
     opacity: calc(var(--v-activated-opacity) * var(--v-theme-overlay-multiplier));
   }
 
-  /* A tonal button in a colour with a container role draws its label, icons and spinner in that colour's
-     on-container role, as Material 3 does on its tonal containers. Vuetify drew them in the colour itself over the
-     colour's tint, which a focus or pressed layer (the colour again) took under WCAG's 4.5:1: 4.45:1 for a focused
-     tonal error button. The tint and the state layers stay the colour's. */
-  .v-btn--variant-tonal.text-primary {
+  /* A tonal button or alert in a colour with a container role draws its text in that colour's on-container role,
+     as Material 3 does on its tonal containers. Vuetify drew it in the colour itself over the colour's tint, which a
+     focus or pressed layer (the colour again) took under WCAG's 4.5:1: 4.45:1 for a focused tonal error button. A
+     tonal button's label, icons and spinner take the on-container role; its tint and state layers stay the colour's. */
+  :is(.v-btn--variant-tonal, .v-alert--variant-tonal).text-primary {
     --jskit-tonal-label: var(--v-theme-on-primary-container);
+    --jskit-tonal-container: var(--v-theme-primary-container);
   }
 
-  .v-btn--variant-tonal.text-secondary {
+  :is(.v-btn--variant-tonal, .v-alert--variant-tonal).text-secondary {
     --jskit-tonal-label: var(--v-theme-on-secondary-container);
+    --jskit-tonal-container: var(--v-theme-secondary-container);
   }
 
-  .v-btn--variant-tonal.text-tertiary {
+  :is(.v-btn--variant-tonal, .v-alert--variant-tonal).text-tertiary {
     --jskit-tonal-label: var(--v-theme-on-tertiary-container);
+    --jskit-tonal-container: var(--v-theme-tertiary-container);
   }
 
-  .v-btn--variant-tonal.text-error {
+  :is(.v-btn--variant-tonal, .v-alert--variant-tonal).text-error {
     --jskit-tonal-label: var(--v-theme-on-error-container);
+    --jskit-tonal-container: var(--v-theme-error-container);
   }
 
-  .v-btn--variant-tonal.text-success {
+  :is(.v-btn--variant-tonal, .v-alert--variant-tonal).text-success {
     --jskit-tonal-label: var(--v-theme-on-success-container);
+    --jskit-tonal-container: var(--v-theme-success-container);
   }
 
-  .v-btn--variant-tonal.text-warning {
+  :is(.v-btn--variant-tonal, .v-alert--variant-tonal).text-warning {
     --jskit-tonal-label: var(--v-theme-on-warning-container);
+    --jskit-tonal-container: var(--v-theme-warning-container);
   }
 
-  .v-btn--variant-tonal.text-info {
+  :is(.v-btn--variant-tonal, .v-alert--variant-tonal).text-info {
     --jskit-tonal-label: var(--v-theme-on-info-container);
+    --jskit-tonal-container: var(--v-theme-info-container);
   }
 
   .v-btn--variant-tonal:is(.text-primary, .text-secondary, .text-tertiary, .text-error, .text-success, .text-warning,
     .text-info):not(.v-btn--disabled) > :is(.v-btn__prepend, .v-btn__content, .v-btn__append, .v-btn__loader) {
+    color: rgb(var(--jskit-tonal-label));
+  }
+
+  /* A tonal alert in such a colour is that colour's container, with its title, text, icon and close button in the
+     colour's on-container role: Vuetify's tint of the colour, at the activated opacity over whatever surface the
+     alert lay on, left the colour's own text at 4.49:1 on a light dialog's surface-container-high (a tonal error
+     alert, under WCAG's 4.5:1), and a container keeps its contrast on every surface. A border stays the colour's. */
+  .v-alert--variant-tonal:is(.text-primary, .text-secondary, .text-tertiary, .text-error, .text-success, .text-warning,
+    .text-info) {
+    background-color: rgb(var(--jskit-tonal-container));
+  }
+
+  .v-alert--variant-tonal:is(.text-primary, .text-secondary, .text-tertiary, .text-error, .text-success, .text-warning,
+    .text-info) > .v-alert__underlay {
+    opacity: 0;
+  }
+
+  .v-alert--variant-tonal:is(.text-primary, .text-secondary, .text-tertiary, .text-error, .text-success, .text-warning,
+    .text-info) > :is(.v-alert__prepend, .v-alert__content, .v-alert__append, .v-alert__close) {
     color: rgb(var(--jskit-tonal-label));
   }
 
