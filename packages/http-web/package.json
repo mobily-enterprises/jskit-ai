@@ -9,6 +9,7 @@
     "./client": "./src/client/index.js",
     "./client/components/CrudAddEditScreen": "./src/client/components/CrudAddEditScreen.vue",
     "./client/components/CrudDeleteAction": "./src/client/components/CrudDeleteAction.vue",
+    "./client/components/EditConflictNotice": "./src/client/components/EditConflictNotice.vue",
     "./client/components/CrudListBulkActionSurface": "./src/client/components/CrudListBulkActionSurface.vue",
     "./client/components/CrudListFilterSurface": "./src/client/components/CrudListFilterSurface.vue",
     "./client/components/CrudListScreen": "./src/client/components/CrudListScreen.vue",
@@ -35,6 +36,7 @@
     "./client/composables/crudLookupFieldRuntime": "./src/client/composables/crud/crudLookupFieldRuntime.js",
     "./client/composables/useEndpointResource": "./src/client/composables/runtime/useEndpointResource.js",
     "./client/composables/useList": "./src/client/composables/records/useList.js",
+    "./client/composables/useUnsavedEdits": "./src/client/composables/runtime/useUnsavedEdits.js",
     "./client/composables/usePagedCollection": "./src/client/composables/usePagedCollection.js",
     "./client/composables/useRealtimeQueryInvalidation": "./src/client/composables/useRealtimeQueryInvalidation.js",
     "./client/composables/useUiFeedback": "./src/client/composables/runtime/useUiFeedback.js",
@@ -121,6 +123,14 @@
           {
             "subpath": "./client/components/CrudAddEditScreen",
             "summary": "Exports the shared CRUD add/edit screen."
+          },
+          {
+            "subpath": "./client/composables/useUnsavedEdits",
+            "summary": "Exports what keeps a form's unsaved edits when its record is read again, and lists the fields the server changed under them."
+          },
+          {
+            "subpath": "./client/components/EditConflictNotice",
+            "summary": "Exports the notice a form shows for each field whose server value changed while the person edited it."
           },
           {
             "subpath": "./client/components/SelectField",

@@ -33,6 +33,20 @@ submissions remain blocked during both.
 - `resetValidation()`: clears the attempt flag and field-error bag. It does not
   change the form model. Route changes also reset validation
   unless `clearOnRouteChange: false` is configured.
+- `conflicts`: the fields whose server value changed while the person was
+  editing them, as `{ key, value }` with the server's value. A read of the
+  record again (a realtime event, the window regaining focus, Retry) keeps
+  every field the person changed and has not saved and takes the rest; a save's
+  answer replaces the fields it sent and keeps one changed while it ran.
+  `acceptServerValue(key)` takes the server's value and `keepOwnValue(key)`
+  keeps the person's until the server's changes again; saving the field, or
+  typing the server's value, ends its conflict too. `CrudAddEditScreen` shows
+  them after its fields. Fields stay editable while the record is read again
+  (`isFieldLocked` is the save and the person's permission); Save waits for
+  the read.
+- `applyLoaded(payload)`: gives the form a record another read loaded, as the
+  account settings' one read of all its forms does, keeping unsaved edits the
+  same way.
 
 For guidance beside a custom button, set `addEditOptions.validationFeedback`
 to `false` on `useCrudAddEditScreen()` or `useCrudAddEdit()`. With `useAddEdit()`,

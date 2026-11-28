@@ -403,7 +403,7 @@ Compose an account settings route and profile, preference, notification, and sig
 - Owner: `@jskit-ai/users-web@0.2.91`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/users/account-settings/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/users/account-settings/example/)
-- Requires: `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
+- Requires: `@jskit-ai/http-web`, `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
 
 ## User administration server package
 

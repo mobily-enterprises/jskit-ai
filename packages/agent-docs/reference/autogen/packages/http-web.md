@@ -23,6 +23,7 @@ Exports
 - None
 Local functions
 - `resolveFieldErrors(fieldKey)`
+- `lookupLabel(field, value)`
 - `resolveCancelTo(target = cancelTo.value)`
 - `cancel()`
 
@@ -107,6 +108,12 @@ Local functions
 Exports
 - None
 
+### `src/client/components/EditConflictNotice.vue`
+Exports
+- None
+Local functions
+- `message(item)`
+
 ### `src/client/components/SelectField.vue`
 Exports
 - None
@@ -169,6 +176,7 @@ Exports
 - `createCrudFormModel(fields = [])`
 - `buildCrudFormPayload(fields = [], model = {})`
 - `applyCrudPayloadToForm(fields = [], model = {}, payload = {})`
+- `describeCrudFieldValue(field, value, { yes, no, lookupLabel })`
 - `resolveCrudRouteBoundFieldValues(fields = [], routeParams = {})`
 - `applyCrudRouteBoundFieldValues(fields = [], target = {}, routeParams = {})`
 - `resolveCrudFieldErrors(fieldErrors = {}, fieldKey = "")`
@@ -284,7 +292,7 @@ Exports
 
 ### `src/client/composables/runtime/useAddEditCore.js`
 Exports
-- `useAddEditCore({ model, resource, queryKey, canSave, fieldBag, feedback, input, mapLoadedToModel = ignoreLoadedPayload, buildRawPayload = emptyRecord, buildSavePayload = saveParsedInput, onSaveSuccess, validationFeedback = true, messages = {} })`
+- `useAddEditCore({ // readable-check: allow required-collaborators - data: the form's record, empty for a form whose fields live elsewhere model = {}, resource, queryKey, canSave, fieldBag, feedback, input, mapLoadedToModel = ignoreLoadedPayload, buildRawPayload = emptyRecord, buildSavePayload = saveParsedInput, onSaveSuccess, validationFeedback = true, messages = {} })`
 Local functions
 - `saveParsedInput(parsedInput)`
 
@@ -318,6 +326,15 @@ Local functions
 ### `src/client/composables/runtime/useUiFeedback.js`
 Exports
 - `useUiFeedback({ initialType = "success", source = "http-web.ui-feedback", successChannel = "", warningChannel = "", errorChannel = "", dedupeWindowMs = 2000 } = {})`
+
+### `src/client/composables/runtime/useUnsavedEdits.js`
+Exports
+- `useUnsavedEdits({ model })`
+Local functions
+- `isPlainRecord(value)`
+- `copyValue(value)`
+- `sameValue(left, right)`
+- `copyFields(fields)`
 
 ### `src/client/composables/runtime/useViewCore.js`
 Exports
@@ -573,6 +590,7 @@ Exports
 - `CrudListFilterSurface`
 - `CrudListScreen`
 - `CrudViewScreen`
+- `EditConflictNotice`
 - `defineCrudListBulkActions`
 - `defineCrudListFilters`
 - `defineCrudListRowActions`
@@ -584,6 +602,7 @@ Exports
 - `usePagedCollection`
 - `useRealtimeQueryInvalidation`
 - `useUiFeedback`
+- `useUnsavedEdits`
 - `useView`
 - `configureHttpWebClient`
 - `createHttpWebClient`
@@ -655,6 +674,8 @@ Exports
 - `type RequestRecovery`
 - `type RequestQueryParams`
 - `type MapLoadedToModel`
+- `type EditConflict`
+- `type EditConflictItem`
 - `type OperationRealtime`
 - `type RealtimeQueryInvalidationOptions`
 - `type OperationRealtimeOptions`

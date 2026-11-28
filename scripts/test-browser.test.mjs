@@ -47,7 +47,7 @@ test("CI's browser job and test:material-baselines run npm run test:browser, whi
   const workflow = readFileSync(".github/workflows/verify.yml", "utf8");
   const job = workflow.slice(workflow.indexOf("\n  browser-contracts:"), workflow.indexOf("\n  browser-database:"));
   assert.doesNotMatch(job, /jskit test/u);
-  assert.equal(job.match(/^ +run: npm run test:browser$/gmu)?.length, 22);
+  assert.equal(job.match(/^ +run: npm run test:browser$/gmu)?.length, 23);
 
   const { status, stderr } = spawnSync(process.execPath, ["./scripts/test-browser.mjs"], { encoding: "utf8", env: { PATH: process.env.PATH } });
   assert.notEqual(status, 0);

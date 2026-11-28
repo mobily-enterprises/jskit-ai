@@ -27,6 +27,7 @@ Exports
 Local functions
 - `clearFieldErrors()`
 - `reportAssistantSettingsError(message, dedupeKey)`
+- `writeSettings(payload)`
 - `submit()`
 
 ### `src/client/components/AssistantSurfaceClientElement.vue`

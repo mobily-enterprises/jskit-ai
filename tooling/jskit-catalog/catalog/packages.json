@@ -2062,6 +2062,14 @@
                 "summary": "Exports the shared CRUD add/edit screen."
               },
               {
+                "subpath": "./client/composables/useUnsavedEdits",
+                "summary": "Exports what keeps a form's unsaved edits when its record is read again, and lists the fields the server changed under them."
+              },
+              {
+                "subpath": "./client/components/EditConflictNotice",
+                "summary": "Exports the notice a form shows for each field whose server value changed while the person edited it."
+              },
+              {
                 "subpath": "./client/components/SelectField",
                 "summary": "Exports the select/autocomplete field that never shows a stored id as its title."
               }
@@ -5296,6 +5304,7 @@
         "vue"
       ],
       "requires": [
+        "@jskit-ai/http-web",
         "@jskit-ai/shell-web",
         "@jskit-ai/users-core",
         "@jskit-ai/users-web"

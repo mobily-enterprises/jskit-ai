@@ -5,8 +5,10 @@ import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageAct
 import { useShellPageClose } from "@jskit-ai/shell-web/client/composables/useShellPageClose";
 import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
 import { vPending } from "@jskit-ai/shell-web/client/directives/vPending";
+import { describeCrudFieldValue } from "../composables/crud/crudSchemaFormHelpers.js";
 import { isRetryableLoadStatus } from "../composables/support/resourceLoadStateHelpers.js";
 import { useJskitText } from "../i18n.js";
+import EditConflictNotice from "./EditConflictNotice.vue";
 
 // A new or edit page as Material 3 lays out a full-screen form: the top app bar's leading close (X) cancels, Save is
 // its one primary action, and the form's fields are below on the page. Where the bar has no Up arrow to turn into the
@@ -57,6 +59,33 @@ const cancelTo = computed(() => unref(props.screen.cancelTo) || "");
 
 function resolveFieldErrors(fieldKey) {
   return props.screen.resolveFieldErrors(fieldKey);
+}
+
+// The fields whose server value changed while the person edited them (the form keeps the person's values), as the
+// notice after the fields names them. A screen a page builds without a record read has none.
+const conflictItems = computed(() => {
+  const fields = unref(formRuntime.value.formFields) || [];
+  return (unref(addEdit.value.conflicts) || []).map(({ key, value }) => {
+    const field = fields.find((entry) => entry.key === key) || { key };
+    return {
+      key,
+      label: String(text(field.label) || key),
+      value: describeCrudFieldValue(field, value, {
+        yes: t("jskit.http.crud.yes"),
+        no: t("jskit.http.crud.no"),
+        lookupLabel
+      })
+    };
+  });
+});
+
+// A lookup's value is an id: the notice names the option it is, once the field's options hold it.
+function lookupLabel(field, value) {
+  if (!props.resolveLookupItems) {
+    return "";
+  }
+  const items = props.resolveLookupItems(field.key, { selectedValue: value });
+  return items.find((item) => item.value === value)?.label || "";
 }
 
 function resolveCancelTo(target = cancelTo.value) {
@@ -137,6 +166,11 @@ useShellPageClose({ label: () => t("jskit.http.actions.cancel"), close: cancel }
           :set-lookup-search="setLookupSearch"
         />
       </v-row>
+      <EditConflictNotice
+        :items="conflictItems"
+        @accept="addEdit.acceptServerValue"
+        @keep="addEdit.keepOwnValue"
+      />
     </v-form>
   </section>
 </template>

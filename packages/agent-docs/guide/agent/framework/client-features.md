@@ -570,6 +570,46 @@ const sites = useList({ resource: sitesResource, requestRecovery: true, requestR
 const contacts = useCrudListScreen({ resource: contactsResource, requestRecoveryLabel: "Contacts" });
 ```
 
+### Unsaved edits
+
+**Fetched data reaches a form's fields only through its form runtime, which
+keeps what the person changed and has not saved. `useAddEdit` and the CRUD
+composables built on it write each read of the record, a save's answer and
+`applyLoaded(payload)` through `mapLoadedToModel` into a copy of the form, and
+the form takes each field the person has not changed. A form that reads its
+record itself does the same with `useUnsavedEdits` from
+`@jskit-ai/http-web/client/composables/useUnsavedEdits`. Its fields stay
+editable while the record is read again, and it shows its `conflicts`, the
+fields whose server value changed under the person's change, with
+`EditConflictNotice` after its fields.**
+
+Why: a record is read again on a realtime event, when the window regains focus
+and on Retry; a write straight into the form replaced what the person had typed
+and not saved, without a word, and a field locked during the read dropped what
+they typed meanwhile.
+
+```js
+// good: the settings read hands each form its fields through the form's runtime
+const profile = useAddEdit({ model: profileForm, mapLoadedToModel: writeProfileFields, readEnabled: false /* ... */ });
+const settings = useView({ mapLoadedToModel: (_model, payload) => profile.applyLoaded(payload) /* ... */ });
+
+// good: a form that reads its record itself
+const edits = useUnsavedEdits({ model: form });
+watch(() => query.data.value, (payload) => {
+  if (payload) edits.merge((target) => { target.prompt = payload.prompt; }, JSON.stringify(queryKey.value));
+  else edits.reset();
+});
+
+// bad: every read again overwrites what the person typed
+watch(() => query.data.value, (payload) => { form.prompt = payload.prompt; });
+```
+
+```vue
+<!-- good: the notice after the fields, the fields open while the record is read again -->
+<v-text-field v-model="form.prompt" :readonly="!canSave || isSaving" />
+<EditConflictNotice :items="conflictItems" @accept="edits.acceptServerValue" @keep="edits.keepOwnValue" />
+```
+
 ## Helpers and sizes
 
 ### One helper per package

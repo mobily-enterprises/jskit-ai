@@ -1,4 +1,6 @@
 <script setup>
+import { computed } from "vue";
+import EditConflictNotice from "@jskit-ai/http-web/client/components/EditConflictNotice";
 import { vPending } from "@jskit-ai/shell-web/client/directives/vPending";
 
 const props = defineProps({
@@ -9,6 +11,13 @@ const props = defineProps({
 });
 
 const profile = props.runtime.profile;
+
+// The settings read again (another session saved them) keep what the person typed; the notice names each field whose
+// server value changed meanwhile.
+const FIELD_LABELS = Object.freeze({ displayName: "Display name", email: "Email" });
+const conflictItems = computed(() =>
+  profile.conflicts.value.map(({ key, value }) => ({ key, label: FIELD_LABELS[key] || key, value: String(value ?? "") }))
+);
 </script>
 
 <template>
@@ -60,7 +69,7 @@ const profile = props.runtime.profile;
               variant="outlined"
               density="comfortable"
               autocomplete="nickname"
-              :readonly="profile.isSaving.value || profile.isRefreshing.value"
+              :readonly="profile.isSaving.value"
               :error-messages="profile.fieldErrors.displayName"
             />
           </v-col>
@@ -88,6 +97,7 @@ const profile = props.runtime.profile;
         >
           Save profile
         </v-btn>
+        <EditConflictNotice :items="conflictItems" @accept="profile.acceptServerValue" @keep="profile.keepOwnValue" />
       </v-form>
     </div>
   </div>

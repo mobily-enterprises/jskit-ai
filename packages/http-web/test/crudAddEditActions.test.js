@@ -12,7 +12,9 @@ import { useCrudAddEditScreen } from "../src/client/composables/useCrudAddEditSc
 
 const componentUrl = new URL("../src/client/components/CrudAddEditScreen.vue", import.meta.url).href;
 // The shell's app bar actions render in place as buttons; to, disabled and the click handler fall through to them.
+// The form's conflict notice renders nothing here: these forms read no record.
 const SHELL_PAGE_ACTION_STUBS = {
+  "/EditConflictNotice.vue": "export default { render: () => null };",
   "/ShellPageActions.vue":
     'import { defineComponent, h } from "vue"; export default defineComponent({ setup: (_props, { slots }) => () => h("div", {}, slots.default?.()) });',
   "/ShellPageAction.vue":

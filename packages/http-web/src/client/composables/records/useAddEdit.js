@@ -174,9 +174,9 @@ function useAddEdit({
   const isInitialLoading = operationScope.isLoading(endpointResource.isInitialLoading);
   const isFetching = operationScope.isLoading(endpointResource.isFetching);
   const isRefetching = computed(() => Boolean(isFetching.value && !isInitialLoading.value));
-  const isFieldLocked = computed(() =>
-    Boolean(!canSave.value || addEdit.saving.value || isRefetching.value)
-  );
+  // Fields lock while the form saves. A read of the record again leaves them open: it keeps what the person changes
+  // meanwhile, as it keeps every unsaved edit, so the person goes on typing through it.
+  const isFieldLocked = computed(() => Boolean(!canSave.value || addEdit.saving.value));
   const isSubmitDisabled = computed(() =>
     Boolean(isInitialLoading.value || isRefetching.value || !canSave.value || addEdit.saving.value)
   );
@@ -232,6 +232,10 @@ function useAddEdit({
     message: addEdit.message,
     messageType: addEdit.messageType,
     submit: addEdit.submit,
+    conflicts: addEdit.conflicts,
+    acceptServerValue: addEdit.acceptServerValue,
+    keepOwnValue: addEdit.keepOwnValue,
+    applyLoaded: addEdit.applyLoaded,
     refresh,
     resource: endpointResource,
     recordId: addEditUiRuntime.recordId,

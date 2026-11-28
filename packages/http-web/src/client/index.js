@@ -4,6 +4,7 @@ export { default as CrudListBulkActionSurface } from "./components/CrudListBulkA
 export { default as CrudListFilterSurface } from "./components/CrudListFilterSurface.vue";
 export { default as CrudListScreen } from "./components/CrudListScreen.vue";
 export { default as CrudViewScreen } from "./components/CrudViewScreen.vue";
+export { default as EditConflictNotice } from "./components/EditConflictNotice.vue";
 export { defineCrudListBulkActions } from "./bulkActions.js";
 export { defineCrudListFilters } from "./filters.js";
 export { defineCrudListRowActions } from "./rowActions.js";
@@ -15,6 +16,7 @@ export { useList } from "./composables/records/useList.js";
 export { usePagedCollection } from "./composables/usePagedCollection.js";
 export { useRealtimeQueryInvalidation } from "./composables/useRealtimeQueryInvalidation.js";
 export { useUiFeedback } from "./composables/runtime/useUiFeedback.js";
+export { useUnsavedEdits } from "./composables/runtime/useUnsavedEdits.js";
 export { useView } from "./composables/records/useView.js";
 export {
   configureHttpWebClient,
