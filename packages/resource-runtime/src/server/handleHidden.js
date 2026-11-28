@@ -175,7 +175,9 @@ function isAsyncGenerator(value) {
  * statement. It answers `{ query, column }`: the rows scopedQuery() gives under `alias` (the caller's ownership, the
  * row policy and `filters` applied) with the stored columns a read answers and the ownership fields, hidden or not,
  * since a report joins on them and they name the caller's own scope; never another hidden column, and never a blob,
- * so a report's `select("alias.*")` holds no unbounded bytes. `column(field)`
+ * so a report's `select("alias.*")` holds no unbounded bytes. `columns`, when given, lists the visible fields the report
+ * reads: the derived table then carries those, the id and the ownership fields alone, so a source of a wide table that
+ * a report reads two fields of names four columns in its statement, not every one. `column(field)`
  * names each under that alias. A CRUD feature's repository answers it to any feature, where it
  * refuses scopedQuery(). The builder comes wrapped, since a builder is thenable.
  * @param {object} dependencies
@@ -188,26 +190,50 @@ function isAsyncGenerator(value) {
 function createJoinSource({ api, resource, jsonRest, scopedQuery, column }) {
   const { name } = resource;
   /**
-   * @param {{ alias: string, filters?: object }} params
+   * The fields a join source's `columns` lists, each a visible field the source carries.
+   * @param {unknown} columns
+   * @param {string[]} visible The fields a source carries without `columns`, but the id.
+   */
+  function listedColumns(columns, visible) {
+    if (!Array.isArray(columns)) {
+      throw new TypeError(`${name}.joinSource() columns must list the visible fields the report reads. Received: ${JSON.stringify(columns)}`);
+    }
+    for (const field of columns) {
+      if (field !== "id" && !visible.includes(/** @type {string} */ (field))) {
+        throw new TypeError(
+          `${name}.joinSource() columns names ${JSON.stringify(field)}, which is not a visible field of ${name}: a join ` +
+            "source carries the stored fields a read answers, the id and the ownership fields; never another hidden " +
+            "field, a blob or a virtual field."
+        );
+      }
+    }
+    return new Set(/** @type {string[]} */ (columns));
+  }
+
+  /**
+   * @param {{ alias: string, filters?: object, columns?: string[] }} params `columns`: the visible fields the report
+   *   reads, beside the id and the ownership fields, which the source always carries; without it, every visible field.
    * @param {{ context?: object | null, trx?: object | null }} [options]
    * @returns {Promise<Readonly<{ query: any, column: (field: string) => string }>>}
    */
-  return async function joinSource({ alias, filters } = {}, options = {}) {
+  return async function joinSource({ alias, filters, columns } = {}, options = {}) {
     if (typeof alias !== "string" || !alias) {
       throw new TypeError(`${name}.joinSource() needs the alias the report joins the ${name} under.`);
     }
-    const { query } = await scopedQuery({ alias, ...(filters === undefined ? {} : { filters }) }, options);
     const { schemaStructure, ownershipFields = [] } = jsonRest().vars.schemaInfo;
     const joinKeys = new Set(ownershipFields);
-    const carried = Object.keys(schemaStructure).filter((field) => {
+    const visible = Object.keys(schemaStructure).filter((field) => {
       const definition = schemaStructure[field];
       return field !== "id" && (definition.hidden !== true || joinKeys.has(field)) &&
         definition.virtual !== true && !definition.belongsToPolymorphic && resource.schema[field]?.type !== "blob";
     });
-    // The scoped rows' visible columns and ownership fields, as a derived table under the alias: nothing a caller adds
-    // reaches the others.
+    const listed = columns === undefined ? null : listedColumns(columns, visible);
+    const carried = ["id", ...(listed ? visible.filter((field) => joinKeys.has(field) || listed.has(field)) : visible)];
+    const { query } = await scopedQuery({ alias, ...(filters === undefined ? {} : { filters }) }, options);
+    // The scoped rows' visible columns (those `columns` lists, when given) and ownership fields, as a derived table
+    // under the alias: nothing a caller adds reaches the others.
     const source = readOnlyQueryBuilder(
-      (options.trx || api.knex.instance).from(query.select(["id", ...carried].map((field) => column(field, alias))).as(alias)),
+      (options.trx || api.knex.instance).from(query.select(carried.map((field) => column(field, alias))).as(alias)),
       { resourceType: name }
     );
     JOIN_SOURCES.add(source);
@@ -219,6 +245,12 @@ function createJoinSource({ api, resource, jsonRest, scopedQuery, column }) {
         }
         if (resource.schema[field]?.hidden === true && !joinKeys.has(field)) {
           throw new TypeError(`${name}.joinSource() carries no hidden field but its ownership fields, so it has no column for "${field}".`);
+        }
+        if (listed && !carried.includes(field)) {
+          throw new TypeError(
+            `${name}.joinSource() was given columns ${JSON.stringify([...listed])}, so it carries no column for "${field}" ` +
+              "(only those, the id and the ownership fields): name it in columns."
+          );
         }
         return column(field, alias);
       }
