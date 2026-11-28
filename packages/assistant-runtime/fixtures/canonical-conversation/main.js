@@ -69,6 +69,15 @@ if (new URLSearchParams(window.location.search).has("applicationDefaults")) {
 }
 app.provide("jskit.shell-web.runtime.web-placement.client", placement);
 app.provide("jskit.realtime.runtime.client.socket", socket);
+// The shell's error runtime, which records each notice an action reports, as ShellErrorHost would show it.
+window.fixtureNotices = [];
+app.provide("jskit.shell-web.runtime.web-error.client", {
+  report({ source, message, intent, severity }) {
+    window.fixtureNotices.push({ source, message, intent, severity });
+    return {};
+  },
+  dismiss() { return 0; }
+});
 app.provide("fixture", { placement, socket });
 app.use(router).use(createVuetify({ components, directives, ...createMaterialVuetifyOptions() }));
 await router.isReady();
