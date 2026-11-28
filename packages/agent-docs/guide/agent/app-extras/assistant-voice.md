@@ -39,7 +39,8 @@ For the ordinary setup, use the [standard Assistant integration](./assistant.md)
 `useAssistantConversationFactory()` to keep a voice-held reader of that same
 runtime and its current adapter. It projects canonical turns with
 `projectConversationVoiceState`, and forwards
-text and Stop through `runtime.send()` and `runtime.cancel()`. The application
+text and Stop through `runtime.send()` and `runtime.cancel()`, rejecting with a
+refused Stop's `error` so voice shows it. The application
 supplies the speech URL, target label and text-view navigation; it does not build
 another transcript, delivery ledger or realtime subscription.
 

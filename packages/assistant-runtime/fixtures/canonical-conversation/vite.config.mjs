@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [vue(), {
     name: "controlled-canonical-assistant-api",
     configureServer(server) {
-      let states, requests, held, mode, denied, holdCancels, heldCancels;
+      let states, requests, held, mode, denied, holdCancels, heldCancels, stopRefusal;
       const pageLimits = new Map();
       // Exercise the existing page reader over this fixture's controlled rows.
       const transcript = createConversationTranscript({ storage: {
@@ -27,7 +27,7 @@ export default defineConfig({
             streaming: { revision: 0, messages: [] }, capabilities: { steering: false, goals: false, attachments: true } }];
         }));
         requests = []; held = []; mode = "accepted"; denied = false; pageLimits.clear();
-        holdCancels = false; heldCancels = [];
+        holdCancels = false; heldCancels = []; stopRefusal = null;
       }
       reset();
       function accept(state, input) {
@@ -64,6 +64,8 @@ export default defineConfig({
         if (url.pathname === "/fixture/hold-cancels") { holdCancels = input.hold; return json({ ok: true }); }
         if (url.pathname === "/fixture/answer-cancels") { for (const agree of heldCancels.splice(0)) agree(); return json({ ok: true }); }
         if (url.pathname === "/fixture/deny") { denied = input.denied; return json({ ok: true }); }
+        // Stop answers with this refusal, its { status, body }, until a reset: the turn ended before Stop arrived.
+        if (url.pathname === "/fixture/refuse-stop") { stopRefusal = input; return json({ ok: true }); }
         if (url.pathname === "/fixture/error") { states.get(input.id).error = input.error; return json({ ok: true }); }
         if (url.pathname === "/fixture/interim-reply") { states.get(input.id).interimReply = input.reply; return json({ ok: true }); }
         if (url.pathname === "/fixture/history") {
@@ -185,7 +187,11 @@ export default defineConfig({
           if (mode === "hold") { held.push({ id, input, respond: value => json(value, 202) }); return; }
           return json(accept(state, input), 202);
         }
-        if (match[2] === "/cancel") { state.status = "ready"; return json({ stopped: true }); }
+        if (match[2] === "/cancel") {
+          state.status = "ready";
+          if (stopRefusal) return json(stopRefusal.body, stopRefusal.status);
+          return json({ stopped: true });
+        }
         // The server always records a cancel and drops the unconfirmed request.
         if (match[2].startsWith("/deliveries/") && match[2].endsWith("/cancel")) {
           const messageId = decodeURIComponent(match[2].split("/")[2]);

@@ -32,6 +32,7 @@
           "welcomeMessage": "What would you like to do?",
           "placeholder": "Message the assistant…",
           "startedAtUnknown": "unknown",
+          "stopFailed": "The assistant could not be stopped.",
           "status": {
             "active": "active",
             "completed": "completed",

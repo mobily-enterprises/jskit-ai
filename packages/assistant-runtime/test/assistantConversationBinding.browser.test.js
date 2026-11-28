@@ -1198,6 +1198,7 @@ test(`an explicit pre-admission rejection retains original retry identity and th
   assert.deepEqual(requests[0].input, requests[1].input);
   await expect(f.primary.getByText("Retry only this original message", { exact: true })).toHaveCount(1);
   await f.primary.getByRole("button", { name: "Stop", exact: true }).click();
+  await untilStopAnswered(f.page);
   await expect(f.primary.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
   assert.equal((await f.state()).requests.filter(request => request.suffix === "/cancel").length, 1);
   if (code === "conversation_not_steerable") {
@@ -3771,4 +3772,73 @@ test("host goal recovery errors remain visible while Resume uses the current goa
   assert.deepEqual(commands[0], { action: "resume", expectedSegmentId: "retained-native", expectedGoalId: "retained-goal" });
   await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalState.value.error)).toBe("");
   assert.deepEqual(await f.sent(), []);
+});
+
+/**
+ * Waits until Stop has answered and the read it starts finds the turn ended. Stop reads "Stopping" while its request
+ * runs, so a Stop button gone says nothing: a test that waited on that read the fixture before Stop reached it.
+ * @param {import("playwright").Page} page
+ */
+async function untilStopAnswered(page) {
+  await expect.poll(() => page.evaluate(() => {
+    const conversation = window.conversationFixture.current();
+    return !conversation.stopping.value && conversation.snapshot.value.status;
+  })).toBe("ready");
+}
+
+/**
+ * Every text the primary conversation's transcript error shows from now on, in order, "" when it goes.
+ * @param {import("playwright").Page} page
+ */
+async function recordTranscriptErrors(page) {
+  await page.evaluate(() => {
+    const root = document.querySelector("[data-primary]");
+    window.transcriptErrors = [];
+    new MutationObserver(() => {
+      const text = root.querySelector(".assistant-transcript__error-content > span")?.textContent.trim() || "";
+      if (text !== (window.transcriptErrors.at(-1) ?? "")) window.transcriptErrors.push(text);
+    }).observe(root, { childList: true, subtree: true, characterData: true });
+  });
+  return () => page.evaluate(() => window.transcriptErrors);
+}
+
+// 28 Nov, the Vibe64 editor: a refused Stop showed as the conversation's error for a fraction of a second, until the
+// reload Stop starts brought fresh state, which cleared it. Nothing else said Stop had been refused.
+test("a refused Stop is reported as its action feedback, which the reload it starts leaves standing", options, async t => {
+  const f = await fixture(t);
+  await f.command("question", { id: "chat:1", text: "Still working on it.", pending: true });
+  await f.notify("chat:1");
+  const stop = f.primary.getByRole("button", { name: "Stop", exact: true });
+  await expect(stop).toBeEnabled();
+  await f.command("refuse-stop", { status: 409, body: { error: "Nothing is running to stop.", code: "conversation_not_working" } });
+  const transcriptErrors = await recordTranscriptErrors(f.page);
+  await stop.click();
+  await untilStopAnswered(f.page);
+  assert.equal((await f.state()).requests.filter(request => request.suffix === "/cancel").length, 1);
+  assert.deepEqual({ transcript: await transcriptErrors(), notices: await f.page.evaluate(() => window.fixtureNotices) }, {
+    transcript: [],
+    notices: [{ source: "assistant-runtime.conversation.feedback", message: "Nothing is running to stop.",
+      intent: "action-feedback", severity: "error" }]
+  });
+});
+
+// The same flash after an accepted Send: uploads the composer could not clear were reported as the conversation's
+// error, which the reload the send starts cleared.
+test("accepted uploads the composer cannot clear are reported as the send's feedback, which its reload leaves standing", options, async t => {
+  const f = await fixture(t);
+  await f.page.evaluate(() => window.conversationFixture.attachments(true));
+  await f.primary.locator("input[type=file]").setInputFiles({ name: "report.txt", mimeType: "text/plain", buffer: Buffer.from("Report") });
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.attachmentState().ready.length)).toBe(1);
+  await f.page.evaluate(() => window.conversationFixture.failAttachmentClear("The upload list could not be updated."));
+  const transcriptErrors = await recordTranscriptErrors(f.page);
+  await f.input.fill("Here is the report.");
+  await f.input.press("Enter");
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.attachmentState().acknowledged.length)).toBe(1);
+  // Only the reload the send starts brings the accepted turn: no event announced it.
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().snapshot.value.conversationLog.length)).toBe(1);
+  assert.deepEqual({ transcript: await transcriptErrors(), notices: await f.page.evaluate(() => window.fixtureNotices) }, {
+    transcript: [],
+    notices: [{ source: "assistant-runtime.conversation.feedback", message: "The upload list could not be updated.",
+      intent: "action-feedback", severity: "warning" }]
+  });
 });

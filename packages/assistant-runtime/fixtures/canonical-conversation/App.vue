@@ -60,8 +60,11 @@ const attachments = useAssistantAttachments({
   deleteAttachment(sessionId, attachmentId) { deleted.push({ sessionId, attachmentId }); return { ok: true }; }
 });
 const clearAttachments = attachments.clearAttachments;
+// What clearing accepted uploads throws, when a test makes it fail.
+let clearFailure = "";
 attachments.clearAttachments = options => {
   acknowledged.push([...options.attachmentIds]);
+  if (clearFailure) throw new Error(clearFailure);
   return clearAttachments(options);
 };
 const suggestionsEnabled = ref(false);
@@ -142,6 +145,7 @@ onMounted(() => {
     data(value) { authoredData.value = value; },
     changeFocus(value) { authoredData.value.focus = value; },
     attachments(enabled) { attachmentsEnabled.value = enabled; },
+    failAttachmentClear(message) { clearFailure = message; },
     finishUploads() { for (const resolve of heldUploads.splice(0)) resolve(); },
     suggestions(enabled, mode = "ready") { suggestionMode.value = mode; suggestionsEnabled.value = enabled; },
     questions(options) { questions.value = options; },
