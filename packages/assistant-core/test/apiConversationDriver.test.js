@@ -207,15 +207,20 @@ test("a reply a check sends back is replaced on screen by its redo, never left b
   }
 });
 
-// The claim CompAS's Colleague was sent back for: an email it read said it, and the reply repeated it.
-test("a claim the reply's own action results hold word for word was reported from a record, so the reply is not sent back", async () => {
-  const email = { subject: "Fwd: berth change", body: "Hi all,\n\nWe forwarded this to OCEAN EMERALD at 19:03 and are waiting for the master." };
-  const answer = "Both emails are in the thread: we forwarded this to OCEAN EMERALD at 19:03, and the master hasn't replied yet.";
+// The claim CompAS's Colleague was sent back for: an email it read said the documents were forwarded,
+// and the reply passed that on in its own words. The flagged claim is judged again on the passages of
+// the reply's own action results that match it, and the reply is not sent back.
+test("a claim the reply's own action results report, even in other words, is not sent back", async () => {
+  const email = { subject: "Re: berth change", body: `Hi all,\n\n${"Pilots are booked for 06:00 and the tugs are confirmed. ".repeat(5)}\nBoth documents were forwarded to OCEAN EMERALD at 08:35 by our Singapore desk.` };
+  const claim = "the two were also forwarded to MV Ocean Emerald at 08:35";
+  const answer = `The agency's email says ${claim}; the master hasn't replied yet.`;
   const f = fixture({ reply: round => round === 1 ? { text: "Reading the thread.", call: "action_execute" } : { text: answer },
     execute: () => ({ ok: true, result: email }),
-    once: () => JSON.stringify({ unsupported: ["We forwarded this to OCEAN EMERALD at 19:03"] }) });
+    once: body => body.messages[0].content.startsWith("You check an assistant's reply") ? JSON.stringify({ unsupported: [claim] }) : JSON.stringify({ reported: [1] }) });
   const result = await f.run();
-  assert.equal(f.requests.filter(body => !body.stream).length, 1, "The claims are checked");
+  const checks = f.requests.filter(body => !body.stream);
+  assert.equal(checks.length, 2, "The claims are checked, and the flagged one is judged on the record");
+  assert.match(checks[1].messages.at(-1).content, /Both documents were forwarded to OCEAN EMERALD at 08:35 by our Singapore desk\./u);
   assert.equal(f.streamed.length, 2, "The reply is not sent back");
   assert.deepEqual(result, { metadata: {} });
   assert.equal(f.messages.at(-1).text, answer);
