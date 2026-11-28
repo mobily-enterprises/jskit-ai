@@ -16,10 +16,11 @@ async function until(condition, what) {
   for (let turn = 0; turn < 5; turn += 1) await delay(0);
 }
 
-// One working conversation whose Stop answers with `cancel` and whose reads answer with `read`. Records each value
-// the conversation's error takes and counts the reads after the subscription's first, such as the one Stop starts.
-async function openConversation(t, { cancel, read = state => state }) {
-  const state = () => ({ id: "chat:1", status: "working", capabilities: { steering: false, attachments: false }, conversationLog: [] });
+// One conversation, working unless `status` says otherwise, whose Stop answers with `cancel`, a message's Send and
+// Cancel with `send` and `cancelDelivery`, and reads with `read`. Records each value the conversation's error takes
+// and counts the reads after the subscription's first, such as the one Stop starts.
+async function openConversation(t, { cancel, send, cancelDelivery, read = state => state, status = "working" }) {
+  const state = () => ({ id: "chat:1", status, capabilities: { steering: false, attachments: false }, conversationLog: [] });
   const reads = { count: 0 };
   const socket = {
     connected: true,
@@ -36,7 +37,9 @@ async function openConversation(t, { cancel, read = state => state }) {
     identity: { conversationId: "chat:1", targetSurfaceId: "home", hostSurfaceId: "home", workspaceSlug: "", actorKey: "42" },
     api: {
       async readConversation() { reads.count += 1; return read(state()); },
-      cancelConversation: cancel
+      cancelConversation: cancel,
+      sendConversationMessage: send,
+      cancelConversationDelivery: cancelDelivery
     },
     socket,
     actorKey: "42",
@@ -53,7 +56,7 @@ async function openConversation(t, { cancel, read = state => state }) {
   await until(() => runtime.available.value, "the working conversation is shown");
   const errors = [];
   scope.run(() => watch(runtime.error, value => errors.push(value), { flush: "sync" }));
-  return { runtime, reads, errors };
+  return { runtime, reads, errors, scope };
 }
 
 // 28 Nov, the Vibe64 editor: a refused Stop showed for a fraction of a second. cancel() put the refusal in the
@@ -96,4 +99,47 @@ test("a Stop refused with 403 leaves the conversation to the read it starts", as
   assert.equal((await lost.runtime.cancel()).ok, false);
   await until(() => lost.runtime.accessDenied.value, "the refused read shows the access denial");
   assert.deepEqual({ available: lost.runtime.available.value, errors: lost.errors }, { available: false, errors: ["Access denied."] });
+});
+
+// A message's own Cancel that the server refused was sent again with every state the conversation took, such as each
+// streamed event, and each time its refusal went, the message shown as cancelling, until the server refused again.
+test("a message Cancel the server refuses keeps its refusal, and the states that follow send it no more", async t => {
+  const cancels = [];
+  const conversation = await openConversation(t, {
+    status: "ready",
+    send: async () => { throw new Error("The connection closed."); },
+    cancelDelivery: async (_conversationId, messageId) => {
+      cancels.push(messageId);
+      throw refusal(409, "delivery_not_cancellable", "This message has already been accepted.");
+    }
+  });
+  const { runtime, scope } = conversation;
+  await runtime.send({ message: "Hello" }, { messageId: "m1" });
+  await until(() => conversation.reads.count === 1, "the send rereads the conversation");
+  assert.equal(runtime.delivery.find("m1")?.status, "uncertain");
+  assert.equal(await runtime.cancelMessage("m1"), false);
+  const shown = [];
+  scope.run(() => watch(() => runtime.delivery.find("m1")?.cancelError, value => shown.push(value), { flush: "sync" }));
+  await runtime.reload();
+  await runtime.reload();
+  await until(() => conversation.reads.count === 3, "both reads answer");
+  const message = runtime.delivery.find("m1");
+  assert.deepEqual({ cancels, shown, cancelling: message.cancelling, cancelError: message.cancelError }, {
+    cancels: ["m1"], shown: [], cancelling: false, cancelError: "This message has already been accepted."
+  });
+
+  // The person's own Cancel asks again; a Cancel that never reached the server is still sent again by the next state.
+  cancels.length = 0;
+  const unreachable = await openConversation(t, {
+    status: "ready",
+    send: async () => { throw new Error("The connection closed."); },
+    cancelDelivery: async (_conversationId, messageId) => { cancels.push(messageId); throw new Error("Failed to fetch"); }
+  });
+  await unreachable.runtime.send({ message: "Hello" }, { messageId: "m2" });
+  await until(() => unreachable.reads.count === 1, "the send rereads the conversation");
+  assert.equal(await unreachable.runtime.cancelMessage("m2"), false);
+  assert.equal(await runtime.cancelMessage("m1"), false);
+  await unreachable.runtime.reload();
+  await until(() => unreachable.reads.count === 2 && cancels.length === 3, "the next state sends the unreached Cancel again");
+  assert.deepEqual(cancels.sort(), ["m1", "m2", "m2"]);
 });
