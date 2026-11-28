@@ -828,9 +828,10 @@ out of steps ends with the model's own account of what it did and what is left.
 The engine's checks send a reply back once when it leaks markup, stops at
 announcing its next step (“Let me query…”), or claims an action no tool
 performed, and the redo takes the sent-back reply's place on screen. A fact the
-reply repeats word for word from a record an action read (an email saying "We
-forwarded this to the vessel at 19:03") is not a claim. Long conversations are
-summarised rather than refused; see the conversation runtime guide.
+reply passes on from a record an action read (an email saying the documents were
+forwarded to the vessel at 08:35), even in its own words, is not a claim: the
+check judges it on the record's own passages. Long conversations are summarised
+rather than refused; see the conversation runtime guide.
 
 Every request carries the current date and time in UTC in the engine's state
 note, so no turn needs an extra action to learn it, and no action runs before

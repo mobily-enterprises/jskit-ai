@@ -2514,12 +2514,14 @@ eighth identical call in a row tells the model it is not making progress.
 A finished reply gets the engine's checks. Each sends it back once to carry on from
 its own steps: raw markup (nothing in it ran), a reply that stops at announcing
 its next step, and, when neither ran, a claimed action that the reply's own
-actions do not support (one short model call compares them). A claim of five
-words or more that one of the reply's own action results holds word for word
-(case, punctuation and spacing aside) was reported from a record the reply read,
-such as an email saying "We forwarded this to the vessel at 19:03", and does not
-send it back; a claim in the first person singular ("I've sent…") is always the
-assistant's own.
+actions do not support (one short model call compares them). A claim the check
+names is judged again, in one more short call, on the passages of the reply's own
+action results that best match it, read in full rather than the check's short
+excerpt: one the reply passes on from a record it read, such as an email saying
+the documents were forwarded to the vessel at 08:35, even in other words, does
+not send it back. A claim in the first person singular ("I forwarded it…") is
+always the assistant's own, and one that no action result speaks to stands
+without that call.
 The completion metadata names the check as `check`. A reply that ends with the
 engine's own account of where it got to is never sent back as stopping short.
 The reply a check sends back has already streamed, so its redo takes its place:

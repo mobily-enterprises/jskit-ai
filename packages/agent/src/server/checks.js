@@ -91,46 +91,91 @@ const CLAIMS_CHECKER = [
   "Reply with JSON only: {\"unsupported\": [\"short quote of each unsupported claim\"]}, with [] when every claim is supported."
 ].join("\n");
 
-// A claim the reply's own tool results hold word for word was reported from a record the reply read
-// (an email saying "We forwarded this to the vessel at 19:03"), not done in it: toolRecord shows the
-// checker only the first 240 characters of each result. The claim needs five words, so a short one
-// ("We've forwarded it") can't match by chance, and one in the first person singular ("I've sent it")
-// is the assistant's own, always.
-const words = (text) => ` ${(String(text).toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ")} `;
+// --- Reported facts. The check above sees only the first 240 characters of each tool result, so a
+// fact the reply passes on from a record it read ("the agency's email says both documents were
+// forwarded to the vessel at 08:35") reads as the reply's own claim. When the caller gives the reply's
+// transcript, each flagged claim is judged again, in one more call, on the passages of the reply's
+// tool results that best match it, read in full. A claim in the first person singular ("I forwarded
+// it") is the assistant's own, and one that no passage speaks to has no record behind it: both stand
+// without asking.
+const EVIDENCE_CHECKER = [
+  "You judge claims from an assistant's reply. Under each claim are passages from records the assistant's tools read while writing that reply, such as emails, messages and documents.",
+  "A claim is reported when a passage says that thing was done and the reply is passing on what the record says. It is not reported when the reply says the assistant did it in this conversation, or when the passages only mention, plan or ask for it, or say that something else was done.",
+  "Reply with JSON only: {\"reported\": [the number of each reported claim]}, with [] when none is."
+].join("\n");
+const EVIDENCE_BUDGET = 6000;
+const PASSAGES_PER_CLAIM = 3;
+const COMMON = new Set("that this these those with were have been from also they them then than will what when where here there into about would should could which their your just only some each both".split(" "));
+// The words a claim and a passage are matched on, by their first five letters (forward, forwarded).
+const stems = (text) => new Set((String(text).toLowerCase().match(/[\p{L}\p{N}]+/gu) || [])
+  .filter((word) => /\p{N}/u.test(word) || (word.length > 3 && !COMMON.has(word))).map((word) => word.slice(0, 5)));
 
-/** Every text in a tool result, with its numbers and other values written out. */
-function textsOf(value) {
-  if (typeof value === "string") return [value];
-  if (value && typeof value === "object") return Object.values(value).flatMap(textsOf);
-  return value === undefined || value === null ? [] : [String(value)];
+/** Each text in a tool result, named by where it sits in the result. */
+function leaves(value, key = "") {
+  if (typeof value === "string") return [{ key, text: value }];
+  if (value && typeof value === "object") return Object.entries(value).flatMap(([name, item]) => leaves(item, key ? `${key}.${name}` : name));
+  return value === undefined || value === null ? [] : [{ key, text: String(value) }];
 }
 
-function resultTexts(transcript) {
+/** Every sentence of the reply's tool results, with the sentences either side of it. */
+function passages(transcript) {
   return transcript.flatMap((message) => (Array.isArray(message.content) ? message.content : []))
     .filter((part) => part.type === "tool-result")
     // readable-check: allow no-dual-shape - data: a tool result's output is { type, value } in model messages and the bare value in transcripts stored before that
-    .flatMap((part) => textsOf(part.output?.value ?? part.output ?? part.result)).map(words);
+    .flatMap((part) => leaves(part.output?.value ?? part.output ?? part.result).flatMap(({ key, text }) => {
+      const sentences = text.split(/(?<=[.!?])\s+|\n+/u).map((sentence) => sentence.trim()).filter(Boolean);
+      return sentences.map((sentence, index) => ({ source: [part.toolName, key].filter(Boolean).join(" "), sentence, stems: stems(sentence),
+        text: sentences.slice(Math.max(0, index - 1), index + 2).join(" ").slice(0, 600) }));
+    }));
 }
 
-function reported(claim, results) {
-  if (/\bI\b/u.test(claim) || claim.split(/\s+/u).filter((word) => /[\p{L}\p{N}]/u.test(word)).length < 5) return false;
-  const quoted = words(claim);
-  return results.some((text) => text.includes(quoted));
+/** The passages that share the most words with `claim`, best first, within `budget` characters. */
+function evidence(claim, all, budget) {
+  const wanted = [...stems(claim)];
+  const ranked = all.map((passage) => ({ passage, score: wanted.filter((stem) => passage.stems.has(stem)).length }))
+    .filter(({ score }) => score > 0).sort((a, b) => b.score - a.score);
+  const chosen = [];
+  for (const { passage } of ranked) {
+    if (chosen.length === PASSAGES_PER_CLAIM) break;
+    if (chosen.some((other) => other.text.includes(passage.sentence))) continue;
+    if (chosen.reduce((used, other) => used + other.text.length, passage.text.length) > budget) continue;
+    chosen.push(passage);
+  }
+  return chosen;
+}
+
+async function reportedClaims({ model, reply, claims, transcript }) {
+  const all = passages(transcript);
+  const budget = Math.floor(EVIDENCE_BUDGET / claims.length);
+  const asked = claims.filter((claim) => !/\bI\b/iu.test(claim)).map((claim) => ({ claim, found: evidence(claim, all, budget) })).filter(({ found }) => found.length);
+  if (!asked.length) return new Set();
+  const listed = asked.map(({ claim, found }, index) => [`${index + 1}. "${claim}"`, ...found.map((passage) => `   ${passage.source}: "${passage.text}"`)].join("\n"));
+  try {
+    const text = await generateOnce({ model, system: EVIDENCE_CHECKER, messages: [{ role: "user", content: `Reply:\n${String(reply).slice(0, 6000)}\n\nClaims, each with the passages that best match it:\n${listed.join("\n\n")}` }], reasoning: REASONING.off, maxOutputTokens: 200 });
+    const { reported } = JSON.parse(String(text || "").replace(/^\s*```(?:json)?|```\s*$/gu, "").trim());
+    return new Set(Array.isArray(reported) ? reported.map((number) => asked[Number(number) - 1]?.claim).filter(Boolean) : []);
+  } catch {
+    // When this call can't run, the claims the check named stand.
+    return new Set();
+  }
 }
 
 /**
  * The claims of `reply` that its tools' `record` doesn't support, from one short model call; [] when the
- * check can't run. With the reply's `transcript`, a claim its tool results hold word for word is supported.
+ * check can't run. With the reply's `transcript`, a flagged claim is judged again on the passages of its
+ * tool results that match it, and one the reply passes on from a record it read is set aside.
  */
-export async function unsupportedClaims({ model, reply, record, transcript = [] }) {
+export async function unsupportedClaims({ model, reply, record, transcript }) {
+  let claims;
   try {
     const text = await generateOnce({ model, system: CLAIMS_CHECKER, messages: [{ role: "user", content: `Tool record:\n${record}\n\nReply:\n${String(reply).slice(0, 6000)}` }], reasoning: REASONING.off, maxOutputTokens: 400 });
     const parsed = JSON.parse(String(text || "").replace(/^\s*```(?:json)?|```\s*$/gu, "").trim());
-    const claims = Array.isArray(parsed.unsupported) ? parsed.unsupported.map(String).filter(Boolean) : [];
-    const results = claims.length ? resultTexts(transcript) : [];
-    return claims.filter((claim) => !reported(claim, results)).slice(0, 5);
+    claims = Array.isArray(parsed.unsupported) ? parsed.unsupported.map(String).filter(Boolean) : [];
   } catch {
     // The check is a safety net: when it can't run, the reply goes as it is.
     return [];
   }
+  if (!transcript || !claims.length) return claims.slice(0, 5);
+  const reported = await reportedClaims({ model, reply, claims, transcript });
+  return claims.filter((claim) => !reported.has(claim)).slice(0, 5);
 }
