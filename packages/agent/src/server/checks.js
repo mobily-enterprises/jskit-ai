@@ -91,11 +91,44 @@ const CLAIMS_CHECKER = [
   "Reply with JSON only: {\"unsupported\": [\"short quote of each unsupported claim\"]}, with [] when every claim is supported."
 ].join("\n");
 
-export async function unsupportedClaims({ model, reply, record }) {
+// A claim the reply's own tool results hold word for word was reported from a record the reply read
+// (an email saying "We forwarded this to the vessel at 19:03"), not done in it: toolRecord shows the
+// checker only the first 240 characters of each result. The claim needs five words, so a short one
+// ("We've forwarded it") can't match by chance, and one in the first person singular ("I've sent it")
+// is the assistant's own, always.
+const words = (text) => ` ${(String(text).toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ")} `;
+
+/** Every text in a tool result, with its numbers and other values written out. */
+function textsOf(value) {
+  if (typeof value === "string") return [value];
+  if (value && typeof value === "object") return Object.values(value).flatMap(textsOf);
+  return value === undefined || value === null ? [] : [String(value)];
+}
+
+function resultTexts(transcript) {
+  return transcript.flatMap((message) => (Array.isArray(message.content) ? message.content : []))
+    .filter((part) => part.type === "tool-result")
+    // readable-check: allow no-dual-shape - data: a tool result's output is { type, value } in model messages and the bare value in transcripts stored before that
+    .flatMap((part) => textsOf(part.output?.value ?? part.output ?? part.result)).map(words);
+}
+
+function reported(claim, results) {
+  if (/\bI\b/u.test(claim) || claim.split(/\s+/u).filter((word) => /[\p{L}\p{N}]/u.test(word)).length < 5) return false;
+  const quoted = words(claim);
+  return results.some((text) => text.includes(quoted));
+}
+
+/**
+ * The claims of `reply` that its tools' `record` doesn't support, from one short model call; [] when the
+ * check can't run. With the reply's `transcript`, a claim its tool results hold word for word is supported.
+ */
+export async function unsupportedClaims({ model, reply, record, transcript = [] }) {
   try {
     const text = await generateOnce({ model, system: CLAIMS_CHECKER, messages: [{ role: "user", content: `Tool record:\n${record}\n\nReply:\n${String(reply).slice(0, 6000)}` }], reasoning: REASONING.off, maxOutputTokens: 400 });
     const parsed = JSON.parse(String(text || "").replace(/^\s*```(?:json)?|```\s*$/gu, "").trim());
-    return Array.isArray(parsed.unsupported) ? parsed.unsupported.map(String).filter(Boolean).slice(0, 5) : [];
+    const claims = Array.isArray(parsed.unsupported) ? parsed.unsupported.map(String).filter(Boolean) : [];
+    const results = claims.length ? resultTexts(transcript) : [];
+    return claims.filter((claim) => !reported(claim, results)).slice(0, 5);
   } catch {
     // The check is a safety net: when it can't run, the reply goes as it is.
     return [];

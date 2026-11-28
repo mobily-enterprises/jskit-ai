@@ -24,10 +24,15 @@ Exports
 - `withoutClosingWords(transcript)`
 - `withoutMarkup(text)`
 - `toolRecord(transcript = [], events = [], app = "The app")`
-- `unsupportedClaims({ model, reply, record })`
+- `unsupportedClaims({ model, reply, record, transcript = [] })`
 - `stoppedShort(text)`
 - `LEAKED_MARKUP`
 - `reportsActions(text)`
+Local functions
+- `words(text)`
+- `textsOf(value)`
+- `resultTexts(transcript)`
+- `reported(claim, results)`
 
 ### `src/server/context.js`
 Exports

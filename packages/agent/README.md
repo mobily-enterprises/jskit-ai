@@ -162,14 +162,16 @@ What the person writes during a reply reaches the model **with its next tool res
 ## 9. Truthful replies
 
 Each check below can send a reply back **once**, carrying on from its own steps
-(`withoutClosingWords`: the second pass sees the first one's work, so nothing is redone).
+(`withoutClosingWords`: the second pass sees the first one's work, so nothing is redone). An app that
+streams the reply as it comes shows the redo in the place of the reply it sent back, never beside it:
+assistant-core's API engine shows the redo's first message under the sent-back answer's id.
 
 | Check | Catches |
 |---|---|
 | **Raw markup** (`LEAKED_MARKUP`) | a tool call written as text, DeepSeek's tokens (`<｜begin▁of▁sentence｜>`), budget and safety tags |
 | **Stopped short** (`stoppedShort`) | a reply under 600 characters that ends by announcing its next step; any agent with tools, groups too (with a goal active, its round carries on instead). A reply that ends with the loop's own account (`account` in its result) is left alone: the account says where it got to |
 | **Claimed files** | "attached below" with no file sent (the app's check, by words) |
-| **Unsupported claims** (`unsupportedClaims`) | a reply that reports actions is compared with what its tools actually did (`toolRecord`), in one short call; "emailed it to Sam" with no email is sent back |
+| **Unsupported claims** (`unsupportedClaims`) | a reply that reports actions is compared with what its tools actually did (`toolRecord`), in one short call; "emailed it to Sam" with no email is sent back. Given the reply's `transcript`, a claim of five words or more that one of the reply's own tool results holds word for word (case, punctuation and spacing aside) was reported from a record the reply read, such as an email saying "We forwarded this to the vessel at 19:03", and is not sent back; one in the first person singular ("I've sent…") is never set aside this way. Without `transcript`, every claim the check names stands |
 
 And always: **no raw markup** (`withoutMarkup`) and **no bracketed bookkeeping notes**
 (`stripNotes`) in what people see.

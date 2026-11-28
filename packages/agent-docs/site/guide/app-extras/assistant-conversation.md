@@ -2512,9 +2512,19 @@ eighth identical call in a row tells the model it is not making progress.
 A finished reply gets the engine's checks. Each sends it back once to carry on from
 its own steps: raw markup (nothing in it ran), a reply that stops at announcing
 its next step, and, when neither ran, a claimed action that the reply's own
-actions do not support (one short model call compares them). The completion
-metadata names the check as `check`. A reply that ends with the engine's own
-account of where it got to is never sent back as stopping short.
+actions do not support (one short model call compares them). A claim of five
+words or more that one of the reply's own action results holds word for word
+(case, punctuation and spacing aside) was reported from a record the reply read,
+such as an email saying "We forwarded this to the vessel at 19:03", and does not
+send it back; a claim in the first person singular ("I've sent…") is always the
+assistant's own.
+The completion metadata names the check as `check`. A reply that ends with the
+engine's own account of where it got to is never sent back as stopping short.
+The reply a check sends back has already streamed, so its redo takes its place:
+the redo's first message, the progress of a step that calls actions or the
+answer itself, is published under the sent-back answer's id, and the runtime
+replaces that text where it is. The person never sees the sent-back answer
+beside its redo, and the saved turn does not keep it.
 
 A reply runs at most `limits.maxSteps` steps (default 40, the engine's limit for
 work with app tools). Out of steps, or past the engine's 15-minute reply deadline,

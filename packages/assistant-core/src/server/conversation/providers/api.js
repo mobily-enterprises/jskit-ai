@@ -178,9 +178,21 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       let stepShows = false;
       let stepRanUnsaved = false;
       const label = () => `reply-${numbered + 1}`;
+      // An answer a check sends back is replaced on screen by its redo, never left beside it: the
+      // redo's first message is shown under the sent-back answer's id, so the runtime replaces that
+      // text where it is, instead of keeping it as progress once the redo answers under another id.
+      let replacing = { id: "", step: "" };
+      function shownId(step) {
+        if (replacing.id && !replacing.step) replacing.step = step;
+        return replacing.step === step ? replacing.id : step;
+      }
+      async function publish(message) {
+        const id = shownId(message.id);
+        await onMessage({ ...message, id, outputId: id });
+      }
       async function say(message) {
         stepShows = true;
-        await onMessage(message);
+        await publish(message);
       }
       const repeats = {};
       async function runTool(call) {
@@ -264,7 +276,7 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
         const text = withoutMarkup(words);
         if (maximumToolProgress !== undefined && text.length > maximumToolProgress) throw new Error(PROGRESS_LIMIT);
         if (answer === id) answer = "";
-        if (text) await say({ id, outputId: id, role: "commentary", text, complete: true });
+        if (text) await say({ id, role: "commentary", text, complete: true });
       }
       async function onText(text) {
         overLimit ||= text.length > maximumOutput;
@@ -272,7 +284,7 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
         // Words streamed after their step's progress was shown are already in it.
         if (!visible || overLimit || progress.id === label()) return;
         answer = label();
-        await say({ id: answer, outputId: answer, role: "assistant", text: visible, complete: false });
+        await say({ id: answer, role: "assistant", text: visible, complete: false });
       }
       async function onStep(result) {
         step += 1;
@@ -296,7 +308,7 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
         if (!text) return;
         shown.push(...result.content.filter(part => part.type === "text").map(part => part.text.trim()).filter(Boolean));
         if (progress.id === id && progress.words === result.text) return;
-        await say({ id, outputId: id, role: "commentary", text, complete: true });
+        await say({ id, role: "commentary", text, complete: true });
       }
       const pass = async history => {
         const result = await runLoop({ model, name: NAME, instructions: configuration.systemPrompt, history, tools: engineTools,
@@ -313,10 +325,13 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       };
 
       let { text, transcript, unfinished, account } = await pass(messages);
-      // A check sends the reply back once, carrying on from its own steps.
+      // A check sends the reply back once, carrying on from its own steps. Its streamed answer stays on
+      // screen until the redo's first message takes its place.
       let check = "";
       async function carryOn(name, note) {
         check = name;
+        if (answer) replacing = { id: answer, step: "" };
+        answer = "";
         const steps = withoutClosingWords(transcript);
         const next = await pass([...messages, ...steps.map(clipOldResult), { role: "user", content: note }]);
         ({ text, unfinished } = next);
@@ -327,16 +342,13 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       // The engine's own account of a reply that stopped early already says where it got to.
       else if (working && !account && stoppedShort(text.trim())) await carryOn("stoppedShort", CHECKS.stoppedShort);
       if (!check && working && reportsActions(text)) {
-        const claims = await unsupportedClaims({ model, reply: text, record: toolRecord(transcript, [], APP) });
+        const claims = await unsupportedClaims({ model, reply: text, record: toolRecord(transcript, [], APP), transcript });
         stopped.throwIfAborted();
         if (claims.length) await carryOn("unsupported", CHECKS.unsupported(claims));
       }
       text = withoutMarkup(text);
       if (text.length > maximumOutput) throw new Error(OUTPUT_LIMIT);
-      if (text) {
-        const id = answer || label();
-        await onMessage({ id, outputId: id, role: "assistant", text, complete: true });
-      }
+      if (text) await publish({ id: answer || label(), role: "assistant", text, complete: true });
       return { metadata: { ...(unfinished ? { unfinished } : {}), ...(check ? { check } : {}) } };
     }
   });
