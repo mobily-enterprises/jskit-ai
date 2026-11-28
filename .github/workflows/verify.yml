@@ -128,6 +128,11 @@ jobs:
           JSKIT_HTTP_WEB_PENDING_FOCUS_BROWSER: "1"
         run: npm run test:browser
 
+      - name: Verify an edit form read again keeps the person's unsaved edits
+        env:
+          JSKIT_HTTP_WEB_KEPT_EDITS_BROWSER: "1"
+        run: npm run test:browser
+
       - name: Verify select typeahead while a menu opens
         env:
           JSKIT_CONNECTORS_WEB_BROWSER: "1"
