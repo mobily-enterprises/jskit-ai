@@ -15,7 +15,7 @@ import { valueOnlyRaw } from "./rawExpression.js";
 import { GroupLimitError, PageSizeError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
   formatOf, matchesNoRow, missingOf, passedOn, refuseConditions, refuseTransactionPlace, requireConditionValues, requireDefinedFilters, requireOwners,
-  requirePatchConditions, requireReadParams, requireUpsertRows, whereSelection
+  requireOnlyIfValue, requirePatchConditions, requireReadParams, requireUpsertRows, whereSelection
 } from "./handleGuards.js";
 import {
   aggregateMeasures,
@@ -444,7 +444,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
     if (!isRecord(attributes)) {
       throw new TypeError(`${name}.patch() takes attributes as an object.`);
     }
-    // Before any statement: a lockVersion or onlyIf patch locks the row first, and an afterWrite hook opens a transaction.
+    // Before any statement: a lockVersion patch locks the row first, and an afterWrite hook opens a transaction.
     checkBlobValues(resource, [attributes]);
     requirePatchConditions(name, lockVersionField, attributes, options);
     const { lockVersion, onlyIf, missing: missingOption, ...callOptions } = options;
@@ -456,16 +456,18 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
     if (lockVersion === undefined && onlyIf === undefined) {
       return patchRecord(id, attributes, callOptions, returning);
     }
-    // A missing row throws, so the row's lock comes first, reading only the lock version. onlyIf is compared in SQL,
-    // by the UPDATE that changes fields or, with no changes, by a read (holdsOnlyIf), so a hidden field, which no read
-    // answers, is compared too, and an id compares however the caller gives it.
+    // A lockVersion patch, or an onlyIf one with no changes, locks the row first, reading only the lock version; an onlyIf
+    // one with changes locks it only when its UPDATE changed nothing. Either way a missing row throws. onlyIf is compared in
+    // SQL (by the UPDATE or holdsOnlyIf), so a hidden field, which no read answers, compares too, and an id however given.
     const compared = lockVersion === undefined ? [] : [lockVersionField];
+    const updateFirst = lockVersion === undefined && Object.keys(attributes).length > 0;
     return withTransaction(callOptions, async (transaction) => {
       // The patch's own format goes on to its write; work in a transaction receives only the context and transaction.
       const txOptions = { ...transaction, ...formatSetting(callOptions) };
-      const [current] = await lockMany([id], { ...transaction, missing, fields: compared });
-      if (!current) {
-        return null;
+      const patched = updateFirst ? await patchIfPresent(id, attributes, txOptions, returning, onlyIf) : null;
+      const [current] = patched === null ? await lockMany([id], { ...transaction, missing, fields: compared }) : [];
+      if (updateFirst || !current) {
+        return patched;
       }
       if (lockVersion !== undefined && Number(current[lockVersionField]) !== lockVersion) {
         throw new StaleRecordError();
@@ -661,13 +663,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
     const adapter = api.knex.helpers.getStorageAdapter(name);
     let { query } = await scopedQuery({ filters: { id: [id] } }, options);
     for (const [field, value] of Object.entries(onlyIf)) {
-      const definition = schemaStructure[field];
-      if (field === "id" || !definition || definition.virtual || definition.computed) {
-        throw new TypeError(`${name}.patch() onlyIf.${field} is not a stored field.`);
-      }
-      if (value !== null && typeof value === "object" && !(value instanceof Date)) {
-        throw new TypeError(`${name}.patch() onlyIf.${field} must be a scalar, a Date or null.`);
-      }
+      requireOnlyIfValue(name, schemaStructure, field, value);
       query = value === null ? query.whereNull(column(field)) : query.where(column(field), adapter.translateFilterValue(field, value));
     }
     return (await query.first(column("id"))) !== undefined;
