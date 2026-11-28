@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/payments-core",
-  "version": "0.2.49",
+  "version": "0.2.50",
   "type": "module",
   "description": "Application-owned payment configuration, subscription access, prepaid top-ups and transactional usage credits.",
   "exports": {
@@ -24,7 +24,7 @@
     "test": "jskit test"
   },
   "dependencies": {
-    "@jskit-ai/resource-core": "0.1.226",
+    "@jskit-ai/resource-core": "0.1.227",
     "@paddle/paddle-node-sdk": "3.10.0",
     "ajv": "8.20.0",
     "stripe": "22.6.2"
@@ -73,9 +73,9 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/database-runtime": "0.1.292",
-    "@jskit-ai/kernel": "0.2.35",
-    "@jskit-ai/resource-runtime": "0.2.57"
+    "@jskit-ai/database-runtime": "0.1.293",
+    "@jskit-ai/kernel": "0.2.36",
+    "@jskit-ai/resource-runtime": "0.2.58"
   },
   "peerDependenciesMeta": {
     "@jskit-ai/database-runtime": {

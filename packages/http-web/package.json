@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/http-web",
-  "version": "0.2.66",
+  "version": "0.2.67",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -49,13 +49,13 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/resource-crud-core": "0.1.228"
+    "@jskit-ai/resource-crud-core": "0.1.229"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.2.36",
-    "@jskit-ai/kernel": "0.2.35",
-    "@jskit-ai/realtime": "0.2.60",
-    "@jskit-ai/shell-web": "0.2.57",
+    "@jskit-ai/http-runtime": "0.2.37",
+    "@jskit-ai/kernel": "0.2.36",
+    "@jskit-ai/realtime": "0.2.61",
+    "@jskit-ai/shell-web": "0.2.58",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vue-router": "^5.0.4",
