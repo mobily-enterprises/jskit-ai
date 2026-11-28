@@ -1453,13 +1453,18 @@ const LONG_ACTIONS = Object.freeze([
   "fixture-long-action-tags"
 ]);
 const LONG_MENU_ONLY = Object.freeze(["fixture-long-action-delete", "fixture-long-action-tooling"]);
-// A title as wide as two of the long actions page's actions at 1280 px: an expanded bar folds some of them, not all.
+// A title as wide as two of the long actions page's actions at 1280 px: wider than a large bar leaves it beside them
+// all, so it truncates there.
 const LONG_TITLE = "Nightly backups for the billing database";
+// The least room an expanded or large bar leaves its page title before a page action folds, or the whole title when
+// that is narrower.
+const WIDE_TITLE_FLOOR = 200;
 
 // The top app bar as drawn, ShellLayout's or a layout's own: whether the row that holds the page actions overflows,
 // which long actions it shows, each item a person must reach (More actions and the bar's own items, by their names)
 // that lies outside the window or under something else at its centre, whether the title is clipped, the room left
-// beside the title's text in its box, and each shown action's width with its margins.
+// beside the title's text in its box, the width inside the title's box and of the title's whole text, and each shown
+// action's width with its margins.
 function readLongActionsBar(page) {
   return page.evaluate(() => {
     const row = document.querySelector(".shell-page-actions-target").parentElement;
@@ -1487,6 +1492,8 @@ function readLongActionsBar(page) {
       titleClipped: title.scrollWidth > title.clientWidth + 1,
       slack: titleBox.clientWidth - Number.parseFloat(style.paddingInlineStart) -
         Number.parseFloat(style.paddingInlineEnd) - text.getBoundingClientRect().width,
+      titleBox: titleBox.clientWidth - Number.parseFloat(style.paddingInlineStart) - Number.parseFloat(style.paddingInlineEnd),
+      wholeTitle: Math.max(title.scrollWidth, text.getBoundingClientRect().width),
       widths: Object.fromEntries(actions.map((element) => {
         const margins = window.getComputedStyle(element);
         return [element.dataset.testid, element.getBoundingClientRect().width +
@@ -1522,6 +1529,33 @@ async function foldedByWidth(page, { bar, widths, at }) {
   assert.deepEqual(await readLongActionsMenu(page), [...folded, ...LONG_MENU_ONLY], `${at}: More actions holds the rest, in bar order`);
   if (folded.length > 0) {
     assert.ok(bar.slack < widths[folded[0]] + 1, `${at}: ${folded[0]} (${widths[folded[0]]}px) folded with ${bar.slack}px left`);
+  }
+  return folded;
+}
+
+// What an expanded or large bar shows beside its title: nothing past the bar, every item a person must reach on screen
+// and on top; the first actions in bar order inline and the rest in More actions before the menu's own; the title's box
+// at least its floor (WIDE_TITLE_FLOOR, or the whole title when narrower), and as few folded as leave it that, so the
+// first folded action would have taken it under its floor, give or take the pixel the bar rounds to. A title wider than
+// its box truncates. Returns the folded actions.
+async function foldedBesideTitle(page, { bar, widths, at }) {
+  const floor = Math.min(bar.wholeTitle, WIDE_TITLE_FLOOR);
+  const folded = LONG_ACTIONS.slice(bar.inBar.length);
+  const drawn = `${at}: ${JSON.stringify({ inBar: bar.inBar, titleBox: bar.titleBox, wholeTitle: bar.wholeTitle, widths })}`;
+  assert.deepEqual({
+    overflows: bar.overflows,
+    unreachable: bar.unreachable,
+    inBar: bar.inBar,
+    titleKeepsItsFloor: bar.titleBox >= floor - 1
+  }, {
+    overflows: false,
+    unreachable: [],
+    inBar: LONG_ACTIONS.slice(0, bar.inBar.length),
+    titleKeepsItsFloor: true
+  }, drawn);
+  assert.deepEqual(await readLongActionsMenu(page), [...folded, ...LONG_MENU_ONLY], `${at}: More actions holds the rest, in bar order`);
+  if (folded.length > 0) {
+    assert.ok(bar.titleBox - widths[folded[0]] < floor + 1, `${drawn}: ${folded[0]} folded, though the title kept its floor beside it`);
   }
   return folded;
 }
@@ -1579,7 +1613,10 @@ test("a layout's own top app bar folds the page actions it has no room for the s
   await checkMediumFold(browser, t, { baseURL: vite.baseURL, path: "/home/studio-actions" });
 });
 
-test("an expanded window's bar keeps every page action that fits beside the title, and a long title folds only those that don't", {
+// An expanded or large bar has room for its page actions: a long title truncates before any of them folds, and they
+// fold, the last first, only when the title would have less than its floor beside them. Control's support case page
+// (28 Nov) folded its one action, Close the case, at 1280 px beside a 1356 px subject that was truncated anyway.
+test("an expanded or large window's bar keeps its page actions beside a long title, which truncates, and folds them, the last first, only to leave the title its floor", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
 }, async (t) => {
@@ -1595,8 +1632,15 @@ test("an expanded window's bar keeps every page action that fits beside the titl
   await page.goto(`/home/long-actions?topRight=3&title=${encodeURIComponent(LONG_TITLE)}`);
   await expect(page.getByTestId("jskit-shell-page-title")).toHaveText(LONG_TITLE);
   const long = await readLongActionsBar(page);
-  const folded = await foldedByWidth(page, { bar: long, widths: ordinary.widths, at: "1280px, a long title" });
-  assert.ok(folded.length > 0 && long.inBar.length > 0, `1280px, a long title: some actions fold and some stay (${long.inBar.join(", ")})`);
+  assert.deepEqual(await foldedBesideTitle(page, { bar: long, widths: ordinary.widths, at: "1280px, a long title" }), []);
+  assert.equal(long.titleClipped, true, "1280px, a long title: the title truncates beside every action");
+
+  await page.setViewportSize({ width: 900, height: 900 });
+  await expect(page.getByTestId("jskit-shell-app-bar")).toHaveAttribute("data-size-class", "expanded");
+  await expect(barAction(page, "fixture-long-action-tags")).toHaveCount(0);
+  const narrow = await readLongActionsBar(page);
+  const folded = await foldedBesideTitle(page, { bar: narrow, widths: ordinary.widths, at: "900px, a long title" });
+  assert.ok(folded.length > 0 && narrow.inBar.length > 0, `900px, a long title: some actions fold and some stay (${narrow.inBar.join(", ")})`);
 });
 
 test("a nested component's title gives the page's own title back, and Save returns to the list with its query", {
