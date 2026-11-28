@@ -331,7 +331,7 @@ Compose an account settings route and profile, preference, notification, and sig
 - Id: `users/account-settings`
 - Keywords: `account`, `link provider`, `notifications`, `oauth`, `preferences`, `profile`, `settings`, `sign-in methods`, `user`, `vue`
 - Owner: `@jskit-ai/users-web@0.2.91`
-- Requires: `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
+- Requires: `@jskit-ai/http-web`, `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
 
 ## [User administration server package](/patterns/users/user-administration-server)
 

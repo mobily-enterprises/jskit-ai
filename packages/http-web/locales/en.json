@@ -96,6 +96,15 @@
         "timedOut": "The server took too long to answer. Try again.",
         "validationFailed": "Validation failed."
       },
+      "form": {
+        "conflict": {
+          "accept": "Use the new {field}",
+          "changed": "{field} changed while you were editing.",
+          "changedTo": "{field} changed to “{value}” while you were editing.",
+          "cleared": "{field} was cleared while you were editing.",
+          "keep": "Keep your {field}"
+        }
+      },
       "list": {
         "label": "List",
         "loadFailed": "Unable to load list.",

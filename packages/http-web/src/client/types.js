@@ -33,6 +33,23 @@
 /** @typedef {(model: any, payload: any, context: Record<string, any>) => void} MapLoadedToModel */
 
 /**
+ * A field whose server value changed while the person was editing it: the form keeps the person's value, and
+ * `value` is the server's, which the person may take.
+ * @typedef {object} EditConflict
+ * @property {string} key The form model's field.
+ * @property {unknown} value The server's value, as the form holds a value of that field.
+ */
+
+/**
+ * One line of `EditConflictNotice`: a field in conflict as the person reads it.
+ * @typedef {object} EditConflictItem
+ * @property {string} key The form model's field.
+ * @property {string} label The field's label.
+ * @property {string | null} value The server's value as the field shows it; "" when the server cleared it, and null
+ *   when it cannot be shown, such as a lookup's id whose label is not loaded.
+ */
+
+/**
  * What an operation's `realtime` option declares, or `false` to refuse a resource's own.
  * @typedef {object} OperationRealtime
  * @property {string} [event]
@@ -546,7 +563,7 @@
  * @property {import("vue").MaybeRef<string>} [subtitle]
  * @property {import("vue").MaybeRef<string>} [saveLabel]
  * @property {import("vue").MaybeRef<unknown>} [cancelTo]
- * @property {{ showFormSkeleton: boolean }} formRuntime
+ * @property {{ showFormSkeleton: boolean, formFields?: Record<string, any>[] }} formRuntime
  * @property {Partial<AddEditRuntime>} addEdit
  * @property {Record<string, any>} formState
  * @property {(fieldKey: string) => string[]} resolveFieldErrors

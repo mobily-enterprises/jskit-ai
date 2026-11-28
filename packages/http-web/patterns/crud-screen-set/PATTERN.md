@@ -105,6 +105,13 @@ options; `addEditOptions` carries only request and route options for
 `addEditOptions.fallbackSaveError` when given, otherwise the resource's
 `messages.saveError`; the request error and its toast use the same string.
 
+`mapPayloadToModel(model, payload)` writes into the `model` it is given, never
+into the page's form state: the form runtime passes a copy, so a record read
+again (a realtime event, the window regaining focus) keeps what the person
+changed and has not saved, and `CrudAddEditScreen` names each field whose
+server value changed under them. The Record form actions guide lists the
+runtime's `conflicts`.
+
 Save navigation is configured in the top-level `saveSuccess` object. The default
 prefers a configured record-view URL, then the list. A create-and-list variation
 sets `navigateToView: false` and `saveSuccess.listUrlTemplate` to its list

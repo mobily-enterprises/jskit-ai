@@ -195,58 +195,36 @@ function useAccountSettingsRuntime() {
       }));
   }
 
-  function applySettingsData(payload) {
+  // Each form's fields from a settings document. Each writes only the record it is given: its form's runtime passes a
+  // copy, and gives the form only the fields the person has not changed and not saved.
+  function writeProfileFields(target, payload) {
     const data = normalizeSettingsPayload(payload);
-
-    profileForm.displayName = String(data.profile?.displayName || "");
-    profileForm.email = String(data.profile?.email || "");
-    applyAvatarData(data.profile?.avatar);
-
-    preferencesForm.theme = String(data.preferences?.theme || ACCOUNT_SETTINGS_DEFAULTS.preferences.theme);
-    preferencesForm.locale = String(data.preferences?.locale || ACCOUNT_SETTINGS_DEFAULTS.preferences.locale);
-    preferencesForm.timeZone = String(data.preferences?.timeZone || ACCOUNT_SETTINGS_DEFAULTS.preferences.timeZone);
-    preferencesForm.dateFormat = String(data.preferences?.dateFormat || ACCOUNT_SETTINGS_DEFAULTS.preferences.dateFormat);
-    preferencesForm.numberFormat = String(data.preferences?.numberFormat || ACCOUNT_SETTINGS_DEFAULTS.preferences.numberFormat);
-    preferencesForm.currencyCode = String(data.preferences?.currencyCode || ACCOUNT_SETTINGS_DEFAULTS.preferences.currencyCode);
-    preferencesForm.avatarSize = normalizeAvatarSize(data.preferences?.avatarSize || ACCOUNT_SETTINGS_DEFAULTS.preferences.avatarSize);
-
-    notificationsForm.productUpdates = Boolean(data.notifications?.productUpdates);
-    notificationsForm.accountActivity = Boolean(data.notifications?.accountActivity);
-    notificationsForm.securityAlerts = ACCOUNT_SETTINGS_DEFAULTS.notifications.securityAlerts;
-
-    applySignInMethods(data.security);
-
-    applyThemePreference(preferencesForm.theme);
-    if (data.preferences?.locale) {
-      savedLocale.value = preferencesForm.locale;
-      setAccountLocale(preferencesForm.locale);
-    }
+    target.displayName = String(data.profile?.displayName || "");
+    target.email = String(data.profile?.email || "");
   }
 
-  const avatarUploadRuntime = createAccountSettingsAvatarUploadRuntime({
-    queryClient,
-    sessionQueryKey,
-    accountSettingsQueryKey,
-    selectedAvatarFileName,
-    applySettingsData,
-    reportAccountFeedback
-  });
+  function writePreferenceFields(target, payload) {
+    const data = normalizeSettingsPayload(payload);
+    target.theme = String(data.preferences?.theme || ACCOUNT_SETTINGS_DEFAULTS.preferences.theme);
+    target.locale = String(data.preferences?.locale || ACCOUNT_SETTINGS_DEFAULTS.preferences.locale);
+    target.timeZone = String(data.preferences?.timeZone || ACCOUNT_SETTINGS_DEFAULTS.preferences.timeZone);
+    target.dateFormat = String(data.preferences?.dateFormat || ACCOUNT_SETTINGS_DEFAULTS.preferences.dateFormat);
+    target.numberFormat = String(data.preferences?.numberFormat || ACCOUNT_SETTINGS_DEFAULTS.preferences.numberFormat);
+    target.currencyCode = String(data.preferences?.currencyCode || ACCOUNT_SETTINGS_DEFAULTS.preferences.currencyCode);
+    target.avatarSize = normalizeAvatarSize(data.preferences?.avatarSize || ACCOUNT_SETTINGS_DEFAULTS.preferences.avatarSize);
+  }
 
-  const mapAccountSettingsPayload = (_model, payload = {}) => {
-    applySettingsData(payload);
-  };
+  function writeNotificationFields(target, payload) {
+    const data = normalizeSettingsPayload(payload);
+    target.productUpdates = Boolean(data.notifications?.productUpdates);
+    target.accountActivity = Boolean(data.notifications?.accountActivity);
+    target.securityAlerts = ACCOUNT_SETTINGS_DEFAULTS.notifications.securityAlerts;
+  }
 
-  const settingsView = useView({
-    ownershipFilter: OWNERSHIP_PUBLIC,
-    apiSuffix: "/settings",
-    queryKeyFactory: () => accountSettingsQueryKey,
-    transport: USER_SETTINGS_TRANSPORT,
-    realtime: {
-      event: "account.settings.changed"
-    },
-    fallbackLoadError: t("jskit.users.accountSettings.loadFailed"),
-    mapLoadedToModel: mapAccountSettingsPayload
-  });
+  // A form's save answers with the whole settings document: it becomes the settings read, which every form then takes.
+  function storeSettings(payload) {
+    queryClient.setQueryData(accountSettingsQueryKey, payload);
+  }
 
   const profileAddEdit = useAddEdit({
     ownershipFilter: OWNERSHIP_PUBLIC,
@@ -259,7 +237,8 @@ function useAccountSettingsRuntime() {
     fallbackSaveError: t("jskit.users.accountSettings.profile.saveFailed"),
     fieldErrorKeys: ["displayName"],
     model: profileForm,
-    mapLoadedToModel: mapAccountSettingsPayload,
+    mapLoadedToModel: writeProfileFields,
+    onSaveSuccess: storeSettings,
     input: userProfileContract.operations.patch.body,
     buildRawPayload: (model) => ({
       displayName: String(model.displayName || "").trim()
@@ -277,9 +256,9 @@ function useAccountSettingsRuntime() {
     transport: USER_PROFILE_AVATAR_DELETE_TRANSPORT,
     fallbackRunError: t("jskit.users.accountSettings.avatar.removeFailed"),
     model: profileForm,
-    onRunSuccess: (payload, { queryClient: commandQueryClient }) => {
+    onRunSuccess: (payload) => {
       applySettingsData(payload);
-      commandQueryClient.setQueryData(accountSettingsQueryKey, payload);
+      storeSettings(payload);
     },
     messages: {
       success: t("jskit.users.accountSettings.avatar.removed"),
@@ -298,7 +277,8 @@ function useAccountSettingsRuntime() {
     fallbackSaveError: t("jskit.users.accountSettings.preferences.saveFailed"),
     fieldErrorKeys: ["theme", "locale", "timeZone", "dateFormat", "numberFormat", "currencyCode", "avatarSize"],
     model: preferencesForm,
-    mapLoadedToModel: mapAccountSettingsPayload,
+    mapLoadedToModel: writePreferenceFields,
+    onSaveSuccess: storeSettings,
     input: userSettingsContract.operations.preferencesUpdate.body,
     buildRawPayload: (model) => ({
       theme: model.theme,
@@ -325,7 +305,8 @@ function useAccountSettingsRuntime() {
     transport: USER_NOTIFICATION_SETTINGS_UPDATE_TRANSPORT,
     fallbackSaveError: t("jskit.users.accountSettings.notifications.saveFailed"),
     model: notificationsForm,
-    mapLoadedToModel: mapAccountSettingsPayload,
+    mapLoadedToModel: writeNotificationFields,
+    onSaveSuccess: storeSettings,
     input: userSettingsContract.operations.notificationsUpdate.body,
     buildRawPayload: (model) => ({
       productUpdates: Boolean(model.productUpdates),
@@ -354,6 +335,47 @@ function useAccountSettingsRuntime() {
     messages: {
       success: t("jskit.users.accountSettings.signInMethods.unlinked"),
       error: t("jskit.users.accountSettings.signInMethods.unlinkFailed")
+    }
+  });
+
+  // A settings document, from the settings read (its first load, a read again on `account.settings.changed` or the
+  // window regaining focus, Retry) or a command's answer: each form takes it through its own runtime, which keeps
+  // what the person changed and has not saved, and the rest of the page shows what the server holds.
+  function applySettingsData(payload) {
+    const data = normalizeSettingsPayload(payload);
+    profileAddEdit.applyLoaded(data);
+    preferencesAddEdit.applyLoaded(data);
+    notificationsAddEdit.applyLoaded(data);
+
+    applyAvatarData(data.profile?.avatar);
+    applySignInMethods(data.security);
+    applyThemePreference(String(data.preferences?.theme || ACCOUNT_SETTINGS_DEFAULTS.preferences.theme));
+    if (data.preferences?.locale) {
+      savedLocale.value = String(data.preferences.locale);
+      setAccountLocale(savedLocale.value);
+    }
+  }
+
+  const avatarUploadRuntime = createAccountSettingsAvatarUploadRuntime({
+    queryClient,
+    sessionQueryKey,
+    accountSettingsQueryKey,
+    selectedAvatarFileName,
+    applySettingsData,
+    reportAccountFeedback
+  });
+
+  const settingsView = useView({
+    ownershipFilter: OWNERSHIP_PUBLIC,
+    apiSuffix: "/settings",
+    queryKeyFactory: () => accountSettingsQueryKey,
+    transport: USER_SETTINGS_TRANSPORT,
+    realtime: {
+      event: "account.settings.changed"
+    },
+    fallbackLoadError: t("jskit.users.accountSettings.loadFailed"),
+    mapLoadedToModel: (_model, payload = {}) => {
+      applySettingsData(payload);
     }
   });
 
@@ -432,6 +454,10 @@ function useAccountSettingsRuntime() {
     initials: profileInitials,
     selectedAvatarFileName,
     fieldErrors: profileAddEdit.fieldErrors,
+    // The fields whose server value changed while the person was editing them, and their choice for each.
+    conflicts: computed(() => profileAddEdit.conflicts),
+    acceptServerValue: profileAddEdit.acceptServerValue,
+    keepOwnValue: profileAddEdit.keepOwnValue,
     isSaving: savingProfile,
     isDeletingAvatar: deletingAvatar,
     isRefreshing: refreshingSettings,
@@ -443,6 +469,9 @@ function useAccountSettingsRuntime() {
   const preferences = {
     form: preferencesForm,
     fieldErrors: preferencesAddEdit.fieldErrors,
+    conflicts: computed(() => preferencesAddEdit.conflicts),
+    acceptServerValue: preferencesAddEdit.acceptServerValue,
+    keepOwnValue: preferencesAddEdit.keepOwnValue,
     isSaving: savingPreferences,
     isRefreshing: refreshingSettings,
     // Plain arrays for v-select items; the getters follow the active language.
@@ -468,6 +497,9 @@ function useAccountSettingsRuntime() {
 
   const notifications = {
     form: notificationsForm,
+    conflicts: computed(() => notificationsAddEdit.conflicts),
+    acceptServerValue: notificationsAddEdit.acceptServerValue,
+    keepOwnValue: notificationsAddEdit.keepOwnValue,
     isSaving: savingNotifications,
     isRefreshing: refreshingSettings,
     submit: submitNotifications

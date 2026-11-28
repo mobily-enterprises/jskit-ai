@@ -1,4 +1,6 @@
 <script setup>
+import { computed } from "vue";
+import EditConflictNotice from "@jskit-ai/http-web/client/components/EditConflictNotice";
 import { vPending } from "@jskit-ai/shell-web/client/directives/vPending";
 
 const props = defineProps({
@@ -9,6 +11,25 @@ const props = defineProps({
 });
 
 const preferences = props.runtime.preferences;
+
+// The settings read again (another session saved them) keep what the person chose; the notice names each field whose
+// server value changed meanwhile, with that value as its list shows it.
+const FIELDS = Object.freeze({
+  theme: { label: "Theme", options: "theme" },
+  locale: { label: "Language / locale", options: "locale" },
+  timeZone: { label: "Time zone", options: "timeZone" },
+  dateFormat: { label: "Date format", options: "dateFormat" },
+  numberFormat: { label: "Number format", options: "numberFormat" },
+  currencyCode: { label: "Currency", options: "currency" },
+  avatarSize: { label: "Avatar size", options: "avatarSize" }
+});
+const conflictItems = computed(() =>
+  preferences.conflicts.value.map(({ key, value }) => {
+    const field = FIELDS[key] || { label: key, options: "" };
+    const option = (preferences.options[field.options] || []).find((entry) => entry?.value === value);
+    return { key, label: field.label, value: String(option?.title ?? value ?? "") };
+  })
+);
 </script>
 
 <template>
@@ -26,7 +47,7 @@ const preferences = props.runtime.preferences;
               item-value="value"
               variant="outlined"
               density="comfortable"
-              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
+              :disabled="preferences.isSaving.value"
               :error-messages="preferences.fieldErrors.theme"
             />
           </v-col>
@@ -41,7 +62,7 @@ const preferences = props.runtime.preferences;
               item-value="value"
               variant="outlined"
               density="comfortable"
-              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
+              :disabled="preferences.isSaving.value"
               :error-messages="preferences.fieldErrors.locale"
             />
           </v-col>
@@ -54,7 +75,7 @@ const preferences = props.runtime.preferences;
               :items="preferences.options.timeZone"
               variant="outlined"
               density="comfortable"
-              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
+              :disabled="preferences.isSaving.value"
               :error-messages="preferences.fieldErrors.timeZone"
             />
           </v-col>
@@ -69,7 +90,7 @@ const preferences = props.runtime.preferences;
               item-value="value"
               variant="outlined"
               density="comfortable"
-              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
+              :disabled="preferences.isSaving.value"
               :error-messages="preferences.fieldErrors.dateFormat"
             />
           </v-col>
@@ -84,7 +105,7 @@ const preferences = props.runtime.preferences;
               item-value="value"
               variant="outlined"
               density="comfortable"
-              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
+              :disabled="preferences.isSaving.value"
               :error-messages="preferences.fieldErrors.numberFormat"
             />
           </v-col>
@@ -97,7 +118,7 @@ const preferences = props.runtime.preferences;
               :items="preferences.options.currency"
               variant="outlined"
               density="comfortable"
-              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
+              :disabled="preferences.isSaving.value"
               :error-messages="preferences.fieldErrors.currencyCode"
             />
           </v-col>
@@ -110,7 +131,7 @@ const preferences = props.runtime.preferences;
               :items="preferences.options.avatarSize"
               variant="outlined"
               density="comfortable"
-              :disabled="preferences.isSaving.value || preferences.isRefreshing.value"
+              :disabled="preferences.isSaving.value"
               :error-messages="preferences.fieldErrors.avatarSize"
             />
           </v-col>
@@ -125,6 +146,11 @@ const preferences = props.runtime.preferences;
         >
           Save preferences
         </v-btn>
+        <EditConflictNotice
+          :items="conflictItems"
+          @accept="preferences.acceptServerValue"
+          @keep="preferences.keepOwnValue"
+        />
       </v-form>
     </div>
   </div>

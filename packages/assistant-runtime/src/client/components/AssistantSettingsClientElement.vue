@@ -28,9 +28,10 @@
       density="comfortable"
       rows="8"
       auto-grow
-      :readonly="!addEdit.canSave || addEdit.isSaving || addEdit.isRefetching"
+      :readonly="!addEdit.canSave || addEdit.isSaving"
       :error-messages="fieldErrors.systemPrompt"
     />
+    <EditConflictNotice :items="conflictItems" @accept="edits.acceptServerValue" @keep="edits.keepOwnValue" />
   </AssistantSettingsFormCard>
 </template>
 
@@ -40,6 +41,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
+import EditConflictNotice from "@jskit-ai/http-web/client/components/EditConflictNotice";
+import { useUnsavedEdits } from "@jskit-ai/http-web/client/composables/useUnsavedEdits";
 import { assistantHttpClient, createAssistantApi, AssistantSettingsFormCard } from "@jskit-ai/assistant-core/client";
 import { assistantConfigContract, assistantSettingsQueryKey, buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
 import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
@@ -152,11 +155,33 @@ const settingsQuery = useQuery({
   queryFn: () => settingsApi.getSettings()
 });
 
+// The settings read again (a realtime event, the window regaining focus) keep a prompt the person changed and has not
+// saved; when the server's prompt changed meanwhile, the notice after the field offers it.
+const edits = useUnsavedEdits({ model: form });
+const conflictItems = computed(() =>
+  edits.conflicts.value.map(({ key, value }) => ({
+    key,
+    label: t("jskit.assistant.runtime.settings.systemPrompt"),
+    value: String(value ?? "")
+  }))
+);
+
+function writeSettings(payload) {
+  return (target) => {
+    const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
+    target.systemPrompt = String(settings.systemPrompt || "");
+  };
+}
+
+// Each read of the settings: the query key names the settings (a surface and workspace), so another's start over.
 watch(
   () => settingsQuery.data.value,
   (payload) => {
-    const settings = payload?.settings && typeof payload.settings === "object" ? payload.settings : {};
-    form.systemPrompt = String(settings.systemPrompt || "");
+    if (payload) {
+      edits.merge(writeSettings(payload), JSON.stringify(queryKey.value));
+    } else {
+      edits.reset();
+    }
     clearFieldErrors();
   },
   {
@@ -165,10 +190,7 @@ watch(
 );
 
 const settingsMutation = useMutation({
-  mutationFn: (patch) => settingsApi.updateSettings(patch),
-  onSuccess(payload) {
-    queryClient.setQueryData(queryKey.value, payload);
-  }
+  mutationFn: (patch) => settingsApi.updateSettings(patch)
 });
 
 const loadError = computed(() => {
@@ -206,8 +228,12 @@ async function submit() {
     return;
   }
 
+  // What this save sends: its answer replaces it, as the settings read.
+  const sent = edits.captureFields();
   try {
-    await settingsMutation.mutateAsync(validation.value);
+    const payload = await settingsMutation.mutateAsync(validation.value);
+    edits.mergeSaved(writeSettings(payload), sent);
+    queryClient.setQueryData(queryKey.value, payload);
   } catch (error) {
     const nextFieldErrors = fieldErrorMessages({ fieldErrors: normalizeObject(error?.details?.fieldErrors),
       fieldErrorCodes: error?.fieldErrorCodes || error?.details?.fieldErrorCodes });

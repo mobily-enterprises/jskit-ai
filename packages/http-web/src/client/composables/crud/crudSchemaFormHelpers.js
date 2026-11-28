@@ -408,6 +408,31 @@ function applyCrudPayloadToForm(fields = [], model = {}, payload = {}) {
   }
 }
 
+/**
+ * The server's value of a form field as the conflict notice shows it (an EditConflictItem's `value`): "" when it is
+ * empty, null for a lookup's id whose label is not loaded, and otherwise the text the field shows.
+ * @param {Record<string, any>} field A normalized form field.
+ * @param {unknown} value The value as the form holds it.
+ * @param {{ yes: string, no: string, lookupLabel: (field: Record<string, any>, value: string) => string }} words
+ * @returns {string | null}
+ */
+function describeCrudFieldValue(field, value, { yes, no, lookupLabel }) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+  if (resolveFormFieldType(field) === "boolean") {
+    return value ? yes : no;
+  }
+  if (isLookupFormField(field)) {
+    return lookupLabel(field, String(value)) || null;
+  }
+  if (Array.isArray(value)) {
+    return value.map(String).join(", ");
+  }
+
+  return String(value);
+}
+
 function resolveCrudRouteBoundFieldValues(fields = [], routeParams = {}) {
   const sourceRouteParams = asPlainObject(routeParams);
   const values = {};
@@ -455,6 +480,7 @@ export {
   createCrudFormModel,
   buildCrudFormPayload,
   applyCrudPayloadToForm,
+  describeCrudFieldValue,
   resolveCrudRouteBoundFieldValues,
   applyCrudRouteBoundFieldValues,
   resolveCrudFieldErrors

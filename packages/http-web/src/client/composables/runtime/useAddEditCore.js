@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/vue-query";
-import { computed, ref } from "vue";
+import { computed, ref, toValue, watch } from "vue";
 import { validateOperationInput } from "./operationValidationHelpers.js";
-import { ignoreLoadedPayload, watchResourceModelState } from "./modelStateHelpers.js";
+import { ignoreLoadedPayload } from "./modelStateHelpers.js";
+import { useUnsavedEdits } from "./useUnsavedEdits.js";
 import { toUiFieldErrors } from "../support/errorMessageHelpers.js";
 import { emptyRecord } from "../support/scopeHelpers.js";
 import { useJskitText } from "../../i18n.js";
@@ -14,7 +15,8 @@ function saveParsedInput(parsedInput) {
 
 /** @param {import("../../types.js").AddEditCoreOptions} options */
 function useAddEditCore({
-  model,
+  // readable-check: allow required-collaborators - data: the form's record, empty for a form whose fields live elsewhere
+  model = {},
   resource,
   queryKey,
   canSave,
@@ -29,17 +31,46 @@ function useAddEditCore({
   messages = {}
 }) {
   const queryClient = useQueryClient();
-  watchResourceModelState({
-    resource,
-    model,
-    mapLoadedToModel,
-    resolveMapContext() {
-      return {
-        queryClient,
-        resource
-      };
+  // Every write of fetched data into the form goes through `edits`: a read of the record, a save's response and
+  // applyLoaded() each keep what the person changed and has not saved, and list the fields whose server value changed
+  // under such a change.
+  const edits = useUnsavedEdits({ model });
+
+  function writeLoaded(payload) {
+    return (target) => mapLoadedToModel(target, payload, {
+      queryClient,
+      resource
+    });
+  }
+
+  // A record with no data yet (a new query key, or one the cache dropped) starts from the form's initial values.
+  watch(
+    () => resource.query.isPending.value,
+    (isPending) => {
+      if (isPending) {
+        edits.reset();
+      }
+    },
+    {
+      immediate: true
     }
-  });
+  );
+
+  // Each read of the record: its first load and every read again (a realtime event, the window regaining focus,
+  // Retry, a save's write to the cache). The query key names the record, so another record's data starts over.
+  watch(
+    () => resource.data.value,
+    (payload) => {
+      if (!payload) {
+        return;
+      }
+
+      edits.merge(writeLoaded(payload), JSON.stringify(toValue(queryKey)));
+    },
+    {
+      immediate: true
+    }
+  );
 
   const submitting = ref(false);
   const saving = computed(() => Boolean(submitting.value || resource.isSaving.value));
@@ -79,6 +110,8 @@ function useAddEditCore({
     validationAttempted.value = true;
 
     const rawPayload = resolveRawPayload();
+    // What this save sends: its response replaces these fields, except one the person changes while it runs.
+    const sent = edits.captureFields();
 
     const validationResult = validateOperationInput({
       input,
@@ -103,10 +136,7 @@ function useAddEditCore({
       const queryKeySnapshot = queryKey.value;
       const payload = await resource.save(savePayload);
 
-      mapLoadedToModel(model, payload, {
-        queryClient,
-        resource
-      });
+      edits.mergeSaved(writeLoaded(payload), sent);
 
       if (queryKeySnapshot !== undefined) {
         queryClient.setQueryData(queryKeySnapshot, payload);
@@ -132,6 +162,11 @@ function useAddEditCore({
     }
   }
 
+  /** A record of the form's own read that other code read, such as a settings page's one read of all its forms. */
+  function applyLoaded(payload) {
+    edits.merge(writeLoaded(payload));
+  }
+
   return {
     saving,
     fieldErrors,
@@ -140,7 +175,11 @@ function useAddEditCore({
     validationAttempted,
     validationErrors,
     resetValidation,
-    submit
+    submit,
+    conflicts: edits.conflicts,
+    acceptServerValue: edits.acceptServerValue,
+    keepOwnValue: edits.keepOwnValue,
+    applyLoaded
   };
 }
 

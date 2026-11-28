@@ -1,4 +1,6 @@
 <script setup>
+import { computed } from "vue";
+import EditConflictNotice from "@jskit-ai/http-web/client/components/EditConflictNotice";
 import { vPending } from "@jskit-ai/shell-web/client/directives/vPending";
 
 const props = defineProps({
@@ -9,6 +11,13 @@ const props = defineProps({
 });
 
 const notifications = props.runtime.notifications;
+
+// The settings read again (another session saved them) keep what the person switched; the notice names each switch
+// whose server value changed meanwhile.
+const FIELD_LABELS = Object.freeze({ productUpdates: "Product updates", accountActivity: "Account activity alerts" });
+const conflictItems = computed(() =>
+  notifications.conflicts.value.map(({ key, value }) => ({ key, label: FIELD_LABELS[key] || key, value: value ? "On" : "Off" }))
+);
 </script>
 
 <template>
@@ -20,7 +29,7 @@ const notifications = props.runtime.notifications;
           label="Product updates"
           color="primary"
           hide-details
-          :disabled="notifications.isSaving.value || notifications.isRefreshing.value"
+          :disabled="notifications.isSaving.value"
           class="mb-2"
         />
         <v-switch
@@ -28,7 +37,7 @@ const notifications = props.runtime.notifications;
           label="Account activity alerts"
           color="primary"
           hide-details
-          :disabled="notifications.isSaving.value || notifications.isRefreshing.value"
+          :disabled="notifications.isSaving.value"
           class="mb-2"
         />
         <v-switch
@@ -47,6 +56,11 @@ const notifications = props.runtime.notifications;
         >
           Save notification settings
         </v-btn>
+        <EditConflictNotice
+          :items="conflictItems"
+          @accept="notifications.acceptServerValue"
+          @keep="notifications.keepOwnValue"
+        />
       </v-form>
     </div>
   </div>

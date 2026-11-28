@@ -121,6 +121,37 @@ test("the app bar's Save submits the assistant settings, on phones and wide wind
   }
 });
 
+// The settings are read again while the person edits the prompt (here the window regaining focus refetches them), and
+// another person saved a new prompt meanwhile.
+test("settings read again keep an unsaved prompt and say when the server changed it", options, async (t) => {
+  const fixture = await startFixture(t);
+  let systemPrompt = "Answer briefly.";
+  const api = await openPage(fixture, {
+    viewport: { width: 1280, height: 900 },
+    routes: { "GET /api/assistant/console/settings": () => settingsDocument("console", systemPrompt) }
+  });
+  const { page } = api;
+  await page.goto("/settings/console");
+  await expect(prompt(page)).toHaveValue("Answer briefly.");
+
+  await prompt(page).fill("Answer in two sentences.");
+  systemPrompt = "Answer in French.";
+  const readAgain = page.waitForResponse((response) =>
+    response.request().method() === "GET" && response.url().endsWith("/api/assistant/console/settings"));
+  await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
+  await readAgain;
+  // The page has applied the response well within this; the prompt is still what the person typed.
+  await page.waitForTimeout(250);
+  await expect(prompt(page)).toHaveValue("Answer in two sentences.");
+
+  const notice = page.locator(".assistant-settings-client-element").getByRole("status");
+  await expect(notice).toContainText("System prompt changed to “Answer in French.” while you were editing.");
+  await notice.getByRole("button", { name: "Use the new System prompt" }).click();
+  await expect(prompt(page)).toHaveValue("Answer in French.");
+  await expect(notice.getByRole("button")).toHaveCount(0);
+  await finish(api);
+});
+
 test("someone the server does not let change the settings sees them read-only, without Save", options, async (t) => {
   const fixture = await startFixture(t);
   for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {

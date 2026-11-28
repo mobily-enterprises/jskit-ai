@@ -170,6 +170,45 @@ test("the profile section loads, saves, shows a refused field and removes the av
   await finish(api);
 });
 
+// The settings are read again while the person edits them: an `account.settings.changed` event, or here the window
+// regaining focus (TanStack's refetchOnWindowFocus). Another session changed the settings meanwhile.
+test("settings read again keep an unsaved display name, take the rest, and say when the server changed it", options, async () => {
+  let current = settings();
+  const api = await openApp({
+    routes: {
+      "GET /api/settings": () => document(current),
+      "PATCH /api/settings/profile": (body) => {
+        current = settings({ profile: { ...current.profile, displayName: body.data.attributes.displayName } });
+        return document(current);
+      }
+    }
+  });
+  const { page } = api;
+  await page.goto("/account/profile");
+  const name = page.getByLabel("Display name");
+  const email = page.getByLabel("Email", { exact: true });
+  await expect(name).toHaveValue("Ada");
+
+  await name.fill("Ada Lovelace");
+  current = settings({ profile: { ...current.profile, displayName: "Countess Ada", email: "countess@example.com" } });
+  await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
+
+  await expect(email).toHaveValue("countess@example.com");
+  await expect(name).toHaveValue("Ada Lovelace");
+  const notice = page.locator(".account-settings-section").getByRole("status");
+  await expect(notice).toContainText("Display name changed to “Countess Ada” while you were editing.");
+  await notice.getByRole("button", { name: "Keep your Display name" }).click();
+  await expect(notice.getByRole("button")).toHaveCount(0);
+  await expect(name).toHaveValue("Ada Lovelace");
+
+  await page.getByRole("button", { name: "Save profile" }).click();
+  await expect.poll(() => lastReport(page)).toBe("Profile updated.");
+  const saved = api.requests.find((request) => request.key === "PATCH /api/settings/profile");
+  assert.deepEqual(saved.body.data.attributes, { displayName: "Ada Lovelace" });
+  await expect(name).toHaveValue("Ada Lovelace");
+  await finish(api);
+});
+
 // Material 3's list-detail layout: a phone shows the section list or one section, and Up returns from the section to
 // the list and from the list to home; a wide window shows the list beside the open section, with no Up to the list.
 test("a phone shows the section list and one section at a time, and Up returns to the list", options, async () => {

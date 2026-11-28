@@ -37,6 +37,17 @@ app's language; the app does, for example
 `watch(useAccountLocale(), (code) => { if (code) i18n.global.locale.value = code; }, { immediate: true })`.
 Section titles may be plain text, a message key or `{ key, fallback }`.
 
+The settings are read again on `account.settings.changed`, when the window
+regains focus and on Retry, and each form's save answers with them all. Each
+section keeps what the person changed and has not saved, and takes every other
+field; its fields stay editable while the read runs. A section's `conflicts`
+(a ref) lists the fields whose server value changed under the person's change,
+as `{ key, value }` with the server's value; `acceptServerValue(key)` takes it
+and `keepOwnValue(key)` keeps theirs. The example sections show them after
+their Save button with `EditConflictNotice` from
+`@jskit-ai/http-web/client/components/EditConflictNotice`, which takes
+`{ key, label, value }` items, `value` the server's value as the field shows it.
+
 Sections are pages of the account surface, in Material 3's list-detail layout
 (shell-web's `ShellListDetail`): `/account` is the section list
 (`src/pages/account/index.vue`) and `/account/<section>` one section
