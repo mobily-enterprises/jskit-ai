@@ -495,6 +495,28 @@ test("API progress preceding a tool is commentary, separate from the final answe
   assert.ok(f.observed.events.some(event => event.type === "message" && event.role === "commentary" && event.status === "complete" && event.text === progress));
 });
 
+// CompAS (28 Nov): the claims check sent a complete answer back, the runtime kept it as progress when
+// the redo answered under another id, and the person saw two answers. The redo now takes its place.
+test("a reply a check sends back is replaced by its redo, on screen and in the saved turn, never kept beside it", async t => {
+  const rejected = "I've added the numbers: the total is five.";
+  const answer = content => Response.json({ id: "once", object: "chat.completion", created: 0, model: "exact-model",
+    choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }] });
+  const f = await fixture(t, { response: (body, round, name) => !body.stream ? answer('{"unsupported": ["I\'ve added the numbers"]}')
+    : round === 1 ? response({ text: rejected }) : round === 3 ? response({ name }) : response({ text: "The total is five." }) });
+  await f.conversation.send(message);
+  const result = await f.conversation.wait();
+  assert.deepEqual(f.observed.requests.map(body => body.stream === true), [true, false, true, true],
+    "The reply, its claims check, then the redo's action and its answer");
+  assert.equal(f.observed.executions.length, 1, "The redo does what the reply only claimed");
+  const turn = result.conversationLog[0];
+  assert.equal(turn.assistant.text, "The total is five.");
+  assert.deepEqual(turn.messages.filter(saved => saved.role !== "user").map(saved => [saved.role, saved.text]), [["assistant", "The total is five."]],
+    "Nothing of the reply the check sent back is saved");
+  const shown = new Map(f.observed.events.filter(event => event.type === "message" && ["assistant", "commentary"].includes(event.role))
+    .map(event => [event.messageId, event.text]));
+  assert.deepEqual([...shown.values()], ["The total is five."], "Each message the person saw ends with the redo's words");
+});
+
 test("in-memory application calls require explicit transient ownership and never restore prior calls", async () => {
   let executions = 0;
   const catalog = createServiceToolCatalog(actionCatalog(async () => { executions++; return { total: 5 }; }));

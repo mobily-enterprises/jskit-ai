@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LEAKED_MARKUP, stoppedShort, withoutMarkup } from "../src/server/index.js";
+import { MockLanguageModelV4 } from "ai/test";
+import { LEAKED_MARKUP, stoppedShort, toolRecord, unsupportedClaims, withoutMarkup } from "../src/server/index.js";
 
 // Raw model markup that leaked into replies in evaluations: it's spotted, and people only ever see
 // the reply without it.
@@ -58,4 +59,42 @@ test("plans without an announcing phrase are not caught", () => {
     "Got it. Checking the file first.",
     "I'll do it. I need to read the schema first."
   ]) assert.equal(stoppedShort(text), false, text);
+});
+
+// The claims checker, answering with the claims it names.
+const naming = (claims) => new MockLanguageModelV4({
+  doGenerate: async () => ({ content: [{ type: "text", text: JSON.stringify({ unsupported: claims }) }], finishReason: { unified: "stop", raw: "stop" },
+    usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } }, warnings: [] })
+});
+// A reply that read one email, as its transcript holds it.
+const readEmail = (email) => [
+  { role: "assistant", content: [{ type: "tool-call", toolCallId: "call_1", toolName: "inbox_read", input: { messageId: "m1" } }] },
+  { role: "tool", content: [{ type: "tool-result", toolCallId: "call_1", toolName: "inbox_read", output: { type: "json", value: email } }] }
+];
+
+// CompAS's Colleague read an email that said "We forwarded this to OCEAN EMERALD at 19:03" and repeated
+// it; the checker, which sees each tool result only briefly, named it as the reply's own claim and the
+// reply was sent back. A claim the reply's own tool results hold word for word was reported from a
+// record, not done; the assistant's own claims are still sent back.
+test("a claim its own tool results hold word for word was reported from a record; the assistant's own claims stand", async () => {
+  const email = { subject: "Fwd: berth change", from: "ops@agency.example",
+    body: "Hi all,\n\nWe forwarded this to OCEAN EMERALD at 19:03 and are waiting for the master.\nI've forwarded the invoice to the vessel's master as well.\nWe've forwarded it to the pilots too." };
+  const transcript = readEmail(email);
+  const claims = (named, options = {}) => unsupportedClaims({ model: naming(named), reply: "(the reply)", record: toolRecord(transcript), ...options });
+  for (const reported of ["We forwarded this to OCEAN EMERALD at 19:03", "we forwarded this to Ocean Emerald at 19:03."]) {
+    assert.deepEqual(await claims([reported], { transcript }), [], `${reported}: reported from the email, whatever its case and punctuation`);
+  }
+  for (const own of [
+    // The first person singular is the assistant speaking, even in a record's words.
+    "I've forwarded the invoice to the vessel's master",
+    // Too short to tell a report from a claim by its words.
+    "We've forwarded it",
+    // Not what the email says.
+    "We forwarded the invoice to OCEAN EMERALD at 19:03",
+    "I've sent the email"
+  ]) assert.deepEqual(await claims([own], { transcript }), [own], own);
+  assert.deepEqual(await claims(["We forwarded this to OCEAN EMERALD at 19:03", "I've sent the email"], { transcript }), ["I've sent the email"],
+    "Only the reported claim is set aside");
+  assert.deepEqual(await claims(["We forwarded this to OCEAN EMERALD at 19:03"]), ["We forwarded this to OCEAN EMERALD at 19:03"],
+    "Without the reply's transcript, as Mercbot calls it, every claim the checker names stands");
 });

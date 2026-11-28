@@ -165,7 +165,7 @@ test("a reply that stops at announcing its next step carries on once", async () 
   assert.equal(lastText(f.streamed[1]), CHECKS.stoppedShort);
   assert.equal(f.streamed[1].messages.some(message => message.content === "Let me check that."), false, "Its closing words are dropped");
   assert.deepEqual(f.messages.filter(message => message.complete).map(message => [message.id, message.text]),
-    [["reply-2", "Here is the result: 3 bookings."]]);
+    [["reply-1", "Here is the result: 3 bookings."]], "The redo answers in the place of the reply it was sent back from");
 });
 
 test("a claim no action supports carries on once with what was claimed", async () => {
@@ -177,6 +177,48 @@ test("a claim no action supports carries on once with what was claimed", async (
   assert.equal(f.executions.length, 1);
   assert.equal(f.messages.at(-1).text, "The booking is in.");
   assert.equal(result.metadata.check, "unsupported");
+});
+
+// What the person is left looking at: the runtime keeps one message per id, the last one sent under
+// it, where the id first appeared. A streamed answer that a later answer under another id follows is
+// kept too, as progress.
+const onScreen = messages => [...new Map(messages.map(({ id, role, text }) => [id, [role, text]]))]
+  .map(([id, [role, text]]) => [id, role, text]);
+
+// CompAS (28 Nov): the claims check sent back a complete answer, and the person saw it beside its redo,
+// two answers a little different. Each check's redo takes the place of the answer it sent back.
+test("a reply a check sends back is replaced on screen by its redo, never left beside it", async () => {
+  const claimed = body => body.messages[0].content.startsWith("You check an assistant's reply") ? JSON.stringify({ unsupported: ["I've created the booking"] }) : "";
+  for (const [check, first, redo, once, shown] of [
+    ["markup", "Here it is.<invoke name=\"action_execute\"></invoke>", [{ text: "The booking is in." }], undefined,
+      [["reply-1", "assistant", "The booking is in."]]],
+    // A redo step with words and an action: its words, as progress, take the place of the reply.
+    ["stoppedShort", "Let me check that.", [{ text: "Checking the bookings.", call: "action_execute" }, { text: "You have 3 bookings." }], undefined,
+      [["reply-1", "commentary", "Checking the bookings."], ["reply-3", "assistant", "You have 3 bookings."]]],
+    // A redo step that only acts shows nothing: the redo's answer takes the place.
+    ["unsupported", "I've created the booking.", [{ call: "action_execute" }, { text: "The booking is in." }], claimed,
+      [["reply-1", "assistant", "The booking is in."]]]
+  ]) {
+    const f = fixture({ reply: round => round === 1 ? { text: first } : redo[round - 2], ...(once ? { once } : {}) });
+    const result = await f.run();
+    assert.equal(result.metadata.check, check);
+    assert.deepEqual(onScreen(f.messages), shown, `${check}: the redo replaces the reply it sent back`);
+    assert.equal(f.messages.at(-1).complete, true);
+  }
+});
+
+// The claim CompAS's Colleague was sent back for: an email it read said it, and the reply repeated it.
+test("a claim the reply's own action results hold word for word was reported from a record, so the reply is not sent back", async () => {
+  const email = { subject: "Fwd: berth change", body: "Hi all,\n\nWe forwarded this to OCEAN EMERALD at 19:03 and are waiting for the master." };
+  const answer = "Both emails are in the thread: we forwarded this to OCEAN EMERALD at 19:03, and the master hasn't replied yet.";
+  const f = fixture({ reply: round => round === 1 ? { text: "Reading the thread.", call: "action_execute" } : { text: answer },
+    execute: () => ({ ok: true, result: email }),
+    once: () => JSON.stringify({ unsupported: ["We forwarded this to OCEAN EMERALD at 19:03"] }) });
+  const result = await f.run();
+  assert.equal(f.requests.filter(body => !body.stream).length, 1, "The claims are checked");
+  assert.equal(f.streamed.length, 2, "The reply is not sent back");
+  assert.deepEqual(result, { metadata: {} });
+  assert.equal(f.messages.at(-1).text, answer);
 });
 
 test("at the step limit the reply ends with the engine's account of where it got to", async () => {
