@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.2.93",
+  "version": "0.2.94",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@jskit-ai/uploads-image-web": "0.2.36",
-    "@jskit-ai/users-core": "0.2.73"
+    "@jskit-ai/users-core": "0.2.74"
   },
   "peerDependencies": {
     "@jskit-ai/auth-web": "0.2.67",
