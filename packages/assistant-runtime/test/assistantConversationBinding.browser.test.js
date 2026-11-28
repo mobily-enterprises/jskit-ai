@@ -1198,6 +1198,7 @@ test(`an explicit pre-admission rejection retains original retry identity and th
   assert.deepEqual(requests[0].input, requests[1].input);
   await expect(f.primary.getByText("Retry only this original message", { exact: true })).toHaveCount(1);
   await f.primary.getByRole("button", { name: "Stop", exact: true }).click();
+  await untilStopAnswered(f.page);
   await expect(f.primary.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
   assert.equal((await f.state()).requests.filter(request => request.suffix === "/cancel").length, 1);
   if (code === "conversation_not_steerable") {
@@ -3774,6 +3775,18 @@ test("host goal recovery errors remain visible while Resume uses the current goa
 });
 
 /**
+ * Waits until Stop has answered and the read it starts finds the turn ended. Stop reads "Stopping" while its request
+ * runs, so a Stop button gone says nothing: a test that waited on that read the fixture before Stop reached it.
+ * @param {import("playwright").Page} page
+ */
+async function untilStopAnswered(page) {
+  await expect.poll(() => page.evaluate(() => {
+    const conversation = window.conversationFixture.current();
+    return !conversation.stopping.value && conversation.snapshot.value.status;
+  })).toBe("ready");
+}
+
+/**
  * Every text the primary conversation's transcript error shows from now on, in order, "" when it goes.
  * @param {import("playwright").Page} page
  */
@@ -3800,12 +3813,7 @@ test("a refused Stop is reported as its action feedback, which the reload it sta
   await f.command("refuse-stop", { status: 409, body: { error: "Nothing is running to stop.", code: "conversation_not_working" } });
   const transcriptErrors = await recordTranscriptErrors(f.page);
   await stop.click();
-  // Stop reads "Stopping" while its request runs, so its going says nothing; the reload Stop starts reads that the
-  // turn had ended, once Stop has answered.
-  await expect.poll(() => f.page.evaluate(() => {
-    const conversation = window.conversationFixture.current();
-    return !conversation.stopping.value && conversation.snapshot.value.status;
-  })).toBe("ready");
+  await untilStopAnswered(f.page);
   assert.equal((await f.state()).requests.filter(request => request.suffix === "/cancel").length, 1);
   assert.deepEqual({ transcript: await transcriptErrors(), notices: await f.page.evaluate(() => window.fixtureNotices) }, {
     transcript: [],
