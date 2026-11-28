@@ -1492,7 +1492,9 @@ It replaces what lies between them and leaves the text outside as it is; in a
 file without them it puts the block at the top, and it makes the file when
 there is none. `npm run jskit:update` writes it after updating the packages, so
 commit `AGENTS.md` with the manifests. Write the app's own rules outside the
-block.
+block. Where they say who moves the app's JSKIT versions, or how its tests run
+and when the whole suite does, the block tells agents to follow them over its
+defaults (`npm run jskit:update`, and `npm test` running every Node test file).
 
 | Rule | Reports | Section |
 | --- | --- | --- |

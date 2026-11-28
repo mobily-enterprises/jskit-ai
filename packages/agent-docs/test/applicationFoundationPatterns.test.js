@@ -345,14 +345,16 @@ test("JSKIT's app guidance block links the guide and keeps only the rules no che
   // The guide is the website's, for the current release: agent-docs is not an app dependency, so there is no installed
   // copy of it to read, and an installed runtime package's own patterns/ folder holds its patterns at the app's version.
   assert.match(flat, /`@jskit-ai\/agent-docs` is not an app dependency, so the guide has no copy under `node_modules`/u);
-  assert.match(flat, /Keep the app on the current release \(`npm run jskit:update`\)/u);
+  // Who moves the app's JSKIT versions, and how its tests run, are the project's own rules where it has them (public
+  // Vibe64's development never moves its pins; Vibe64 Online's `npm test` alone is refused): the block defers to them.
+  assert.match(flat, /`npm run jskit:update` moves the app to the current release, so the two agree, unless this project's own rules say who moves its JSKIT versions: then follow them/u);
   assert.match(flat, /that package's `patterns\/` folder, at the app's version/u);
   assert.match(flat, /Never install a runtime package only to read its documentation/u);
   assert.doesNotMatch(block, /node_modules\/@jskit-ai\/agent-docs|version-matched package-owned copy/u);
   // What `npm run verify` runs is the guide's Running the checks, linked, not restated.
   assert.match(flat, /`npm run verify` runs the checks listed in `[^`]+typed-features#running-the-checks`/u);
   assert.doesNotMatch(flat, /`jskit check`|`npm run lint`|`npm run test:client`|tests and build|adds the package graph/u);
-  assert.equal(flat.split("`npm test` runs every Node test file; `npm test -- <file>` runs exactly that file").length, 2);
+  assert.equal(flat.split("`npm test -- <file>` runs exactly that file, and `npm test` every Node test file, unless this project's own rules say how its tests run and when the whole suite does: then follow them").length, 2);
   assert.match(flat, /excuse one only with the guide's `readable-check: allow` comment and reason prefix/u);
   // Rules a check enforces or a guide states are links, not copies.
   assert.doesNotMatch(block, /SelectField|BROWSER_TEST_DB_NAME|jskit-test: alone|Keep verification output small|generator\s+provenance/u);
