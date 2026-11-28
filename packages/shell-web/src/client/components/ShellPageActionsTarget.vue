@@ -7,9 +7,10 @@ import { SHELL_PAGE_ACTIONS_ID } from "../support/navigationPresentation.js";
 import { NO_SHELL_PAGE_ACTIONS_REGISTRY, SHELL_PAGE_ACTIONS_REGISTRY_KEY } from "../support/pageActions.js";
 
 // Where the current page's ShellPageActions show: after the page title in the top app bar, followed by the bar's
-// overflow menu (Material 3's trailing "More actions" menu) when an action goes there. On medium and expanded windows
-// the actions that don't fit beside the whole title go there, the last first (useShellPageActionsFold), and until
-// they have the actions' box clips them, so the menu button and the bar's items after it stay on screen. Its `menu`
+// overflow menu (Material 3's trailing "More actions" menu) when an action goes there. On medium windows the actions
+// that don't fit beside the whole title go there, the last first (useShellPageActionsFold); on expanded and large ones
+// the title truncates first, and only the actions that don't fit beside its floor go. Until they have, the actions'
+// box clips them, so the menu button and the bar's items after it stay on screen. Its `menu`
 // slot adds the bar's own items that don't fit (on a phone, ShellLayout's top-right items) below the actions. The menu
 // keeps the slot mounted while it is closed, so an item there that does more than draw a button keeps working.
 // ShellLayout's bar has it; a layout that draws its own top app bar renders it once there, as an item of the bar's
@@ -31,7 +32,7 @@ const moreLabel = computed(() => t("jskit.shell.actions.more"));
 const slots = useSlots();
 const menuOpen = ref(false);
 const actionsBox = ref(null);
-const { isCompact } = useShellWindowSizeClass();
+const { isCompact, isMedium } = useShellWindowSizeClass();
 const folds = computed(() => !isCompact.value);
 
 // Read as the menu renders, since slots are not reactive.
@@ -39,7 +40,7 @@ function showsItems() {
   return props.menuItems && Boolean(slots.menu);
 }
 
-useShellPageActionsFold({ enabled: folds, registry, target: actionsBox, ownMenu: showsItems });
+useShellPageActionsFold({ enabled: folds, wholeTitle: isMedium, registry, target: actionsBox, ownMenu: showsItems });
 
 function showsMenu() {
   return menuEntries.value.length > 0 || showsItems();

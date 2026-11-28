@@ -218,9 +218,9 @@ Exports
 
 ### `src/client/composables/useShellPageActionsFold.js`
 Exports
-- `useShellPageActionsFold({ enabled, registry, target, ownMenu })`
+- `useShellPageActionsFold({ enabled, wholeTitle, registry, target, ownMenu })`
 Local functions
-- `actionsRoom(row, target, menuButton)`
+- `actionsRoom(row, target, menuButton, wholeTitle)`
 - `widthOfChildren(element)`
 
 ### `src/client/composables/useShellPageClose.js`
@@ -618,6 +618,7 @@ Exports
 ### `src/client/support/appBarWidths.js`
 Exports
 - `ICON_BUTTON_WIDTH`
+- `WIDE_BAR_TITLE_FLOOR`
 - `contentWidth(element)`
 - `wholeTitleWidth(title)`
 - `widthInRow(element)`

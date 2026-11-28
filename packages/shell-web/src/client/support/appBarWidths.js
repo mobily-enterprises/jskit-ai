@@ -1,5 +1,9 @@
 // Material 3's icon button: the width of an item, or of the overflow button, that the bar has not drawn yet.
 const ICON_BUTTON_WIDTH = 48;
+// The least room an expanded or large top app bar leaves its page title before a page action folds, or the whole
+// title when that is narrower: about fourteen characters of the title's type (title-large, 22px). The title truncates
+// down to it.
+const WIDE_BAR_TITLE_FLOOR = 200;
 
 /**
  * The title's whole width: its text, or what its slot draws, to the next pixel when it fits, else the text it clips,
@@ -35,4 +39,4 @@ function contentWidth(element) {
   return element.clientWidth - Number.parseFloat(style.paddingInlineStart) - Number.parseFloat(style.paddingInlineEnd);
 }
 
-export { ICON_BUTTON_WIDTH, contentWidth, wholeTitleWidth, widthInRow };
+export { ICON_BUTTON_WIDTH, WIDE_BAR_TITLE_FLOOR, contentWidth, wholeTitleWidth, widthInRow };

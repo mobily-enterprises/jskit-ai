@@ -1,17 +1,19 @@
 import { nextTick, onBeforeUnmount, onMounted, watch } from "vue";
 import { PAGE_TITLE_ID } from "../navigation/shellNavigationRuntime.js";
-import { ICON_BUTTON_WIDTH, contentWidth, wholeTitleWidth, widthInRow } from "../support/appBarWidths.js";
+import { ICON_BUTTON_WIDTH, WIDE_BAR_TITLE_FLOOR, contentWidth, wholeTitleWidth, widthInRow } from "../support/appBarWidths.js";
 import { resolveFoldedPageActions } from "../support/pageActions.js";
 
 /**
- * The width a top app bar's row leaves its page actions and overflow button beside the whole title: the row's width
- * less each of its other items, where an item that grows (the title's box, a spacer) needs only the whole title, or
- * nothing when it is empty.
+ * The width a top app bar's row leaves its page actions and overflow button beside the title: the row's width less each
+ * of its other items, where an item that grows (the title's box, a spacer) needs only the title, or nothing when it is
+ * empty. The title needs its whole width when `wholeTitle`, else that up to WIDE_BAR_TITLE_FLOOR, past which it
+ * truncates.
  * @param {HTMLElement} row
  * @param {HTMLElement} target The actions' box.
  * @param {Element | null} menuButton
+ * @param {boolean} wholeTitle
  */
-function actionsRoom(row, target, menuButton) {
+function actionsRoom(row, target, menuButton, wholeTitle) {
   const title = document.getElementById(PAGE_TITLE_ID);
   let room = contentWidth(row);
   for (const child of row.children) {
@@ -21,7 +23,8 @@ function actionsRoom(row, target, menuButton) {
     room -= widthInRow(child);
     if (Number.parseFloat(window.getComputedStyle(child).flexGrow) > 0) {
       if (title && child.contains(title)) {
-        room += contentWidth(child) - wholeTitleWidth(title);
+        const whole = wholeTitleWidth(title);
+        room += contentWidth(child) - (wholeTitle ? whole : Math.min(whole, WIDE_BAR_TITLE_FLOOR));
       } else if (child.childElementCount === 0 && !child.textContent.trim()) {
         room += child.getBoundingClientRect().width;
       }
@@ -36,18 +39,20 @@ function widthOfChildren(element) {
 }
 
 /**
- * Folds a medium or expanded top app bar's page actions that don't fit beside its whole title into its overflow menu,
- * the last first (resolveFoldedPageActions), measured on the bar as drawn, so the overflow button and the bar's own
- * items after the actions always stay on screen. It measures again when the bar's content changes (a new title, an
- * action's label, a page's actions), when the bar is resized and when fonts load. A folded action keeps the width it
- * had in the bar; a compact bar folds by its own rule (`enabled`).
+ * Folds a medium, expanded or large top app bar's page actions that don't fit beside its title into its overflow
+ * menu, the last first (resolveFoldedPageActions), measured on the bar as drawn, so the overflow button and the bar's
+ * own items after the actions always stay on screen. A medium bar keeps its whole title (`wholeTitle`); a wider one has
+ * room for its actions, so its title truncates first, down to WIDE_BAR_TITLE_FLOOR. It measures again when the bar's
+ * content changes (a new title, an action's label, a page's actions), when the bar is resized and when fonts load. A
+ * folded action keeps the width it had in the bar; a compact bar folds by its own rule (`enabled`).
  * @param {object} options
  * @param {import("vue").Ref<boolean>} options.enabled
+ * @param {import("vue").Ref<boolean>} options.wholeTitle Whether the actions fold to leave the title whole.
  * @param {import("../support/pageActions.js").ShellPageActionsRegistry} options.registry The bar's page actions.
  * @param {import("vue").Ref<HTMLElement | null>} options.target The actions' box, an item of the bar's row.
  * @param {() => boolean} options.ownMenu Whether the overflow menu holds the bar's own items now.
  */
-function useShellPageActionsFold({ enabled, registry, target, ownMenu }) {
+function useShellPageActionsFold({ enabled, wholeTitle, registry, target, ownMenu }) {
   const widths = new Map();
   let menuButtonWidth = ICON_BUTTON_WIDTH;
   let row = null;
@@ -85,7 +90,7 @@ function useShellPageActionsFold({ enabled, registry, target, ownMenu }) {
       menuButtonWidth = widthInRow(menuButton);
     }
     registry.fold(resolveFoldedPageActions({
-      room: actionsRoom(row, targetElement, menuButton),
+      room: actionsRoom(row, targetElement, menuButton, wholeTitle.value),
       fixed: widthOfChildren(targetElement) - inBar,
       actions: foldable.map((entry) => widths.get(entry.id)),
       menuButton: menuButtonWidth,
@@ -93,7 +98,7 @@ function useShellPageActionsFold({ enabled, registry, target, ownMenu }) {
     }));
   }
 
-  watch([enabled, () => registry.foldable.value.map((entry) => entry.id).join("\n")], fit, { flush: "post" });
+  watch([enabled, wholeTitle, () => registry.foldable.value.map((entry) => entry.id).join("\n")], fit, { flush: "post" });
 
   onMounted(() => {
     row = target.value.parentElement;

@@ -145,11 +145,12 @@ function createShellPageActionsRegistry({ isCompact }) {
 }
 
 /**
- * How many of a medium or expanded top app bar's foldable page actions (in bar order) go into its overflow menu: the
- * fewest, the last first, that leave the rest, the bar's other actions and the overflow button within the room the
- * whole title leaves them; all of them when even that is too wide, and the title is clipped beside what stays.
+ * How many of a medium, expanded or large top app bar's foldable page actions (in bar order) go into its overflow
+ * menu: the fewest, the last first, that leave the rest, the bar's other actions and the overflow button within the
+ * room the title leaves them (useShellPageActionsFold: a medium bar's whole title, a wider bar's up to its floor); all
+ * of them when even that is too wide, and the title is clipped beside what stays.
  * @param {object} options
- * @param {number} options.room The width the actions and the overflow button share beside the whole title.
+ * @param {number} options.room The width the actions and the overflow button share beside the title.
  * @param {number} options.fixed The width of the actions that stay in the bar whatever room is left (the primary).
  * @param {readonly number[]} options.actions Each foldable action's width with its margins, in bar order.
  * @param {number} options.menuButton The overflow button's width.
