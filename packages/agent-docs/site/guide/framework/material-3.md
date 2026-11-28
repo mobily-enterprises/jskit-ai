@@ -277,12 +277,12 @@ dialog, chip or FAB.
   tooltip), and `primary`, `to`, `replace`, `href` (with `download` for a
   file, such as a CSV export), `disabled`, `pending`, `loading` or `color`
   (`error` for a destructive one); attributes such as `target` reach its
-  button. On compact widths the bar shows the single `primary` action (a
-  form's Save) and puts the other actions, and the top-right items that don't
-  fit beside the title, in its "More actions" menu, where `overflow` actions
-  always are; medium bars show the actions that fit beside the whole title,
-  wider bars those that fit beside 200px of it (a longer title truncates), and
-  put the rest there, the last first. Put the most used actions first.
+  button. On compact widths the bar shows the single `primary` action (a form's
+  Save) and puts the other actions in its "More actions" menu, where `overflow`
+  actions always are; medium bars keep the actions that fit beside the whole
+  title, wider bars beside 200px of it (a longer title truncates); the rest go
+  there, last first, then top-right items that don't fit, after wider bars hide
+  the account's name. Put the most used actions first.
 - **Window size classes:** compact under 600 (navigation bar), medium 600–839
   (navigation rail), expanded 840–1199 and large from 1200 (drawer), read from
   `useShellWindowSizeClass()`

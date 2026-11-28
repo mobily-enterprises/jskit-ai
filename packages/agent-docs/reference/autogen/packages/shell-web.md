@@ -221,7 +221,6 @@ Exports
 - `useShellPageActionsFold({ enabled, wholeTitle, registry, target, ownMenu })`
 Local functions
 - `actionsRoom(row, target, menuButton, wholeTitle)`
-- `widthOfChildren(element)`
 
 ### `src/client/composables/useShellPageClose.js`
 Exports
@@ -253,7 +252,7 @@ Exports
 
 ### `src/client/composables/useShellTopRightOverflow.js`
 Exports
-- `useShellTopRightOverflow({ enabled, placements, pageActions, row, headline, items, menuId })`
+- `useShellTopRightOverflow({ enabled, compact, wholeTitle, placements, pageActions, row, headline, items, menuId })`
 
 ### `src/client/composables/useShellWindowSizeClass.js`
 Exports
@@ -627,6 +626,7 @@ Exports
 - `contentWidth(element)`
 - `wholeTitleWidth(title)`
 - `widthInRow(element)`
+- `widthOfChildren(element)`
 
 ### `src/client/support/drawerPresentation.js`
 Exports
@@ -732,7 +732,10 @@ Exports
 
 ### `src/client/support/topRightOverflow.js`
 Exports
+- `NO_SHELL_TOP_RIGHT_LABELS`
+- `SHELL_TOP_RIGHT_LABELS_KEY`
 - `resolveTopRightItemsInMenu({ room, title, items, menuButton, menuShown, keepLast })`
+- `resolveWideBarItems({ room, title, primary, actions, items, menuButton, menuShown, keepLast })`
 
 ### `src/client/support/windowSizeClass.js`
 Exports
@@ -793,6 +796,10 @@ Exports
 - None
 
 ### fixtures
+
+### `fixtures/adaptive-shell/src/AccountButton.vue`
+Exports
+- None
 
 ### `fixtures/adaptive-shell/src/ActionsFormPage.vue`
 Exports
@@ -891,6 +898,10 @@ Exports
 - `records`
 
 ### `fixtures/adaptive-shell/src/ReportsPage.vue`
+Exports
+- None
+
+### `fixtures/adaptive-shell/src/ReviewPage.vue`
 Exports
 - None
 

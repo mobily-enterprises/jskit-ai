@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, onBeforeUnmount, onMounted, ref, useSlots } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, provide, ref, useSlots } from "vue";
 import { useDisplay } from "vuetify";
 import { useShellAppBar } from "../composables/useShellAppBar.js";
 import { useShellDrawer } from "../composables/useShellDrawer.js";
@@ -19,6 +19,7 @@ import {
   shellLayoutHasNavigationBar
 } from "../support/drawerPresentation.js";
 import { resolveShellLayoutClass } from "../support/shellLayoutClass.js";
+import { SHELL_TOP_RIGHT_LABELS_KEY } from "../support/topRightOverflow.js";
 import { resolveWindowSizeClass } from "../support/windowSizeClass.js";
 import { NO_SHELL_WEB_REFRESH_RUNTIME, SHELL_WEB_REFRESH_RUNTIME_KEY } from "../runtime/refreshRuntime.js";
 import { useShellNavigation } from "../navigation/useShellNavigation.js";
@@ -152,9 +153,11 @@ const navigationStyle = computed(() => ({
   "--shell-navigation-rail-width": `${resolvedRailWidth.value}px`
 }));
 
-// A compact bar moves the top-right items it has no room for beside the whole title into its overflow menu, after the
-// page actions, farthest from the corner first; the one nearest the corner (the account menu) stays unless the page's
-// primary action takes its place. Each item renders once and moves there and back mounted, so an item that does more
+// The bar moves the top-right items it has no room for beside the title into its overflow menu, after the page
+// actions, farthest from the corner first; the one nearest the corner (the account menu) stays unless the page's
+// primary action takes its place. A compact bar does so beside the whole title; a wider one moves items only once its
+// page actions have folded, and an expanded or large one shows the items' labels (the account's name) only when
+// everything fits (useShellTopRightOverflow). Each item renders once and moves there and back mounted, so an item that does more
 // than draw a button (a live count, a panel or a button it teleports elsewhere) keeps working while it is in the menu.
 // A layout's own top-right slot stays as it is.
 const TOP_RIGHT_MENU_ID = "jskit-shell-top-right-menu";
@@ -163,8 +166,10 @@ const topRight = useShellOutletPlacements("shell-layout:top-right");
 const appBarRow = ref(null);
 const appBarHeadline = ref(null);
 const topRightItems = ref(null);
-const { inMenu: topRightInMenu } = useShellTopRightOverflow({
-  enabled: computed(() => isCompactLayout.value && !slots["top-right"]),
+const { inMenu: topRightInMenu, showsLabels: topRightLabels } = useShellTopRightOverflow({
+  enabled: computed(() => !slots["top-right"]),
+  compact: isCompactLayout,
+  wholeTitle: computed(() => sizeClass.value === "medium"),
   placements: topRight,
   pageActions,
   row: appBarRow,
@@ -172,6 +177,7 @@ const { inMenu: topRightInMenu } = useShellTopRightOverflow({
   items: topRightItems,
   menuId: TOP_RIGHT_MENU_ID
 });
+provide(SHELL_TOP_RIGHT_LABELS_KEY, topRightLabels);
 
 // While a dialog or a bottom sheet is open, each part of the page marked `data-shell-page` is inert under it: the app
 // bar, the navigation, main with the page's FAB, and the side sheet.

@@ -43,6 +43,8 @@ const FOLLOWING = 4;
  * @property {import("vue").ComputedRef<ShellPageActionEntry[]>} foldable The actions a bar folds when it has no room
  *   for them, in bar order: every one but the primary and the `overflow` ones.
  * @property {(count: number) => void} fold How many foldable actions, from the last, the bar has no room for.
+ * @property {Map<string, number>} widths Each foldable action's width with its margins, by id, as the bar last drew it,
+ *   kept while it is folded (useShellPageActionsFold measures them).
  * @property {(entry: ShellPageActionEntry) => { placed: () => void, release: () => void }} register
  * @property {(entry: ShellPageActionEntry) => boolean} inMenu
  */
@@ -57,6 +59,7 @@ const NO_SHELL_PAGE_ACTIONS_REGISTRY = {
   hasPrimary: computed(() => false),
   foldable: computed(() => []),
   fold() {},
+  widths: new Map(),
   register: () => ({ placed() {}, release() {} }),
   inMenu: () => false
 };
@@ -139,6 +142,7 @@ function createShellPageActionsRegistry({ isCompact }) {
     hasPrimary,
     foldable,
     fold,
+    widths: new Map(),
     register,
     inMenu
   };

@@ -31,6 +31,14 @@ function widthInRow(element) {
 }
 
 /**
+ * The width of an element's children in its row, such as the page actions an actions' box draws.
+ * @param {Element} element
+ */
+function widthOfChildren(element) {
+  return [...element.children].reduce((total, child) => total + widthInRow(child), 0);
+}
+
+/**
  * The width inside an element's padding.
  * @param {HTMLElement} element
  */
@@ -39,4 +47,4 @@ function contentWidth(element) {
   return element.clientWidth - Number.parseFloat(style.paddingInlineStart) - Number.parseFloat(style.paddingInlineEnd);
 }
 
-export { ICON_BUTTON_WIDTH, WIDE_BAR_TITLE_FLOOR, contentWidth, wholeTitleWidth, widthInRow };
+export { ICON_BUTTON_WIDTH, WIDE_BAR_TITLE_FLOOR, contentWidth, wholeTitleWidth, widthInRow, widthOfChildren };

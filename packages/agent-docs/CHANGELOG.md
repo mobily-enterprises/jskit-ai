@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Material 3 guide's Actions item says that after the page actions every bar moves the top-right items that don't fit into More actions, and that expanded and large bars hide the account's name first.
+
 - The typed features guide's Routes section: a route that runs one action names it in `actionId`, and a signed-in route then has that action's channel, surface and permission checked before anything the request sends is validated; the auth policy signs the caller in before validation; never repeat an action's `permission` on its route; `jskit/route-action-id` (in `typedFeaturesConfig`) reports a `router.register()` whose handler runs one action and whose options name no `actionId`, and the `action scope:` reason prefix excuses a route whose action finds its scope in the query or body. The security pass asks for a refusal, not field errors, for a bad query, path or body sent signed out or without the permission of the route's action (#497).
 - The assistant conversation guide says a message's Cancel the server refused keeps its refusal: no snapshot sends it again, only the person's next Cancel or a page reload with `draftStorage`.
 - The assistant conversation guide says what `runtime.cancel()` resolves (`false` when nothing was sent, `{ ok: false, error, code? }` for a refusal), that its caller shows the refusal, and that the element's Stop reports it through the shell's action feedback; the voice guide says the conversation example rejects with it.
