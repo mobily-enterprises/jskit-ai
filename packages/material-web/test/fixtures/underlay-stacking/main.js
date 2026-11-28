@@ -13,14 +13,14 @@ import { createMaterialVuetifyOptions } from "../../../src/client/index.js";
 
 // Each Vuetify component that draws a layer of its own over its text, beyond the button, chip, list item, card and
 // avatar material.css already restacks, with JSKIT's Material 3 options and stylesheet
-// (underlayStacking.browser.test.js): a tonal alert (its tint), an alert with a border (its border box), icon buttons
+// (underlayStacking.browser.test.js): a tonal alert without a colour (its tint: one in a colour with a container role
+// is that container, with no tint, tonalAlerts.browser.test.js), an alert with a border (its border box), icon buttons
 // with a text at rest, tonal and active (their state layer and underlay), an editable stepper's step (its state layer
-// and underlay), a tonal snackbar (its tint) and focusable expansion panels, the first open (each title's state
-// layer, shown on the open one, on hover and on focus, and on a disabled one), one with a title of its own colour.
+// and underlay), a tonal snackbar (its tint) and focusable expansion panels, the first open (each title's state layer,
+// shown on the open one, on hover and on focus, and on a disabled one), one with a title of its own colour.
 const App = () => h(VApp, () => h(VMain, { class: "pa-6" }, () => [
   h(VAlert, {
     variant: "tonal",
-    color: "primary",
     title: "Backups",
     text: "The last backup finished an hour ago.",
     class: "mb-4",
