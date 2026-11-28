@@ -3800,8 +3800,12 @@ test("a refused Stop is reported as its action feedback, which the reload it sta
   await f.command("refuse-stop", { status: 409, body: { error: "Nothing is running to stop.", code: "conversation_not_working" } });
   const transcriptErrors = await recordTranscriptErrors(f.page);
   await stop.click();
-  // The reload Stop starts reads that the turn had ended.
-  await expect(stop).toHaveCount(0);
+  // Stop reads "Stopping" while its request runs, so its going says nothing; the reload Stop starts reads that the
+  // turn had ended, once Stop has answered.
+  await expect.poll(() => f.page.evaluate(() => {
+    const conversation = window.conversationFixture.current();
+    return !conversation.stopping.value && conversation.snapshot.value.status;
+  })).toBe("ready");
   assert.equal((await f.state()).requests.filter(request => request.suffix === "/cancel").length, 1);
   assert.deepEqual({ transcript: await transcriptErrors(), notices: await f.page.evaluate(() => window.fixtureNotices) }, {
     transcript: [],
