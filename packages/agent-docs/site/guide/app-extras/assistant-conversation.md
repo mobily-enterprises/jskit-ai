@@ -927,8 +927,9 @@ server agrees, or calls `cancelFailed(id, error)` to keep it with Cancel again
 and running delivery check, calls the server's delivery cancel, removes the
 message on agreement and reloads. A cancel that could not reach the server is
 retried on the next snapshot after reconnecting, including after a page reload
-with `draftStorage`. Without an application `cancel` action, the element
-removes only a failed message.
+with `draftStorage`. A cancel the server refused keeps its refusal: no snapshot
+sends it again, only the person's next Cancel or that page reload. Without an
+application `cancel` action, the element removes only a failed message.
 Retry leaves the current draft untouched. Attachment bytes and removal on
 acceptance remain with the application's attachment owner.
 

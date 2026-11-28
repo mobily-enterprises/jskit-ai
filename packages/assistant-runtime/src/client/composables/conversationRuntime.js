@@ -133,6 +133,8 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
   const delivery = createAssistantMessageDelivery();
   const pendingMessages = new Map();
   const deliveryChecks = new Map();
+  // The messages whose Cancel the server answered with a refusal: no state sends that Cancel again, only the person.
+  const refusedCancels = new Set();
   const editable = computed(() => active.value && !accessDenied.value);
   const available = computed(() => active.value && !loading.value && !accessDenied.value && Boolean(snapshot.value));
   // A deferred message keeps the subscription while its view is hidden, so it
@@ -524,11 +526,13 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
   // unsent request and running delivery check, then asks the server, which
   // always records the cancel. The message stays, shown as cancelling, until
   // the server agrees; when the server cannot be reached it stays with Cancel
-  // again, and the next snapshot after reconnecting retries it.
+  // again, and the next snapshot after reconnecting retries it. A refusal the
+  // server answered stays shown until the person cancels again.
   async function cancelMessage(messageId) {
     pendingMessages.get(messageId)?.controller.abort();
     deliveryChecks.get(messageId)?.abort();
     if (!available.value || !delivery.cancel(messageId)) return false;
+    refusedCancels.delete(messageId);
     try {
       const result = await api.cancelConversationDelivery(identity.conversationId, messageId);
       if (result?.ok === false) throw Object.assign(new Error(resultError(result)), { status: 409 });
@@ -538,13 +542,16 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
       return true;
     } catch (failure) {
       // The server's own refusal names itself; anything else did not reach it.
-      if (current.value) delivery.cancelFailed(messageId, Number.isInteger(failure?.status) && failure.status > 0 ? failureMessage(failure) : "");
+      const answered = Number.isInteger(failure?.status) && failure.status > 0;
+      if (!current.value) return false;
+      if (answered) refusedCancels.add(messageId);
+      delivery.cancelFailed(messageId, answered ? failureMessage(failure) : "");
       return false;
     }
   }
   function retryCancels() {
     for (const message of delivery.state.messages) {
-      if (message.cancelError && !message.cancelling) void cancelMessage(message.id);
+      if (message.cancelError && !message.cancelling && !refusedCancels.has(message.id)) void cancelMessage(message.id);
     }
   }
 

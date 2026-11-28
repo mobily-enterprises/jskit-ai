@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The assistant conversation guide says a message's Cancel the server refused keeps its refusal: no snapshot sends it again, only the person's next Cancel or a page reload with `draftStorage`.
 - The assistant conversation guide says what `runtime.cancel()` resolves (`false` when nothing was sent, `{ ok: false, error, code? }` for a refusal), that its caller shows the refusal, and that the element's Stop reports it through the shell's action feedback; the voice guide says the conversation example rejects with it.
 - The typed features guide's Test-source rules say what `test/fixed-sleep` leaves out (a timer in `Promise.race([…])`, a poll loop's interval, another object's `wait`, a file it cannot read past its brackets read a line at a time), that `test/fixed-database-name` leaves out a thrown error's message and `test/script-files` names only the files node's default pattern selects anyway; the Test pass guide and both guides' fixed-wait marker cover a stand-in's simulated latency: `// jskit-test: fixed-wait - <what the window proves, or the latency the stand-in simulates>`.
 - The `auth/own-design-sign-in` pattern's `ConfirmItsYouDialog` starts its form afresh each time it opens (`useSecondFactorProof()`'s new `reset()`): the native `<dialog>` stays mounted between step-ups, so after a recovery code the next prompt opened on "Recovery code", and a cancelled attempt's code and refusal showed again.
