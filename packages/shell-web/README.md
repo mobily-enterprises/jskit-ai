@@ -13,7 +13,10 @@ unchanged for existing consumers.
 ## Top app bar and snackbar placement
 
 On compact windows the top app bar shows the page's single `primary` action and
-puts its other actions in the "More actions" menu. The bar's own top-right items
+puts its other actions in the "More actions" menu. No bar ever folds the
+`primary` action or the page's way out where the bar has no Up arrow (a
+`ShellPageAction` marked `close`, such as a form's Cancel beside its list): the
+bar's own items and the other actions make room for them. The bar's own top-right items
 (tools, a notification bell, the account avatar) stay while they fit beside the
 whole page title; those that don't follow the actions into the menu, farthest
 from the corner first, and the item nearest the corner stays unless the

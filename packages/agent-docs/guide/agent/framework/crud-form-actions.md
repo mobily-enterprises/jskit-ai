@@ -8,7 +8,9 @@ description: Customize shared CRUD form actions and local validation guidance.
 # Record form actions and validation
 
 `CrudAddEditScreen` provides an optional `actions` slot with Cancel and Save as
-its default content. The slot exposes `screen`, `mode`, `formRuntime`,
+its default content; where the bar has no Up arrow, that Cancel is the page's
+way out, a `ShellPageAction` marked `close`, which the bar never folds. The slot
+exposes `screen`, `mode`, `formRuntime`,
 `formState`, `addEdit`, `saveLabel`, the resolved
 `cancelTo` route target, and `submit`. Custom actions call `submit()` and bind
 their disabled state to `addEdit.isSubmitDisabled` and their pending state to

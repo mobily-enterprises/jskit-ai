@@ -42,9 +42,10 @@ function actionsRoom(row, target, menuButton, wholeTitle) {
 
 /**
  * Folds a medium, expanded or large top app bar's page actions that don't fit beside its title into its overflow
- * menu, the last first (resolveFoldedPageActions), measured on the bar as drawn, so the overflow button and the bar's
- * own items after the actions always stay on screen. A medium bar keeps its whole title (`wholeTitle`); a wider one has
- * room for its actions, so its title truncates first, down to WIDE_BAR_TITLE_FLOOR. It measures again when the bar's
+ * menu, the last first (resolveFoldedPageActions), never the primary one nor the page's way out (`close`), measured on
+ * the bar as drawn, so the overflow button and the bar's own items after the actions always stay on screen. A medium
+ * bar keeps its whole title (`wholeTitle`); a wider one has room for its actions, so its title truncates first, down to
+ * WIDE_BAR_TITLE_FLOOR. It measures again when the bar's
  * content changes (a new title, an action's label, a page's actions), when the bar is resized and when fonts load. A
  * folded action keeps the width it had in the bar (the registry's `widths`); a compact bar folds by its own rule
  * (`enabled`).

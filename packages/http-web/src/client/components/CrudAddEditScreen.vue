@@ -12,7 +12,8 @@ import EditConflictNotice from "./EditConflictNotice.vue";
 
 // A new or edit page as Material 3 lays out a full-screen form: the top app bar's leading close (X) cancels, Save is
 // its one primary action, and the form's fields are below on the page. Where the bar has no Up arrow to turn into the
-// close (a form opened directly, or beside its list), Cancel is a bar action before Save.
+// close (a form opened directly, or beside its list), Cancel is a bar action before Save, the page's way out (`close`),
+// which the bar never folds.
 
 const props = defineProps({
   screen: {
@@ -121,6 +122,7 @@ useShellPageClose({ label: () => t("jskit.http.actions.cancel"), close: cancel }
       >
         <ShellPageAction
           v-if="cancelInBar"
+          close
           icon="$close"
           :label="t('jskit.http.actions.cancel')"
           @click="cancel"

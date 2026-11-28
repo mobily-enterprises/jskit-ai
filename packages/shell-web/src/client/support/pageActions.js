@@ -3,8 +3,9 @@ import { computed, ref, shallowRef } from "vue";
 /**
  * The page actions of the top app bar that owns them (useShellAppBar()), for its overflow menu. A compact bar keeps
  * one trailing item so the title has the room: the page's primary action (a form's Save), or else the bar's own item
- * nearest the corner (the account avatar); every other action and item is in the overflow menu. A wider bar keeps the
- * actions that fit beside the whole title and folds the rest, the last first (ShellPageActionsTarget measures them).
+ * nearest the corner (the account avatar); every other action and item is in the overflow menu, except the page's way
+ * out (`close`), which no bar folds. A wider bar keeps the actions that fit beside the whole title and folds the rest,
+ * the last first (ShellPageActionsTarget measures them).
  */
 const SHELL_PAGE_ACTIONS_REGISTRY_KEY = "jskit.shell-web.layout.page-actions-registry";
 // Node.DOCUMENT_POSITION_PRECEDING and DOCUMENT_POSITION_FOLLOWING, without the browser's Node.
@@ -21,6 +22,7 @@ const FOLLOWING = 4;
  * @property {string | undefined} download
  * @property {string | undefined} color
  * @property {boolean} primary
+ * @property {boolean} close The page's way out where the bar has no Up arrow, which never folds.
  * @property {boolean} overflow
  * @property {boolean} disabled
  * @property {boolean} pending Its action is running (`pending` or `loading`).
@@ -41,7 +43,7 @@ const FOLLOWING = 4;
  * @property {import("vue").ComputedRef<ShellPageActionEntry[]>} menuEntries The overflow menu's actions, in bar order.
  * @property {import("vue").ComputedRef<boolean>} hasPrimary Whether the bar shows a primary action.
  * @property {import("vue").ComputedRef<ShellPageActionEntry[]>} foldable The actions a bar folds when it has no room
- *   for them, in bar order: every one but the primary and the `overflow` ones.
+ *   for them, in bar order: every one but the primary, the page's way out (`close`) and the `overflow` ones.
  * @property {(count: number) => void} fold How many foldable actions, from the last, the bar has no room for.
  * @property {Map<string, number>} widths Each foldable action's width with its margins, by id, as the bar last drew it,
  *   kept while it is folded (useShellPageActionsFold measures them).
@@ -75,14 +77,19 @@ function documentOrder(left, right) {
   return position & PRECEDING ? 1 : 0;
 }
 
-/** @param {ShellPageActionEntry} entry */
+/**
+ * Whether a bar folds the action when it has no room for it: never the primary action nor the page's way out
+ * (`close`), which keep their room as the title does, and never an `overflow` one, already in the menu.
+ * @param {ShellPageActionEntry} entry
+ */
 function isFoldable(entry) {
-  return !entry.state.value.primary && !entry.state.value.overflow;
+  const { primary, close, overflow } = entry.state.value;
+  return !primary && !close && !overflow;
 }
 
 /**
- * The actions in the overflow menu, in bar order: those marked `overflow`, on compact windows every action but the
- * primary one, and on wider ones the last `folded` of the others, which the bar has no room for.
+ * The actions in the overflow menu, in bar order: those marked `overflow`, on compact windows every other action but
+ * the primary one and the page's way out, and on wider ones the last `folded` of those, which the bar has no room for.
  * @param {readonly ShellPageActionEntry[]} entries In bar order.
  * @param {boolean} compact
  * @param {number} [folded]
@@ -91,7 +98,7 @@ function overflowEntries(entries, compact, folded = 0) {
   const foldable = entries.filter(isFoldable);
   const foldedEntries = new Set(folded > 0 ? foldable.slice(-folded) : []);
   return entries.filter((entry) =>
-    entry.state.value.overflow || (compact ? !entry.state.value.primary : foldedEntries.has(entry))
+    entry.state.value.overflow || (compact ? isFoldable(entry) : foldedEntries.has(entry))
   );
 }
 
@@ -155,7 +162,8 @@ function createShellPageActionsRegistry({ isCompact }) {
  * of them when even that is too wide, and the title is clipped beside what stays.
  * @param {object} options
  * @param {number} options.room The width the actions and the overflow button share beside the title.
- * @param {number} options.fixed The width of the actions that stay in the bar whatever room is left (the primary).
+ * @param {number} options.fixed The width of the actions that stay in the bar whatever room is left (the primary and
+ *   the page's way out).
  * @param {readonly number[]} options.actions Each foldable action's width with its margins, in bar order.
  * @param {number} options.menuButton The overflow button's width.
  * @param {boolean} options.menuShown Whether the bar shows the overflow button anyway, for the menu's own actions or

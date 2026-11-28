@@ -274,15 +274,15 @@ dialog, chip or FAB.
 - **Actions:** a screen's actions go in the bar inside `ShellPageActions`
   (`@jskit-ai/shell-web/client/components/ShellPageActions`), each a
   `ShellPageAction` with `icon`, `label` (also its accessible name and compact
-  tooltip), and `primary`, `to`, `replace`, `href` (with `download` for a
-  file, such as a CSV export), `disabled`, `pending`, `loading` or `color`
-  (`error` for a destructive one); attributes such as `target` reach its
-  button. On compact widths the bar shows the single `primary` action (a form's
-  Save) and puts the other actions in its "More actions" menu, where `overflow`
-  actions always are; medium bars keep the actions that fit beside the whole
-  title, wider bars beside 200px of it (a longer title truncates); the rest go
-  there, last first, then top-right items that don't fit, after wider bars hide
-  the account's name. Put the most used actions first.
+  tooltip), and `primary`, `close` (a page's way out with no Up arrow), `to`,
+  `replace`, `href` (with `download` for a file, such as a CSV export),
+  `disabled`, `pending`, `loading` or `color` (`error` for a destructive one);
+  attributes such as `target` reach its button. Bars show the single `primary`
+  (a form's Save) and `close`; compact ones put the rest in "More actions",
+  where `overflow` actions always are; medium bars keep those that fit beside
+  the whole title, wider bars beside 200px of it (a longer title truncates);
+  the rest go there, last first, then top-right items that don't fit, after
+  wider bars hide the account's name. Put the most used first.
 - **Window size classes:** compact under 600 (navigation bar), medium 600–839
   (navigation rail), expanded 840–1199 and large from 1200 (drawer), read from
   `useShellWindowSizeClass()`

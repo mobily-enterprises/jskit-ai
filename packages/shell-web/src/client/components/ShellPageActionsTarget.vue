@@ -9,7 +9,8 @@ import { NO_SHELL_PAGE_ACTIONS_REGISTRY, SHELL_PAGE_ACTIONS_REGISTRY_KEY } from 
 // Where the current page's ShellPageActions show: after the page title in the top app bar, followed by the bar's
 // overflow menu (Material 3's trailing "More actions" menu) when an action goes there. On medium windows the actions
 // that don't fit beside the whole title go there, the last first (useShellPageActionsFold); on expanded and large ones
-// the title truncates first, and only the actions that don't fit beside its floor go. Until they have, the actions'
+// the title truncates first, and only the actions that don't fit beside its floor go. The primary action and the
+// page's way out (`close`) never go. Until they have, the actions'
 // box clips them, so the menu button and the bar's items after it stay on screen. Its `menu`
 // slot adds the bar's own items that don't fit (on a phone, ShellLayout's top-right items) below the actions. The menu
 // keeps the slot mounted while it is closed, so an item there that does more than draw a button keeps working.

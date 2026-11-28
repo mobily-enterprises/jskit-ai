@@ -156,10 +156,10 @@ const navigationStyle = computed(() => ({
 // The bar moves the top-right items it has no room for beside the title into its overflow menu, after the page
 // actions, farthest from the corner first; the one nearest the corner (the account menu) stays unless the page's
 // primary action takes its place. A compact bar does so beside the whole title; a wider one moves items only once its
-// page actions have folded, and an expanded or large one shows the items' labels (the account's name) only when
-// everything fits (useShellTopRightOverflow). Each item renders once and moves there and back mounted, so an item that does more
-// than draw a button (a live count, a panel or a button it teleports elsewhere) keeps working while it is in the menu.
-// A layout's own top-right slot stays as it is.
+// page actions have folded (never the primary one nor the page's way out, `close`), and an expanded or large one shows
+// the items' labels (the account's name) only when everything fits (useShellTopRightOverflow). Each item renders once
+// and moves there and back mounted, so an item that does more than draw a button (a live count, a panel or a button it
+// teleports elsewhere) keeps working while it is in the menu. A layout's own top-right slot stays as it is.
 const TOP_RIGHT_MENU_ID = "jskit-shell-top-right-menu";
 const { pageActions } = useShellAppBar();
 const topRight = useShellOutletPlacements("shell-layout:top-right");

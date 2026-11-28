@@ -30,13 +30,14 @@ function resolveTopRightItemsInMenu({ room, title, items, menuButton, menuShown,
  * whether they show their labels (an account's name beside its avatar), and how many go into its overflow menu. The
  * labels show only when the title (`title`: a medium bar's whole title, a wider bar's up to its floor), every page
  * action and every labelled item fit together, so a label gives way before an action folds. Without labels, items move
- * into the menu, farthest from the corner first, only when the title, the primary action and the overflow button still
- * leave too little room for them once every other action has folded (resolveTopRightItemsInMenu); the actions that fit
- * beside what stays are useShellPageActionsFold's.
+ * into the menu, farthest from the corner first, only when the title, the primary action, the page's way out (`close`)
+ * and the overflow button still leave too little room for them once every other action has folded
+ * (resolveTopRightItemsInMenu); the actions that fit beside what stays are useShellPageActionsFold's.
  * @param {object} options
  * @param {number} options.room The width the title, the page actions, the overflow button and the items share.
  * @param {number} options.title The width the title needs.
- * @param {number} options.primary The width of the actions that stay in the bar whatever room is left (the primary).
+ * @param {number} options.primary The width of the actions that stay in the bar whatever room is left (the primary and
+ *   the page's way out).
  * @param {number} options.actions The width of the actions the bar folds when it has no room for them.
  * @param {readonly { labelled: number, bare: number }[]} options.items Each item's width with its label and without.
  * @param {number} options.menuButton The overflow button's width.

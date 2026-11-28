@@ -76,7 +76,8 @@ function useShellTopRightOverflow({ enabled, compact, wholeTitle, placements, pa
     return room;
   }
 
-  // The page actions' widths: those that stay (the primary), and every foldable one, a folded one as it last drew.
+  // The page actions' widths: those that stay (the primary and the page's way out), and every foldable one, a folded
+  // one as it last drew.
   function actionWidths(actionsBox) {
     let primary = actionsBox ? widthOfChildren(actionsBox) : 0;
     let foldable = 0;

@@ -8,8 +8,8 @@ import { NO_SHELL_PAGE_ACTIONS_REGISTRY, SHELL_PAGE_ACTIONS_REGISTRY_KEY } from 
 // One page action in the top app bar. On compact windows a secondary action shows as an icon button named by its
 // label; the page's primary action (`primary`, at most one) keeps its label as a filled button. In a bar that owns its
 // actions (ShellLayout, or a layout that calls useShellAppBar()), an `overflow` action is an item of the bar's
-// overflow menu; on compact windows every action but the primary one joins it, and on wider ones the last of those
-// that don't fit beside the whole title.
+// overflow menu; on compact windows every other action but the primary one and the page's way out (`close`) joins it,
+// and on wider ones the last of those that don't fit beside the title.
 // Attributes such as `type="submit"` and `form` (so an app bar Save can submit the page's form), `target`,
 // `data-testid` or `aria-*` land on the button, or on the menu item, in every form.
 // While its action runs (`pending`, or `loading` with Vuetify's progress indicator in place of the label) the button
@@ -48,6 +48,13 @@ const props = defineProps({
     default: undefined
   },
   primary: {
+    type: Boolean,
+    default: false
+  },
+  // The page's way out where the bar has no Up arrow to close it, such as a form's Cancel or a sheet's Close beside
+  // its list: like the primary action, it keeps its room in the bar at every width, and never folds into the overflow
+  // menu; the bar's own items move there first.
+  close: {
     type: Boolean,
     default: false
   },
@@ -107,6 +114,7 @@ const entry = {
     download: download.value,
     color: props.color,
     primary: props.primary,
+    close: props.close,
     overflow: props.overflow,
     disabled: disabled.value,
     pending: pending.value,

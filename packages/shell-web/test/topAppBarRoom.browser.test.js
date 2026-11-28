@@ -142,18 +142,20 @@ test("a page's way out never folds: beside its register in a 596px bar, Close st
     overflows: bar.overflows,
     name: bar.name,
     actionsInBar: bar.actionsInBar,
-    actionsClipped: bar.actionsClipped,
-    titleKeepsItsFloor: bar.titleBox >= Math.min(bar.wholeTitle, WIDE_TITLE_FLOOR) - 1
+    actionsClipped: bar.actionsClipped
   }, {
     overflows: false,
     name: null,
     actionsInBar: ["Close new Document", "Submit Record"],
-    actionsClipped: [],
-    titleKeepsItsFloor: true
+    actionsClipped: []
   }, at);
   await expect(page.getByTestId("fixture-review-close")).toBeInViewport({ ratio: 1 });
   assert.ok(bar.itemsInMenu.length > 0, `${at}: an item of the bar's own gives way to Close`);
   assert.deepEqual([...bar.itemsInMenu, ...bar.itemsInBar], WHS2_ITEMS, `${at}: the items farthest from the corner move first`);
+  // The title gives up room beside what never folds (Close, Submit Record and More actions) only once every item that
+  // can move has moved.
+  assert.ok(bar.titleBox >= Math.min(bar.wholeTitle, WIDE_TITLE_FLOOR) - 1 || bar.itemsInBar.length === 0,
+    `${at}: the title keeps its floor, or no item is left in the bar`);
 
   // More actions holds the items that moved, and never Close.
   await page.getByTestId("jskit-shell-page-actions-overflow").click();
