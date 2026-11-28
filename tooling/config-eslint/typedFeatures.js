@@ -43,6 +43,7 @@ function typedFeaturesRules(severity) {
     "jskit/no-dual-shape": severity,
     "jskit/named-repeated-type": severity,
     "jskit/action-execute-shape": severity,
+    "jskit/route-action-id": severity,
     "jskit/no-factory-spread": severity,
     "jskit/frozen-factory-result": severity,
     "jskit/no-optional-after-default": severity,

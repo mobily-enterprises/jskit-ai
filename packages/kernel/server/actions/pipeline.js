@@ -1,10 +1,4 @@
-import {
-  ensureActionChannelAllowed,
-  ensureActionSurfaceAllowed,
-  ensureActionPermissionAllowed,
-  normalizeActionInput,
-  normalizeActionOutput
-} from "./policies.js";
+import { ensureActionAllowed, normalizeActionInput, normalizeActionOutput } from "./policies.js";
 import { isExecutionLogged, normalizeExecutionContext } from "./executionContext.js";
 
 /** @typedef {import("../types.js").ActionDefinition} ActionDefinition */
@@ -73,9 +67,7 @@ async function executeActionPipeline({
   const startedAt = Date.now();
 
   try {
-    ensureActionChannelAllowed(definition, normalizedContext);
-    ensureActionSurfaceAllowed(definition, normalizedContext);
-    ensureActionPermissionAllowed(definition, normalizedContext);
+    ensureActionAllowed(definition, normalizedContext);
 
     const normalizedInput = await normalizeActionInput(definition, input);
 

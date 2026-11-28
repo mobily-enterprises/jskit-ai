@@ -51,6 +51,7 @@ function registerRewardedRoutes(router) {
     `${routeBase}/current`,
     {
       auth: "required",
+      actionId: ACTION_CURRENT,
       surface: REWARDED_ROUTE_SURFACE,
       visibility,
       params: routeParamsValidator,
@@ -78,6 +79,7 @@ function registerRewardedRoutes(router) {
     `${routeBase}/start`,
     {
       auth: "required",
+      actionId: ACTION_START,
       surface: REWARDED_ROUTE_SURFACE,
       visibility,
       params: routeParamsValidator,
@@ -105,6 +107,7 @@ function registerRewardedRoutes(router) {
     `${routeBase}/grant`,
     {
       auth: "required",
+      actionId: ACTION_GRANT,
       surface: REWARDED_ROUTE_SURFACE,
       visibility,
       params: routeParamsValidator,
@@ -132,6 +135,7 @@ function registerRewardedRoutes(router) {
     `${routeBase}/close`,
     {
       auth: "required",
+      actionId: ACTION_CLOSE,
       surface: REWARDED_ROUTE_SURFACE,
       visibility,
       params: routeParamsValidator,

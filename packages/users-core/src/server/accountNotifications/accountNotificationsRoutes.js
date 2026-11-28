@@ -9,6 +9,7 @@ function registerAccountNotificationsRoutes(router) {
     "/api/settings/notifications",
     {
       auth: "required",
+      actionId: "settings.notifications.update",
       meta: {
         tags: ["settings"],
         summary: "Update notification settings"

@@ -43,7 +43,7 @@ test("AuthPolicyProvider installs Fastify policy and explicit action/visibility 
   assert.ok(state.requestDecorators.has("workspace"));
   assert.ok(state.requestDecorators.has("membership"));
   assert.ok(state.requestDecorators.has("permissions"));
-  assert.equal(typeof state.preHandler, "function");
+  assert.equal(typeof state.hooks.preValidation, "function");
   // Cookies and CSRF; the kernel registers the rate limiter with the routes.
   assert.equal(state.registeredPlugins.length, 2);
   assert.ok(runtime.diagnostics().capabilityIds.includes("auth.policy"));
@@ -106,7 +106,7 @@ test("AuthPolicyProvider resolves registered workspace context without a service
       }
     }
   };
-  await state.preHandler(request, {});
+  await state.hooks.preValidation(request, {});
   assert.deepEqual(request.workspace, { id: 11, slug: "acme" });
   assert.deepEqual(request.membership, { roleSid: "member" });
   assert.deepEqual(request.permissions, ["projects.read"]);
@@ -125,7 +125,7 @@ test("auth policy denies protected routes when no auth service is installed", as
     ]
   });
   await runtime.start();
-  await assert.rejects(() => state.preHandler({
+  await assert.rejects(() => state.hooks.preValidation({
     method: "GET",
     raw: { url: "/api/protected" },
     routeOptions: { config: { authPolicy: "required" } }

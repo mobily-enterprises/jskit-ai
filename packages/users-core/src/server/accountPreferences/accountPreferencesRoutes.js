@@ -9,6 +9,7 @@ function registerAccountPreferencesRoutes(router) {
     "/api/settings/preferences",
     {
       auth: "required",
+      actionId: "settings.preferences.update",
       meta: {
         tags: ["settings"],
         summary: "Update user preferences"

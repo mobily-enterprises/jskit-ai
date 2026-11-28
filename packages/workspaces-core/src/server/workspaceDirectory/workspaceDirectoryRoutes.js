@@ -25,6 +25,7 @@ function registerWorkspaceDirectoryRoutes(router, { config, workspaceSelfCreateE
       "/api/workspaces",
       {
         auth: "required",
+        actionId: "workspace.workspaces.create",
       meta: {
         tags: ["workspace"],
         summary: "Create a workspace for the authenticated user"
@@ -56,6 +57,7 @@ function registerWorkspaceDirectoryRoutes(router, { config, workspaceSelfCreateE
     "/api/workspaces",
     {
       auth: "required",
+      actionId: "workspace.workspaces.list",
       meta: {
         tags: ["workspace"],
         summary: "List workspaces visible to authenticated user"
@@ -80,6 +82,7 @@ function registerWorkspaceDirectoryRoutes(router, { config, workspaceSelfCreateE
     resolveWorkspaceRoutePath("/"),
     {
       auth: "required",
+      actionId: "workspace.workspaces.read",
       surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       meta: {
@@ -110,6 +113,7 @@ function registerWorkspaceDirectoryRoutes(router, { config, workspaceSelfCreateE
     resolveWorkspaceRoutePath("/"),
     {
       auth: "required",
+      actionId: "workspace.workspaces.update",
       surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       meta: {

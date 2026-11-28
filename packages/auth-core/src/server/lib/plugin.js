@@ -113,7 +113,10 @@ function authPolicyPlugin(deps = {}, options = {}) {
     // On a bearer route, the service key the request acts through ({ userId, name }); `user` is who it acts as.
     fastify.decorateRequest("actingVia", null);
 
-    fastify.addHook("preHandler", async (request, reply) => {
+    // Authorization is decided before validation answers: the policy runs before Fastify validates a route's query and
+    // path and before the route reads its body, so a caller who may not use a route never learns what it accepts. It
+    // reads the path's params as the request sent them, before validation.
+    fastify.addHook("preValidation", async (request, reply) => {
       const pathname = request.raw.url || request.url || "/";
       if (!String(pathname).startsWith(apiPrefix)) {
         return;

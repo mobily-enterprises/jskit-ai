@@ -18,6 +18,7 @@ function registerWorkspaceSettingsRoutes(router, { config }) {
     resolveWorkspaceRoutePath("/settings"),
     {
       auth: "required",
+      actionId: "workspace.settings.read",
       surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       meta: {
@@ -48,6 +49,7 @@ function registerWorkspaceSettingsRoutes(router, { config }) {
     resolveWorkspaceRoutePath("/settings"),
     {
       auth: "required",
+      actionId: "workspace.settings.update",
       surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       meta: {

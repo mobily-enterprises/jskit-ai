@@ -9,6 +9,7 @@ import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { createRouter } from "../../kernel/server/http/lib/router.js";
 import { registerRoutes } from "../../kernel/server/http/lib/routeRegistration.js";
 import { registerApiErrorHandler } from "../../kernel/server/http/errorHandling.js";
+import { AppError } from "../../kernel/server/runtime/errors.js";
 import crudEnglish from "../locales/en.json" with { type: "json" };
 import { registerCrudJsonApiRoutes } from "../src/server/jsonApiModule/routes.js";
 import { crudJsonApiRouteOptions } from "./support/crudJsonApiActionOptions.js";
@@ -25,7 +26,9 @@ const notes = defineCrudContract(defineTableResource({
   fields: { title: { output: "required" } }
 });
 
-async function listApp(t) {
+// The list of notes, public unless a test signs it in; `authorize` is the action catalogue's, which a signed-in route
+// asks before it reads the query.
+async function listApp(t, { access = "public", authorize = async () => {} } = {}) {
   const router = createRouter();
   registerCrudJsonApiRoutes(router, crudJsonApiRouteOptions({
     namespace: "notes",
@@ -33,7 +36,7 @@ async function listApp(t) {
     relativePath: "/notes",
     surface: "app",
     ownershipFilter: "public",
-    access: "public",
+    access,
     operations: ["list"]
   }));
   // The server's warnings, as the lines its logger writes.
@@ -46,6 +49,7 @@ async function listApp(t) {
     routes: router.list(),
     actions: {
       getDefinition: () => ({ kind: "action" }),
+      authorize,
       async execute({ input }) {
         listed.push(input);
         return returnJsonApiDocument({ data: [] });
@@ -103,4 +107,31 @@ test("a CRUD list takes filter[id], one record id or several, which a lookup sen
     assert.equal(response.statusCode, 200, `${url}: ${response.body}`);
   }
   assert.deepEqual(listed.map((input) => input.id), [["7"], ["7", "12"], ["7", "12"]]);
+});
+
+test("a signed-in CRUD list refuses a caller its action refuses before it reads the query, and checks the query after", async (t) => {
+  const asked = [];
+  let allowed = false;
+  const { app, listed } = await listApp(t, {
+    access: "authenticated",
+    async authorize({ actionId, input }) {
+      asked.push({ actionId, input });
+      if (!allowed) throw new AppError(403, "Forbidden.", { code: "ACTION_PERMISSION_DENIED" });
+    }
+  });
+
+  for (const url of ["/api/notes?filter%5Bstatus%5D=open", "/api/notes?page%5Blimit%5D=many", "/api/notes"]) {
+    const refused = await app.inject({ method: "GET", url });
+    assert.equal(refused.statusCode, 403, `${url}: ${refused.body}`);
+    assert.doesNotMatch(refused.body, /filter|limit|undeclared/u, url);
+  }
+  assert.deepEqual(asked.map(({ actionId }) => actionId), ["crud.notes.list", "crud.notes.list", "crud.notes.list"]);
+  assert.deepEqual(listed, []);
+
+  allowed = true;
+  const undeclared = await app.inject({ method: "GET", url: "/api/notes?filter%5Bstatus%5D=open" });
+  assert.equal(undeclared.statusCode, 400, undeclared.body);
+  assert.equal(undeclared.json().errors[0].code, "crud.query.undeclaredKeys");
+  assert.equal((await app.inject({ method: "GET", url: "/api/notes" })).statusCode, 200);
+  assert.equal(listed.length, 1);
 });

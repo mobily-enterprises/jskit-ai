@@ -27,6 +27,7 @@ function registerAccountProfileRoutes(router, { accountProfileService, authServi
     "/api/settings",
     {
       auth: "required",
+      actionId: "settings.read",
       meta: {
         tags: ["settings"],
         summary: "Get authenticated user's settings"
@@ -48,6 +49,7 @@ function registerAccountProfileRoutes(router, { accountProfileService, authServi
     "/api/settings/profile",
     {
       auth: "required",
+      actionId: "settings.profile.update",
       meta: {
         tags: ["settings"],
         summary: "Update profile settings"
@@ -98,6 +100,7 @@ function registerAccountProfileRoutes(router, { accountProfileService, authServi
     "/api/settings/profile/avatar",
     {
       auth: "required",
+      actionId: "settings.profile.avatar.upload",
       meta: {
         tags: ["settings"],
         summary: "Upload profile avatar",
@@ -146,6 +149,7 @@ function registerAccountProfileRoutes(router, { accountProfileService, authServi
     "/api/settings/profile/avatar",
     {
       auth: "required",
+      actionId: "settings.profile.avatar.delete",
       meta: {
         tags: ["settings"],
         summary: "Delete profile avatar and fallback to gravatar"

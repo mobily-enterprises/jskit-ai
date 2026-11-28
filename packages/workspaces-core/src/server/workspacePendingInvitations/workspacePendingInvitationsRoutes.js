@@ -37,6 +37,7 @@ function registerWorkspacePendingInvitationsRoutes(router) {
     "/api/workspace/invitations/resolve",
     {
       auth: "public",
+      actionId: "workspace.invitation.resolve",
       meta: {
         tags: ["workspace"],
         summary: "Resolve safe public workspace invitation metadata"
@@ -64,6 +65,7 @@ function registerWorkspacePendingInvitationsRoutes(router) {
     "/api/workspace/invitations/pending",
     {
       auth: "required",
+      actionId: "workspace.invitations.pending.list",
       meta: {
         tags: ["workspace"],
         summary: "List pending workspace invitations for authenticated user"
@@ -88,6 +90,7 @@ function registerWorkspacePendingInvitationsRoutes(router) {
     "/api/workspace/invitations/redeem",
     {
       auth: "required",
+      actionId: "workspace.invite.redeem",
       meta: {
         tags: ["workspace"],
         summary: "Accept or refuse a workspace invitation using an invite token"

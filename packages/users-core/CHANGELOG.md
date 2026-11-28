@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The account settings, profile, avatar, security, preferences and notifications routes name the action they run (`actionId`), so each action's checks come before the route validates what the request sends, and before the avatar upload route reads its file (#497).
 - The manifest marks `runtime.database`, which its migrations need and no server provider of the package requires, as install-time only (`jskit.capabilities.installRequires`), so an app's start-up no longer logs "Package manifest requires a capability its providers do not." for it.
 - Profile synchronization passes the sign-in's `invitation` on: `syncIdentityProfile(profile, { invitation })` gives it to every `afterIdentityProfileSynced` lifecycle contributor beside `profile`, `created` and `options` (null when the sign-in carries none), and keeps it out of the transaction's options, so provisioning can tell an account made from an invitation.
 - `users_core_generic_initial-collation`, a migration Knex runs just before `users_core_generic_initial` (run `npm run db:migrate`): on MySQL and MariaDB it creates `users` and `user_settings`, where they do not exist yet, in the collation of the existing tables (`users`, then `auth_local_users`) rather than the database's default, and converts one recorded in another collation when no character can be lost. It changes nothing where they match.

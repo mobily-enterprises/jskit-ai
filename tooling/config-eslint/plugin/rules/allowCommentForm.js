@@ -21,7 +21,8 @@ const REASON_PREFIXES = Object.freeze([
   /^cross-repository slot \S/u,
   /^shared resource: \S/u,
   /^every row: \S/u,
-  /^infrastructure: \S/u
+  /^infrastructure: \S/u,
+  /^action scope: \S/u
 ]);
 // A guard once kept because a test asserted its error now says what goes wrong
 // without it, under safety invariant:.
