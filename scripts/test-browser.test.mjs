@@ -31,7 +31,8 @@ test("test:browser runs the browser test files whose switches are all set, and n
     "packages/shell-web/test/inertBehindDialog.browser.test.js",
     "packages/shell-web/test/lateNavigation.browser.test.js",
     "packages/shell-web/test/pendingAction.browser.test.js",
-    "packages/shell-web/test/productionBuild.browser.test.js"
+    "packages/shell-web/test/productionBuild.browser.test.js",
+    "packages/shell-web/test/topAppBarRoom.browser.test.js"
   ]);
   assert.deepEqual(switchedBrowserTestFiles({ JSKIT_MATERIAL_BASELINES: "1", JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "0" }), [
     "packages/http-web/test/crudScreensMaterialBaselines.browser.test.js",
