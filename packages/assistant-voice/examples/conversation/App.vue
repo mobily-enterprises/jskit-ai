@@ -45,7 +45,12 @@ function voiceBinding(runtime, label) {
       }
       return runtime.send({ message: text }, { messageId });
     },
-    cancelWork: () => runtime.cancel(),
+    // Voice shows what Stop rejects with; runtime.cancel() resolves a refusal.
+    async cancelWork() {
+      const result = await runtime.cancel();
+      if (result?.ok === false) throw new Error(result.error);
+      return result;
+    },
     openText: () => openText(identity.conversationId)
   };
 }

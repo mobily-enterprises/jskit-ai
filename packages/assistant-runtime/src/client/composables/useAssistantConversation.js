@@ -7,6 +7,7 @@ import { conversationTurnsFromMessages } from "@jskit-ai/assistant-core/shared/c
 import { NO_REALTIME_SOCKET, useRealtimeSocket } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/placement";
 import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
+import { useUiFeedback } from "@jskit-ai/http-web/client/composables/useUiFeedback";
 import { resolveAssistantRuntimeRoute, resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
 import { failureMessage } from "../support/conversationFailures.js";
@@ -77,6 +78,8 @@ import { authoredRequest, createConversationRuntime, isQuestionConfiguration, re
  * @property {import("../types.js").WorkspaceScopeSupport} [workspaceScope]
  * @property {import("../types.js").RealtimeSocket} [socket]
  * @property {Record<string, any>} [config]
+ * @property {import("@jskit-ai/http-web/client/types").UiFeedback} [feedback] What the person's actions report, such as a
+ *   refused Stop, through the shell's action feedback.
  */
 
 const { t } = useJskitText();
@@ -235,7 +238,8 @@ function conversationBindingSetup({ socket, boundedTask }) {
     placement,
     workspaceScope: useWorkspaceWebScopeSupport(),
     socket: socket || useRequiredRealtimeSocket(),
-    config: getClientAppConfig()
+    config: getClientAppConfig(),
+    feedback: useUiFeedback({ source: "assistant-runtime.conversation.feedback" })
   };
 }
 
@@ -249,7 +253,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
   clearDraftOn: suppliedClearDraftOn, queueWhileSending, deferWhileWorking = false, admitWhileWorking = false, draftWhileLoading = false,
   draftStorage, application, boundedTask,
   data, attachments, suggestions, models, questions, goal, presentation }, setup) {
-  const { app, routeContext, placement, workspaceScope, socket: setupSocket, config, defaults } = setup ||
+  const { app, routeContext, placement, workspaceScope, socket: setupSocket, config, defaults, feedback } = setup ||
     conversationBindingSetup({ socket: suppliedSocket, boundedTask });
   const clearDraftOn = suppliedClearDraftOn ?? defaults.clearDraftOn;
   const actorKey = computed(() => {
@@ -412,8 +416,10 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
       if (attachmentIds.length) {
         current.draftAttachments.value = current.draftAttachments.value.filter(file => !attachmentIds.includes(file.attachmentId));
         if (runtime.value === current) {
+          // The message went; the uploads it took stay in the composer for the person to remove. Never the
+          // conversation's error: the reload the send starts would clear it.
           try { attachments?.clearAttachments({ accepted: true, attachmentIds }); }
-          catch (failure) { current.error.value = failureMessage(failure, t("jskit.assistant.runtime.attachments.clearFailed")); }
+          catch (failure) { feedback.warning(failureMessage(failure, t("jskit.assistant.runtime.attachments.clearFailed"))); }
         }
       }
       onAccepted();
@@ -444,6 +450,16 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
       return { ...receipt, ok: true };
     });
     return dispatch();
+  }
+  // Stop's refusal goes to the shell's action feedback, as a refused command's does, where no read of the
+  // conversation takes it away. A Stop that went through takes back the refusal an earlier one showed.
+  async function stopConversation(current) {
+    feedback.clear();
+    const result = await current.cancel();
+    if (!current.current.value) return result;
+    if (result?.ok === false) feedback.error({ message: result.error, code: result.code }, t("jskit.assistant.runtime.conversation.stopFailed"));
+    else if (result !== false) feedback.success();
+    return result;
   }
   const adapter = computed(() => {
     const current = runtime.value;
@@ -492,7 +508,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
         if (current) current.draft.value = value;
         else if (canDraftWhileLoading.value) initialDraft.value = value;
       }, submit,
-        resend: messageId => submit({ retryMessageId: messageId }), stop: () => current?.cancel(),
+        resend: messageId => submit({ retryMessageId: messageId }), stop: () => current && stopConversation(current),
         cancel: messageId => current?.cancelMessage(messageId),
         checkDelivery: messageId => current?.inspectDelivery(messageId), loadMore: input => current?.loadMore(input), reload: () => current?.reload() }
     };

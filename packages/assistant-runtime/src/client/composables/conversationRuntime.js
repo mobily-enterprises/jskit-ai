@@ -548,15 +548,22 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
     }
   }
 
+  // Stop's refusal is Stop's own answer, { ok: false, error, code? }, for its caller to show. It never becomes the
+  // conversation's error, which only reads set and the next read clears: the reload Stop starts would take it away.
+  // That reload also decides whether a refusal meant lost access. False means nothing was sent.
   async function cancel() {
     if (!editable.value || stopping.value) return false;
     stopping.value = true;
     for (const pending of pendingMessages.values()) {
       if (!pending.dispatched) pending.controller.abort();
     }
-    try { return await api.cancelConversation(identity.conversationId); }
-    catch (failure) { receiveError(failure); return false; }
-    finally { stopping.value = false; if (current.value) reloadSubscription(); }
+    try {
+      const result = await api.cancelConversation(identity.conversationId);
+      return result?.ok === false ? { ...result, error: resultError(result) || t("jskit.assistant.runtime.conversation.stopFailed") } : result;
+    } catch (failure) {
+      return { ok: false, error: failureMessage(failure, t("jskit.assistant.runtime.conversation.stopFailed")),
+        ...(failure.code ? { code: failure.code } : {}) };
+    } finally { stopping.value = false; if (current.value) reloadSubscription(); }
   }
   async function inspectDelivery(messageId) {
     if (!available.value) return false;

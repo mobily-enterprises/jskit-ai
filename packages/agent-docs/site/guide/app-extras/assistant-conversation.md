@@ -433,6 +433,15 @@ access-denied targets cannot dispatch cancellation. The standard element still
 uses the loaded snapshot's Stop availability; product task controls can retain
 their original earlier Stop boundary.
 
+`runtime.cancel()` resolves `false` when it sent nothing, the backend's answer
+when it stopped, and `{ ok: false, error, code? }` when the backend refused (a
+host's own `{ ok: false }` answer gains an `error` sentence). Its caller shows
+that refusal: it never becomes the conversation's `error`, which only reads set
+and the read Stop starts would clear. That read also decides whether a 403 meant
+lost access. The element's `stop()` reports a refusal through the shell's action
+feedback (`useUiFeedback`, a snackbar by default), as a refused command does, and
+a Stop that goes through dismisses it.
+
 For a voice binding, `projectConversationVoiceState({ turns, status, interimReply })` from
 `@jskit-ai/assistant-voice/client` projects those same retained turns into the
 voice owner's `messages` and `streamingReply`. It keeps user message IDs and
