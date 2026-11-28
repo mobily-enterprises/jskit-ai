@@ -1222,14 +1222,22 @@ async function activeDays(memberIds, options) {
   only when the test seeds another owner's rows the join matches. Join another
   table only as that table's scoped subquery.
 - When a report needs another owner's rows side by side, it joins that
-  table's join source in one statement. `joinSource({ alias, filters },
-  options)` on the owner's handle, or on the repository a CRUD feature gives
-  other features, answers `{ query, column }`: the caller's scoped rows under
-  that alias (ownership, the row policy and the filters applied) with the
-  columns a read answers and the ownership fields (`workspaceId`, `userId`),
-  hidden or not, as join keys; never another hidden column, and never a blob,
-  so a report's `select("k.*")` holds no unbounded bytes. `column(field)`
-  names each under the alias. A report on the owner's own `scopedQuery()`
+  table's join source in one statement. `joinSource({ alias, filters,
+  columns }, options)` on the owner's handle, or on the repository a CRUD
+  feature gives other features, answers `{ query, column }`: the caller's
+  scoped rows under that alias (ownership, the row policy and the filters
+  applied) with the columns a read answers and the ownership fields
+  (`workspaceId`, `userId`), hidden or not, as join keys; never another hidden
+  column, and never a blob, so a report's `select("k.*")` holds no unbounded
+  bytes. `column(field)` names each under the alias. `columns`, a list of
+  visible fields, keeps only those beside the id and the ownership fields,
+  which a source always carries; without it the source names every visible
+  column in the statement. Give it where a report reads a few fields of a
+  wide table, such as `joinSource({ alias: "k", columns: ["projectId"] },
+  options)`. A name that is no visible field (a hidden field, a blob, a
+  misspelling) is refused when the source is built, `column(field)` refuses a
+  field it does not list, and `filters` still narrow by any search field. A
+  report on the owner's own `scopedQuery()`
   names the columns it selects, never a blob's. The builder comes wrapped, since a builder is
   thenable and an async function would run it. The report shapes it (select,
   group), names it with `.as()` and joins it, so every owner's scope and row
@@ -1273,7 +1281,7 @@ async function activeDays(memberIds, options) {
   ```js
   // Knex: report - the caller's projects with no task the caller sees
   async function idleProjects(options) {
-    const task = await tasks.joinSource({ alias: "k" }, options);
+    const task = await tasks.joinSource({ alias: "k", columns: ["projectId"] }, options);
     const { query } = await projects.scopedQuery({ alias: "p" }, options);
     const projectId = projects.column("id", "p");
     return query
@@ -1771,7 +1779,7 @@ profile in one call, however many ids, never `query` pages of 100 walked by
 hand or one `findById` per person. `users.settings.listByUserIds(ids, options)`
 does the same for their settings, and `workspaces.listByIds(ids, options)` for
 workspaces. A report that reads people, their settings, workspaces or
-memberships beside its own rows joins `joinSource({ alias, filters },
+memberships beside its own rows joins `joinSource({ alias, filters, columns },
 options)` of `users.profiles`, `users.settings`, `workspaces` or
 `workspaces.memberships` ([Layer 5](#layer-5-reports-the-resource-cannot-express)).
 A background job that visits every workspace pages them with
