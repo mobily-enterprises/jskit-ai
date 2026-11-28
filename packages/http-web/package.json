@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/http-web",
-  "version": "0.2.68",
+  "version": "0.2.69",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -54,8 +54,8 @@
   "peerDependencies": {
     "@jskit-ai/http-runtime": "0.2.37",
     "@jskit-ai/kernel": "0.2.36",
-    "@jskit-ai/realtime": "0.2.62",
-    "@jskit-ai/shell-web": "0.2.59",
+    "@jskit-ai/realtime": "0.2.63",
+    "@jskit-ai/shell-web": "0.2.60",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vue-router": "^5.0.4",
