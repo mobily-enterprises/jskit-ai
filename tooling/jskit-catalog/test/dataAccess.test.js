@@ -558,6 +558,33 @@ test("code the app's ESLint config ignores outside server code is skipped, and l
   });
 });
 
+test("a Vue list screen in code the app's ESLint config ignores is skipped and listed; one in a file type the config has no config for is read", async () => {
+  const dataAccess = JSON.stringify(new URL("../../config-eslint/dataAccess.js", import.meta.url).href);
+  const listScreen = "<script setup>\nconst screen = useCrudListScreen({ resource: customerCrud });\n</script>\n";
+  await withProject({
+    "package.json": { name: "vendored-screens", type: "module" },
+    "eslint.config.mjs": [
+      `import { dataAccessConfig } from ${dataAccess};`,
+      "export default [{ ignores: [\"legacy/\"] }, ...dataAccessConfig([\"**\"])];",
+      ""
+    ].join("\n"),
+    "packages/customers/src/shared/customerResource.js": [
+      "export const customerResource = defineTableResource({ name: \"customers\", tableName: \"customers\", ownership: \"workspace\", schema: { name: { type: \"string\" } } });",
+      "export const customerCrud = defineCrudContract(customerResource, { namespace: \"customers\", fields: { name: { output: \"required\" } } });",
+      ""
+    ].join("\n"),
+    // A copy of another app's screens, which no lint reads: data/search-q leaves its list screens alone too.
+    "legacy/pages/customers.vue": listScreen,
+    // Screens the config does not ignore, though it lints no .vue file, in src and outside it, are read.
+    "src/pages/customers/index.vue": listScreen,
+    "widgets/customers.vue": listScreen
+  }, async (root) => {
+    const result = await checkDataAccess({ projectRoot: root });
+    assert.deepEqual(findingLines(result), ["src/pages/customers/index.vue:2 data/search-q", "widgets/customers.vue:2 data/search-q"]);
+    assert.deepEqual(result.skipped, ["legacy/"]);
+  });
+});
+
 test("a directory the app's ESLint config ignores stays skipped when it holds its own config, as `eslint .` never enters it", async () => {
   const dataAccess = JSON.stringify(new URL("../../config-eslint/dataAccess.js", import.meta.url).href);
   const ownConfig = `import { dataAccessConfig } from ${dataAccess};\nexport default [...dataAccessConfig(["**"])];\n`;

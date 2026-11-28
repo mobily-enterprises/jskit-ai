@@ -465,6 +465,53 @@ test("test/script-files names only a script whose files are the ones node's defa
   });
 });
 
+// CompAS Next keeps an unmodified, read-only mirror of its legacy app under V1/, which its ESLint config ignores and the
+// data rules already skip; the test-source rules read it and failed `jskit check` on a fixed wait the app may not change
+// (jskit-ai#496).
+test("the test-source rules skip what the app's ESLint config ignores outside server code, and list it; what it lints, or has no config for, is read", async () => {
+  await withProject({
+    "package.json": { name: "vendored", private: true, type: "module" },
+    "eslint.config.mjs": "export default [{ ignores: [\"V1/**\", \"mothballed/\", \"src/legacy/\"] }];\n",
+    // A legacy app's mirror and retired code kept for reference, which no lint reads and the app may not change.
+    "V1/package.json": { name: "legacy", scripts: { test: "TEST_DB_NAME=legacy_test mocha server/test" } },
+    "V1/server/test/transaction-gst-browser.spec.js": "test(\"gst\", async () => {\n  await page.waitForTimeout(500);\n});\n",
+    "mothballed/tests/old.test.js": "await sleep(100);\n",
+    // Server code the config ignores is still the app's own, and read.
+    "src/legacy/test/report.test.js": "await sleep(100);\n",
+    // A folder the config lints is read, and so is a file type it has no config for (TypeScript here) but does not ignore.
+    "vendor/test/retry.test.js": "await sleep(10);\n",
+    "tests/e2e/list.spec.ts": "await page.waitForTimeout(500);\n"
+  }, async (root) => {
+    assert.deepEqual(await findings(root), [
+      "src/legacy/test/report.test.js:1 test/fixed-sleep",
+      "tests/e2e/list.spec.ts:1 test/fixed-sleep",
+      "vendor/test/retry.test.js:1 test/fixed-sleep"
+    ]);
+    const result = await checkTestSources({ projectRoot: root });
+    assert.deepEqual(result.skipped, ["V1/", "mothballed/"]);
+    assert.equal(result.files, 3);
+    assert.match(formatTestSourcesReport(result),
+      /^Skipped, as the app's ESLint config ignores them and they hold no server code \(2\):\n {2}V1\/\n {2}mothballed\/\nJSKIT test sources: 3 error\(s\)\./mu);
+  });
+});
+
+test("jskit check passes an app whose one fixed wait is in a folder its ESLint config ignores, and says it skipped that folder", async () => {
+  const dataAccess = JSON.stringify(new URL("../../config-eslint/dataAccess.js", import.meta.url).href);
+  await withProject({
+    "package.json": { name: "vendored", private: true, type: "module", scripts: { test: "jskit test" } },
+    "package-lock.json": { name: "vendored", lockfileVersion: 3, packages: { "": { name: "vendored" } } },
+    "eslint.config.mjs": `import { dataAccessConfig } from ${dataAccess};\nexport default [{ ignores: ["V1/**"] }, ...dataAccessConfig(["**"])];\n`,
+    "tests/server/a.test.js": "import test from \"node:test\";\ntest(\"a\", async () => {});\n",
+    "V1/server/test/transaction-gst-browser.spec.js": "test(\"gst\", async () => {\n  await page.waitForTimeout(500);\n});\n"
+  }, async (root) => {
+    const run = await execFileAsync(process.execPath, [CLI_PATH, "check", "--root", root]).then(
+      ({ stdout }) => ({ code: 0, output: stdout }), (error) => ({ code: error.code, output: `${error.stdout}${error.stderr}` }));
+    assert.equal(run.code, 0, run.output);
+    assert.match(run.output,
+      /^Skipped, as the app's ESLint config ignores them and they hold no server code \(1\):\n {2}V1\/\nJSKIT test sources: no fixed waits, pinned test database names or generated files in src \(1 test file\(s\) read\)\.$/mu);
+  });
+});
+
 test("jskit check fails on a test-source finding and names its rule, line and guide section", async () => {
   const app = {
     "package.json": { name: "sources", private: true, scripts: { test: "jskit test" } },
