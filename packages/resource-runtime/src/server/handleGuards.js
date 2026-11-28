@@ -205,6 +205,24 @@ function requirePatchConditions(name, lockVersionField, attributes, options) {
 }
 
 /**
+ * Refuses an onlyIf entry the UPDATE of a patch with changes could not compare: a field other than a stored one beside
+ * the id, or a value other than a scalar, a Date or null.
+ * @param {string} name The resource's name.
+ * @param {Record<string, { virtual?: boolean, computed?: boolean }>} schemaStructure
+ * @param {string} field
+ * @param {unknown} value
+ */
+function requireOnlyIfValue(name, schemaStructure, field, value) {
+  const definition = schemaStructure[field];
+  if (field === "id" || !definition || definition.virtual || definition.computed) {
+    throw new TypeError(`${name}.patch() onlyIf.${field} is not a stored field.`);
+  }
+  if (value !== null && typeof value === "object" && !(value instanceof Date)) {
+    throw new TypeError(`${name}.patch() onlyIf.${field} must be a scalar, a Date or null.`);
+  }
+}
+
+/**
  * The answer format a handle call asks for: "jsonapi" (the CRUD service's documents) or, by default, "plain" (records).
  * @param {string} name The resource's name.
  * @param {{ format?: string }} options
@@ -256,5 +274,5 @@ function refuseTransactionPlace(name, { outermost, joinOnly }, joined) {
 
 export {
   formatOf, matchesNoRow, missingOf, refuseConditions, refuseTransactionPlace, requireConditionValues, requireDefinedFilters, requireOwners,
-  requirePatchConditions, requireReadParams, requireUpsertRows, passedOn, whereSelection
+  requireOnlyIfValue, requirePatchConditions, requireReadParams, requireUpsertRows, passedOn, whereSelection
 };
