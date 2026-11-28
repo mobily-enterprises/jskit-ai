@@ -94,6 +94,7 @@ Exports
 - `requireConditionValues(name, method, options, keys)`
 - `requireDefinedFilters(name, caller, filters, path = "filters")`
 - `requireOwners(name, ownership, context)`
+- `requireOnlyIfValue(name, schemaStructure, field, value)`
 - `requirePatchConditions(name, lockVersionField, attributes, options)`
 - `requireReadParams(name, params)`
 - `requireUpsertRows(name, rows, onConflict, idProperty)`
