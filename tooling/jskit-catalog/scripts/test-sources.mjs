@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileExists } from "./files.mjs";
+import { formatSkipped, lintSkipped } from "./lint-ignores.mjs";
 import { DEFAULT_PATTERN, findTestFiles } from "./test-command.mjs";
 import { excusedWait, scanSource } from "./test-sources-scan.mjs";
 
@@ -22,7 +23,8 @@ import { excusedWait, scanSource } from "./test-sources-scan.mjs";
 //   for a reason.
 // - test/generated-into-src: the app's Vite config writes a generated file (`dts`) into src, which the browser tests'
 //   frontend build reads, so a build is never kept for reuse.
-// No other comment excuses them.
+// No other comment excuses them. Like the data part, it reads none of what the app's ESLint config ignores outside server
+// source (lint-ignores.mjs), such as a vendored copy of old code kept beside the app, and lists what it skipped.
 
 const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features#test-source-rules";
 const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "coverage", "test-results", "playwright-report", "blob-report"]);
@@ -244,39 +246,53 @@ function checkViteConfig(file, contents, report) {
   }
 }
 
+// What the rules read a file as: a CI workflow, a package manifest's scripts, the root Vite config, a runner config or a
+// test file; null for a file they do not read.
+function kindOf(file) {
+  const name = path.posix.basename(file);
+  if (WORKFLOW.test(file)) return "workflow";
+  if (name === "package.json") return "scripts";
+  if (VITE_CONFIG.test(file)) return "vite";
+  if (RUNNER_CONFIG.test(name)) return "runner";
+  return isTestFile(file) ? "test" : null;
+}
+
 /**
  * @param {{ projectRoot: string }} input
- * @returns {Promise<{ ok: boolean, findings: Array<{ file: string, line: number, rule: string, message: string }>, files: number }>}
+ * @returns {Promise<{ ok: boolean, findings: Array<{ file: string, line: number, rule: string, message: string }>,
+ *   files: number, skipped: string[] }>} `skipped` the paths left out as the app's ESLint config ignores them.
  */
 async function checkTestSources({ projectRoot }) {
   const root = path.resolve(projectRoot);
   const findings = [];
   const report = (finding) => findings.push(finding);
+  const candidates = [...await listFiles(root), ...await listWorkflows(root)].filter(kindOf);
+  const { skipped, paths } = await lintSkipped(root, candidates);
   let testFiles = 0;
-  for (const file of [...await listFiles(root), ...await listWorkflows(root)]) {
-    const name = path.posix.basename(file);
-    const read = async () => readFile(path.join(root, file), "utf8");
-    if (WORKFLOW.test(file)) {
-      checkWorkflow(file, (await read()).split("\n"), report);
-    } else if (name === "package.json") {
-      checkScripts(root, file, await read(), report);
-    } else if (VITE_CONFIG.test(file)) {
-      checkViteConfig(file, await read(), report);
-    } else if (RUNNER_CONFIG.test(name)) {
-      checkDatabaseNames(file, (await read()).split("\n"), { configFile: true }, report);
-    } else if (isTestFile(file)) {
+  for (const file of candidates.filter((candidate) => !skipped.has(candidate))) {
+    const text = await readFile(path.join(root, file), "utf8");
+    const kind = kindOf(file);
+    if (kind === "workflow") {
+      checkWorkflow(file, text.split("\n"), report);
+    } else if (kind === "scripts") {
+      checkScripts(root, file, text, report);
+    } else if (kind === "vite") {
+      checkViteConfig(file, text, report);
+    } else if (kind === "runner") {
+      checkDatabaseNames(file, text.split("\n"), { configFile: true }, report);
+    } else {
       testFiles += 1;
-      const text = await read();
       checkFixedWaits(file, text, report);
       checkDatabaseNames(file, text.split("\n"), { configFile: false }, report);
     }
   }
   findings.sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line);
-  return { ok: findings.length < 1, findings, files: testFiles };
+  return { ok: findings.length < 1, findings, files: testFiles, skipped: paths };
 }
 
 function formatTestSourcesReport(result) {
   const lines = result.findings.flatMap(({ file, line, rule, message }) => [`${file}:${line}  ${rule}  ${message}`, `  ${GUIDE}`]);
+  lines.push(...formatSkipped(result.skipped));
   lines.push(result.ok
     ? "JSKIT test sources: no fixed waits, pinned test database names or generated files in src " +
       `(${result.files} test file(s) read).`

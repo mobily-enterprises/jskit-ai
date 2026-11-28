@@ -2180,5 +2180,7 @@ copy with the catalog.
   `src/jobs/` with it), `server/`, `scripts/`, `bin/` and `config/`.
 
 It reads none of what the app's ESLint config ignores outside server code,
-such as a vendored copy of old code kept beside the app, since no lint reads
-it either, and lists each directory and file it skipped.
+Vue components included, such as a vendored copy of old code kept beside the
+app, since no lint reads it either, and lists each directory and file it
+skipped; the [test-source rules](/guide/framework/typed-features#test-source-rules)
+skip the same.

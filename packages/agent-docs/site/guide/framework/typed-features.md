@@ -1433,6 +1433,16 @@ modules and names are checked by reading.
 scripts, its Playwright and Vitest configs, its CI workflows and its root
 Vite config, and reports what makes a test run slow, fragile or unsafe.
 
+Like the [data-access rules](/guide/framework/data-access#exceptions), it
+reads none of what the app's ESLint config ignores outside server code, such
+as a vendored copy of old code kept beside the app (`ignores: ["V1/**"]`), and
+lists each directory and file it skipped (`Skipped, as the app's ESLint config
+ignores them and they hold no server code`). Server code, which it reads even
+when the config ignores it, is the app's or a package's root files, `src/`,
+`server/`, `scripts/`, `bin/` and `config/`. A file type the config has no
+config for but does not ignore, such as a `.ts` spec in an app that lints only
+JavaScript, is read.
+
 | Rule | Reports | Fix |
 | --- | --- | --- |
 | `test/fixed-sleep` | in a test file, `page.waitForTimeout(…)`, a `new Promise` that resolves on `setTimeout(…, <ms>)`, or an awaited `setTimeout`, `sleep`, `delay`, `pause` (its own or an object's, such as `timers.setTimeout(…)`) or `wait` (its own or node's `scheduler.wait(…)`) of a number of milliseconds | wait for the condition: a web-first assertion (`await expect(locator).toBeVisible()`), `expect.poll()`, the event itself, or a fake clock (`mock.timers`, `vi.useFakeTimers()`, `page.clock`) |
