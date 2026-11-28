@@ -101,6 +101,12 @@ if(process.env.RELEASE_TEST_FAIL===args[0]){
   console.log(JSON.stringify({error:{code:process.env.RELEASE_TEST_CODE||'E503'}}));process.exit(1);
 }
 const registry=JSON.parse(fs.readFileSync(process.env.RELEASE_TEST_REGISTRY,'utf8'));
+// Every call reads the registry above without the upload lock, while uploads run at once: a write replaces the file
+// whole (a rename), so a reader never meets the empty file writeFileSync leaves while it writes.
+function saveRegistry(){
+  const next=process.env.RELEASE_TEST_REGISTRY+'.'+process.pid;
+  fs.writeFileSync(next,JSON.stringify(registry));fs.renameSync(next,process.env.RELEASE_TEST_REGISTRY);
+}
 // A registry call (a lookup, a download or an upload) takes this long, and its end is logged beside its start, so a
 // test can see how many ran at once.
 if(process.env.RELEASE_TEST_REGISTRY_DELAY_MS&&(args[0]==='view'||args[0]==='publish'||(args[0]==='pack'&&!args[1].startsWith('--')))){
@@ -155,7 +161,7 @@ if(args[0]==='view'){
   fs.copyFileSync(args[1],file);
   registry[metadata.name+'@'+metadata.version]={name:metadata.name,version:metadata.version,file,integrity:entry.integrity,tarball:'https://registry.fixture.invalid/'+encodeURIComponent(metadata.name+'@'+metadata.version)+'.tgz'};
   setTag(metadata.name,args.includes('--tag')?args[args.indexOf('--tag')+1]:'latest',metadata.version);
-  fs.writeFileSync(process.env.RELEASE_TEST_REGISTRY,JSON.stringify(registry));
+  saveRegistry();
   }
   }finally{fs.rmdirSync(lock);}
   if(failed)process.exit(1);
@@ -164,7 +170,7 @@ if(args[0]==='view'){
   const at=args[2].lastIndexOf('@');
   if(!registry[args[2]]){console.log(JSON.stringify({error:{code:'E404'}}));process.exit(1);}
   setTag(args[2].slice(0,at),args[3],args[2].slice(at+1));
-  fs.writeFileSync(process.env.RELEASE_TEST_REGISTRY,JSON.stringify(registry));
+  saveRegistry();
   console.log('+'+args[3]+': '+args[2]);
 }else if(args[0]==='install'){
   const lock={name:'release-fixture',lockfileVersion:3,packages:{}};
