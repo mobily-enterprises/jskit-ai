@@ -740,6 +740,7 @@ Local functions
 
 ### `server/actions/policies.js`
 Exports
+- `ensureActionAllowed(definition, context)`
 - `ensureActionChannelAllowed(definition, context)`
 - `ensureActionSurfaceAllowed(definition, context)`
 - `ensureActionPermissionAllowed(definition, context)`
@@ -805,10 +806,12 @@ Local functions
 ### `server/http/directRequestActionExecutor.js`
 Exports
 - `attachDirectRequestActionExecutor({ actions, request, defaultChannel = "api", defaultSurfaceId = "" })`
+- `authorizeRouteAction({ actions, request, actionId, defaultChannel = "api", defaultSurfaceId = "" })`
 - `type ActionCatalogue`
 Local functions
 - `resolveSurface(request, explicitSurface, defaultSurfaceId)`
 - `routeVisibility(request, payload)`
+- `requestActionContext(request, source, { defaultChannel, defaultSurfaceId })`
 
 ### `server/http/errorHandling.js`
 Exports
@@ -906,6 +909,7 @@ Local functions
 - `buildRequestInput(request, { inputTransforms, transportInputTransforms })`
 - `executeMiddlewareStack(middleware, request, reply, sending)`
 - `wrapReplySend({ reply, request, route, outputTransform, transport })`
+- `authorizesActionFirst(route)`
 
 ### `server/http/lib/routeSupport.js`
 Exports

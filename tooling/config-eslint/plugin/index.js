@@ -1,5 +1,6 @@
 import { actionCreator } from "./rules/actionCreator.js";
 import { actionExecuteShape } from "./rules/actionExecuteShape.js";
+import { routeActionId } from "./rules/routeActionId.js";
 import { allowCommentForm } from "./rules/allowCommentForm.js";
 import { appErrorCode } from "./rules/appErrorCode.js";
 import { collaboratorProps } from "./rules/collaboratorProps.js";
@@ -55,6 +56,7 @@ const jskitPlugin = Object.freeze({
     "no-dual-shape": noDualShape,
     "named-repeated-type": namedRepeatedType,
     "action-execute-shape": actionExecuteShape,
+    "route-action-id": routeActionId,
     "no-factory-spread": noFactorySpread,
     "frozen-factory-result": frozenFactoryResult,
     "no-optional-after-default": noOptionalAfterDefault,

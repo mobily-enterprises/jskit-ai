@@ -34,7 +34,7 @@ async function startPolicy({ hasPermission = () => true } = {}) {
     },
     async request(config) {
       const request = { method: "POST", raw: { url: "/api/console/action" }, headers: {}, params: {}, routeOptions: { config: { authPolicy: "required", ...config } } };
-      await state.preHandler(request, {});
+      await state.hooks.preValidation(request, {});
       return request;
     }
   };

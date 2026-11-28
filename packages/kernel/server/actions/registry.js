@@ -1,5 +1,7 @@
 import { ActionRuntimeError, toActionVersionKey } from "./actionDefinitions.js";
+import { normalizeExecutionContext } from "./executionContext.js";
 import { executeActionPipeline } from "./pipeline.js";
+import { ensureActionAllowed } from "./policies.js";
 
 /** @typedef {import("../types.js").ActionPolicy} ActionPolicy */
 /** @typedef {import("../types.js").RuntimeEvents} RuntimeEvents */
@@ -180,6 +182,14 @@ function createActionRegistry({
     });
   }
 
+  /**
+   * Refuses, as execute would before reading the input, a context the action refuses: its channel, surface and
+   * permission. It validates no input and runs nothing.
+   */
+  function authorize({ actionId, version, context }) {
+    ensureActionAllowed(resolveActionDefinition(index, actionId, version), normalizeExecutionContext(context));
+  }
+
   function listDefinitions() {
     return index.definitions.slice();
   }
@@ -191,6 +201,7 @@ function createActionRegistry({
   return Object.freeze({
     execute,
     executeStream,
+    authorize,
     listDefinitions,
     getDefinition
   });

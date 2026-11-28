@@ -12,6 +12,7 @@ function registerConsoleSettingsRoutes(router) {
     "/api/console/settings",
     {
       auth: "required",
+      actionId: "console.settings.read",
       surface: "console",
       meta: {
         tags: ["console", "settings"],
@@ -38,6 +39,7 @@ function registerConsoleSettingsRoutes(router) {
     "/api/console/settings",
     {
       auth: "required",
+      actionId: "console.settings.update",
       surface: "console",
       meta: {
         tags: ["console", "settings"],

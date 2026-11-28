@@ -33,6 +33,7 @@ function registerSecondFactorRoutes(router, { rateLimits }) {
     AUTH_PATHS.SECOND_FACTOR,
     {
       auth: "required",
+      actionId: ACTION_READ_SECOND_FACTOR,
       meta: { tags: ["auth"], summary: "Read the account's second factor and when this session proved it" },
       responses: withStandardErrorResponses({ 200: authSecondFactorReadCommand.operation.response })
     },
@@ -46,6 +47,7 @@ function registerSecondFactorRoutes(router, { rateLimits }) {
     AUTH_PATHS.SECOND_FACTOR_SETUP,
     {
       auth: "required",
+      actionId: ACTION_START_SECOND_FACTOR_SETUP,
       meta: { tags: ["auth"], summary: "Start setting up an authenticator app: its secret, shown once" },
       responses: withStandardErrorResponses({ 200: authSecondFactorSetupStartCommand.operation.response }),
       rateLimit: rateLimits.secondFactorSetup
@@ -60,6 +62,7 @@ function registerSecondFactorRoutes(router, { rateLimits }) {
     AUTH_PATHS.SECOND_FACTOR_SETUP_CONFIRM,
     {
       auth: "required",
+      actionId: ACTION_CONFIRM_SECOND_FACTOR_SETUP,
       meta: { tags: ["auth"], summary: "Confirm the authenticator with its first code: the recovery codes, shown once" },
       body: authSecondFactorSetupConfirmCommand.operation.body,
       responses: withStandardErrorResponses(
@@ -78,6 +81,7 @@ function registerSecondFactorRoutes(router, { rateLimits }) {
     AUTH_PATHS.SECOND_FACTOR_VERIFY,
     {
       auth: "required",
+      actionId: ACTION_VERIFY_SECOND_FACTOR,
       meta: { tags: ["auth"], summary: "Prove the second factor for this session with a code or a recovery code" },
       body: authSecondFactorVerifyCommand.operation.body,
       responses: withStandardErrorResponses(
@@ -96,6 +100,7 @@ function registerSecondFactorRoutes(router, { rateLimits }) {
     AUTH_PATHS.SECOND_FACTOR_RECOVERY_CODES,
     {
       auth: "required",
+      actionId: ACTION_REPLACE_SECOND_FACTOR_RECOVERY_CODES,
       meta: { tags: ["auth"], summary: "Replace the recovery codes, with a proof: the new codes, shown once" },
       body: authSecondFactorRecoveryCodesReplaceCommand.operation.body,
       responses: withStandardErrorResponses(
@@ -117,6 +122,7 @@ function registerSecondFactorRoutes(router, { rateLimits }) {
     AUTH_PATHS.SECOND_FACTOR,
     {
       auth: "required",
+      actionId: ACTION_REMOVE_SECOND_FACTOR,
       meta: { tags: ["auth"], summary: "Remove the authenticator, with a proof" },
       body: authSecondFactorRemoveCommand.operation.body,
       responses: withStandardErrorResponses(

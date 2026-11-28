@@ -863,6 +863,28 @@ for anything that reads or writes the domain.**
   exporting `register<Concern>Routes` when there are several.
 - One handler shape: a named async function that sends what
   `request.executeAction({ actionId: ACTION_X, input })` returns.
+- A route that runs one action names it in `actionId`, as an `actionRoute`
+  always does. On a route the auth policy signs in (`auth: "required"` or `"own"`), the kernel then checks that
+  action's channel, surface and permission before anything the request sends
+  is validated or read, so a caller the action refuses gets its 401 or 403,
+  never the field errors of the query, path or body: it checks them in the
+  context the route's `executeAction()` gives the action, with the route's
+  params as the input the context contributors read (a workspace route's
+  `workspaceSlug`). Never repeat the action's `permission` on the route to get
+  that order. A route whose handler gives its action a surface, channel or
+  context of its own (`executeAction({ surface })`, `{ context }`) names no
+  `actionId`, since the check before validation would not have them, nor does
+  one whose action finds its scope in the query or body, excused with
+  `readable-check: allow route-action-id - action scope: <where>`. A public
+  route's action is checked where its handler runs it. `jskit/route-action-id`
+  reports a route that runs one action and names none.
+- The auth policy signs the caller in before validation: a signed-out caller
+  of a route with `auth: "required"` or `"own"` gets 401
+  `auth.session.required`, whatever its query, path or body. A policy context
+  resolver and an `ownerResolver` read `request.params` as the request sent
+  them, before validation. An application hook that signs the caller in runs
+  before the policy: an `onRequest` hook, or a `preValidation` hook registered
+  before the policy's plugin loads; a `preHandler` hook runs after it.
 - A route that bypasses actions (a provider's callback) gets its own named
   registrar and reads with `await request.callOptions()`
   ([data access](/guide/framework/data-access#layer-1-the-table-resource)).
@@ -886,13 +908,16 @@ events are declared.
 
 ```js
 // good
-router.register("POST", "/api/invoices/:invoiceId/send", { auth: "required", meta: { summary: "Sends an invoice." } },
+router.register("POST", "/api/invoices/:invoiceId/send", { auth: "required", actionId: ACTION_SEND_INVOICE, meta: { summary: "Sends an invoice." } },
   async function sendInvoice(request, reply) {
     reply.code(200).send(await request.executeAction({ actionId: ACTION_SEND_INVOICE, input: request.input.params }));
   });
 
 // bad: the route reads storage itself
 router.register("GET", "/api/invoices", {}, async (request, reply) => reply.send(await invoices.queryAll({}, { context: request })));
+
+// bad: the action's permission repeated on the route, which still answers a caller without it with field errors
+router.register("POST", "/api/invoices/:invoiceId/notes", { auth: "required", permission: "invoices.write", body: noteBody }, addNote);
 ```
 
 ## Errors
@@ -1390,6 +1415,7 @@ Every finding ends with a link to the section of this page that explains it.
 | `jskit/named-repeated-type` | a `ReturnType<…>` or `X["y"]` JSDoc type written in two or more files of a package | [Capability types](#capability-types) |
 | `jskit/action-creator` | an action definition outside a `create<Name>Actions` creator, or a creator that takes its capabilities positionally | [Action creators](#action-creators) |
 | `jskit/action-execute-shape` | an `execute` that is not one arrow making one call: a body, `execute: helper(…)`, a built result | [One-line execute](#one-line-execute) |
+| `jskit/route-action-id` | a `router.register()` whose handler runs one action (`executeAction({ actionId })` without its own `surface`, `channel` or `context`) and whose options name no `actionId` | [Routes](#routes) |
 | `jskit/one-line-action` | `input = {}`, `input \|\| {}` or `input?.` in an action, an `async` `execute`, an unfrozen definition or list | [One-line execute](#one-line-execute) |
 | `jskit/no-idempotency` | an `idempotency` field on an action definition or its shared-field constant | [No idempotency](#no-idempotency) |
 | `jskit/no-optional-after-default` | `options?.` or a second `options \|\| {}` on a parameter that has a default | [Options and defaults](#options-and-defaults) |
@@ -1528,6 +1554,7 @@ if (typeof buildSerializer !== "function") {
 | `cross-repository slot <token>` | keeps a probe for a token another repository supplies |
 | `shared resource:` | keeps client module state that every instance on the page shares on purpose ([client features](/guide/framework/client-features#module-state)) |
 | `every row: <why>` | code needs every row a read answers and narrows them for its own use, such as a read the data itself keeps small (a conversation's few summaries) whose oldest ones it deletes (`jskit/narrow-in-query`) |
+| `action scope: <where>` | a route whose action finds its scope in the query or body, not the path, names no `actionId` (`jskit/route-action-id`) |
 | `infrastructure: <what the module is>` | excuses a whole file whose job is data access itself from `jskit/no-direct-knex` or `jskit/no-transaction-reader`, one line per rule before its first line of code ([data access](/guide/framework/data-access#exceptions)) |
 
 One kind of probe gets one prefix and one wording everywhere, and a bare

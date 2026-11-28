@@ -36,6 +36,7 @@ function registerAccountSecurityRoutes(router, { authService }) {
     "/api/settings/security/change-password",
     {
       auth: "required",
+      actionId: "settings.security.password.change",
       meta: {
         tags: ["settings"],
         summary: "Set or change authenticated user's password"
@@ -71,6 +72,7 @@ function registerAccountSecurityRoutes(router, { authService }) {
     "/api/settings/security/methods/password",
     {
       auth: "required",
+      actionId: "settings.security.password_method.toggle",
       meta: {
         tags: ["settings"],
         summary: "Enable or disable password sign-in method"
@@ -104,6 +106,7 @@ function registerAccountSecurityRoutes(router, { authService }) {
     "/api/settings/security/oauth/:provider/start",
     {
       auth: "required",
+      actionId: "settings.security.oauth.link.start",
       csrfProtection: false,
       meta: {
         tags: ["settings"],
@@ -146,6 +149,7 @@ function registerAccountSecurityRoutes(router, { authService }) {
     "/api/settings/security/oauth/:provider",
     {
       auth: "required",
+      actionId: "settings.security.oauth.unlink",
       meta: {
         tags: ["settings"],
         summary: "Unlink an OAuth provider from authenticated account"
@@ -180,6 +184,7 @@ function registerAccountSecurityRoutes(router, { authService }) {
     "/api/settings/security/logout-others",
     {
       auth: "required",
+      actionId: "settings.security.sessions.logout_others",
       meta: {
         tags: ["settings"],
         summary: "Sign out from other active sessions"

@@ -19,6 +19,7 @@ function registerEmailChangeRoutes(router, { rateLimits }) {
     AUTH_PATHS.EMAIL_CHANGE,
     {
       auth: "required",
+      actionId: ACTION_REQUEST_EMAIL_CHANGE,
       meta: { tags: ["auth"], summary: "Ask to change the signed-in account's email: a link goes to the new address" },
       body: authEmailChangeRequestCommand.operation.body,
       responses: withStandardErrorResponses(
@@ -37,6 +38,7 @@ function registerEmailChangeRoutes(router, { rateLimits }) {
     AUTH_PATHS.EMAIL_CHANGE_CONFIRM,
     {
       auth: "public",
+      actionId: ACTION_CONFIRM_EMAIL_CHANGE,
       meta: { tags: ["auth"], summary: "Confirm an email change with the link sent to the new address" },
       body: authEmailChangeConfirmCommand.operation.body,
       responses: withStandardErrorResponses(

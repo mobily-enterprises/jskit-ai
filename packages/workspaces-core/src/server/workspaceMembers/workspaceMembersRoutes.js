@@ -41,6 +41,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
     resolveWorkspaceRoutePath("/roles"),
     {
       auth: "required",
+      actionId: "workspace.roles.list",
       surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       contextPolicy: "required",
@@ -72,6 +73,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
     resolveWorkspaceRoutePath("/members"),
     {
       auth: "required",
+      actionId: "workspace.members.list",
       surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       contextPolicy: "required",
@@ -102,6 +104,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
     resolveWorkspaceRoutePath("/members/:memberUserId/role"),
     {
       auth: "required",
+      actionId: "workspace.member.role.update",
       surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       contextPolicy: "required",
@@ -137,6 +140,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
     resolveWorkspaceRoutePath("/members/:memberUserId"),
     {
       auth: "required",
+      actionId: "workspace.member.remove",
       surface: workspaceRouteSurfaceId,
       visibility: "workspace",
       contextPolicy: "required",
@@ -170,6 +174,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
       resolveWorkspaceRoutePath("/invites"),
       {
         auth: "required",
+        actionId: "workspace.invites.list",
         surface: workspaceRouteSurfaceId,
         visibility: "workspace",
         contextPolicy: "required",
@@ -200,6 +205,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
       resolveWorkspaceRoutePath("/invites"),
       {
         auth: "required",
+        actionId: "workspace.invite.create",
         surface: workspaceRouteSurfaceId,
         visibility: "workspace",
         contextPolicy: "required",
@@ -235,6 +241,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
       resolveWorkspaceRoutePath("/invites/:inviteId"),
       {
         auth: "required",
+        actionId: "workspace.invite.revoke",
         surface: workspaceRouteSurfaceId,
         visibility: "workspace",
         contextPolicy: "required",

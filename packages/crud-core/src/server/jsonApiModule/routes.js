@@ -184,6 +184,7 @@ function createCrudJsonApiRoutes({
     basePath,
     {
       ...routeBaseContract,
+      actionId: actionId("list"),
       meta: { tags: ["crud"], summary: "List records." },
       ...routeContracts.listRouteContract,
       ...paramsContract()
@@ -206,6 +207,7 @@ function createCrudJsonApiRoutes({
     `${basePath}/:recordId`,
     {
       ...routeBaseContract,
+      actionId: actionId("view"),
       meta: { tags: ["crud"], summary: "View a record." },
       ...routeContracts.viewRouteContract,
       ...paramsContract({ record: true })
@@ -228,6 +230,7 @@ function createCrudJsonApiRoutes({
     basePath,
     {
       ...routeBaseContract,
+      actionId: actionId("create"),
       meta: { tags: ["crud"], summary: "Create a record." },
       ...routeContracts.createRouteContract,
       ...paramsContract()
@@ -249,6 +252,7 @@ function createCrudJsonApiRoutes({
     `${basePath}/:recordId`,
     {
       ...routeBaseContract,
+      actionId: actionId("update"),
       meta: { tags: ["crud"], summary: "Update a record." },
       ...routeContracts.updateRouteContract,
       ...paramsContract({ record: true })
@@ -271,6 +275,7 @@ function createCrudJsonApiRoutes({
     `${basePath}/:recordId`,
     {
       ...routeBaseContract,
+      actionId: actionId("delete"),
       meta: { tags: ["crud"], summary: "Delete a record." },
       ...routeContracts.deleteRouteContract,
       ...paramsContract({ record: true })
@@ -304,6 +309,7 @@ function createCrudJsonApiRoutes({
       {
         ...customContract,
         ...routeBaseContract,
+        actionId: actionRoute.actionId,
         meta: {
           ...(customContract.meta || {}),
           tags: customContract.meta?.tags || ["crud"],

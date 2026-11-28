@@ -95,6 +95,19 @@ function ensureActionPermissionAllowed(definition, context) {
   }
 }
 
+/**
+ * Refuses a caller the action refuses whatever its input: its channel, its surface, then its permission, each checked
+ * in the execution context. The pipeline checks them before it validates the input, and a route that names its action
+ * before it validates or reads anything the request sends.
+ * @param {import("../types.js").ActionDefinition} definition
+ * @param {ReturnType<typeof import("./executionContext.js").normalizeExecutionContext>} context
+ */
+function ensureActionAllowed(definition, context) {
+  ensureActionChannelAllowed(definition, context);
+  ensureActionSurfaceAllowed(definition, context);
+  ensureActionPermissionAllowed(definition, context);
+}
+
 function hasFieldErrors(error) {
   return isRecord(error?.fieldErrors) || isRecord(error?.details?.fieldErrors);
 }
@@ -161,6 +174,7 @@ async function normalizeActionOutput(definition, output) {
 }
 
 export {
+  ensureActionAllowed,
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
   ensureActionPermissionAllowed,

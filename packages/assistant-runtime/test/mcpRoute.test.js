@@ -44,7 +44,7 @@ async function mcpApp(t, { appConfig = config, signedIn = true, moreActions = []
   if (signedIn) {
     actions.registerContextContributor({ id: "test.actor", contribute: () => ({ actor: { id: "3" } }) });
     // Where auth-core's plugin puts the user a service key acts as.
-    app.addHook("preHandler", async (request) => {
+    app.addHook("preValidation", async (request) => {
       request.user = { id: "3", providerUserId: "3" };
     });
   }

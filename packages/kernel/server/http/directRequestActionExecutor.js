@@ -23,6 +23,46 @@ function routeVisibility(request, payload) {
 }
 
 /**
+ * The context an action of this request starts from, before the context contributors add theirs.
+ * @param {any} request
+ * @param {Record<string, any>} source The executeAction payload, or nothing for the route's own action.
+ * @param {{ defaultChannel: string, defaultSurfaceId: string }} defaults
+ */
+function requestActionContext(request, source, { defaultChannel, defaultSurfaceId }) {
+  return Object.freeze({
+    ...normalizeObject(source.context),
+    channel: normalizeLowerText(source.channel) || defaultChannel,
+    surface: resolveSurface(request, source.surface, defaultSurfaceId),
+    routeVisibility: routeVisibility(request, source),
+    requestMeta: Object.freeze({
+      ...normalizeObject(source.context?.requestMeta),
+      request
+    })
+  });
+}
+
+/**
+ * Refuses a request the action its route names would refuse, before the route validates or reads anything the
+ * request sends (its query, path, body or a file): the action's channel, surface and permission, checked in the
+ * context the route's `executeAction()` gives it, with the route's params as the input context contributors read (a
+ * workspace route's `workspaceSlug`). It validates no input and runs nothing; the action checks the same again when
+ * the route runs it.
+ * @param {object} options
+ * @param {ActionCatalogue} options.actions
+ * @param {any} options.request
+ * @param {string} options.actionId
+ * @param {string} [options.defaultChannel]
+ * @param {string} [options.defaultSurfaceId]
+ */
+async function authorizeRouteAction({ actions, request, actionId, defaultChannel = "api", defaultSurfaceId = "" }) {
+  await actions.authorize({
+    actionId,
+    input: normalizeObject(request.params),
+    context: requestActionContext(request, {}, { defaultChannel, defaultSurfaceId })
+  });
+}
+
+/**
  * Gives a route's request `executeAction(payload)`, which runs an action in the request's context, and
  * `callOptions({ input })`, the call options `{ context }` the same request's action would get, for a route that
  * reads or writes its own tables without one: the same context contributors resolve its user, workspace and
@@ -44,17 +84,7 @@ function attachDirectRequestActionExecutor({
     return null;
   }
 
-  // The context an action of this request starts from, before the context contributors add theirs.
-  const requestContext = (source) => Object.freeze({
-    ...normalizeObject(source.context),
-    channel: normalizeLowerText(source.channel) || defaultChannel,
-    surface: resolveSurface(request, source.surface, defaultSurfaceId),
-    routeVisibility: routeVisibility(request, source),
-    requestMeta: Object.freeze({
-      ...normalizeObject(source.context?.requestMeta),
-      request
-    })
-  });
+  const requestContext = (source) => requestActionContext(request, source, { defaultChannel, defaultSurfaceId });
 
   const executeAction = async (payload = {}) => {
     const source = normalizeObject(payload);
@@ -92,4 +122,4 @@ function attachDirectRequestActionExecutor({
   return executeAction;
 }
 
-export { attachDirectRequestActionExecutor };
+export { attachDirectRequestActionExecutor, authorizeRouteAction };

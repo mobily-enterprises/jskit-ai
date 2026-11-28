@@ -401,6 +401,13 @@ Exports
 Local functions
 - `positionalCollaboratorDefaults(fn, visitorKeys)`
 
+### `plugin/rules/routeActionId.js`
+Exports
+- `routeActionId`
+Local functions
+- `isRouterRegister(callee)`
+- `handlerActions(handler, sourceCode)`
+
 ### `plugin/rules/searchOnServer.js`
 Exports
 - `searchOnServer`

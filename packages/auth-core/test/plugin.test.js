@@ -103,7 +103,7 @@ test("resolves csrf token headers and skips auth for non-api/public routes", asy
   );
 
   await registerPlugin(fastify);
-  assert.ok(state.preHandler);
+  assert.ok(state.hooks.preValidation);
   assert.ok(state.csrfOptions);
   const getToken = state.csrfOptions.getToken;
   assert.equal(getToken({ headers: { "csrf-token": "a" } }), "a");
@@ -111,8 +111,8 @@ test("resolves csrf token headers and skips auth for non-api/public routes", asy
   assert.equal(getToken({ headers: { "x-xsrf-token": "c" } }), "c");
   assert.equal(getToken({ headers: {} }), null);
 
-  await state.preHandler({ method: "GET", raw: { url: "/health" }, routeOptions: {} }, {});
-  await state.preHandler(
+  await state.hooks.preValidation({ method: "GET", raw: { url: "/health" }, routeOptions: {} }, {});
+  await state.hooks.preValidation(
     {
       method: "GET",
       raw: { url: "/api/public" },
@@ -150,7 +150,7 @@ test("propagates csrf callback error", async () => {
   await registerPlugin(fastify);
   await assert.rejects(
     () =>
-      state.preHandler(
+      state.hooks.preValidation(
         {
           method: "POST",
           raw: { url: "/api/public-action" },
@@ -200,7 +200,7 @@ test("enforces own policy owner checks and invalid policy guard", async () => {
 
   await assert.rejects(
     () =>
-      state.preHandler(
+      state.hooks.preValidation(
         {
           method: "GET",
           raw: { url: "/api/own-a" },
@@ -222,7 +222,7 @@ test("enforces own policy owner checks and invalid policy guard", async () => {
 
   await assert.rejects(
     () =>
-      state.preHandler(
+      state.hooks.preValidation(
         {
           method: "GET",
           raw: { url: "/api/own-b" },
@@ -243,7 +243,7 @@ test("enforces own policy owner checks and invalid policy guard", async () => {
 
   await assert.rejects(
     () =>
-      state.preHandler(
+      state.hooks.preValidation(
         {
           method: "GET",
           raw: { url: "/api/bad-policy" },
@@ -300,7 +300,7 @@ test("enforces permission checks and resolves workspace context when requested",
   await registerPlugin(fastify);
   await assert.rejects(
     () =>
-      state.preHandler(
+      state.hooks.preValidation(
         {
           method: "GET",
           raw: { url: "/api/workspace/projects" },
@@ -334,7 +334,7 @@ test("each policy refusal carries its own code next to the English", async () =>
 
   async function refusal(config, params = {}) {
     try {
-      await state.preHandler({ method: "GET", raw: { url: "/api/x" }, headers: {}, params, routeOptions: { config } }, {});
+      await state.hooks.preValidation({ method: "GET", raw: { url: "/api/x" }, headers: {}, params, routeOptions: { config } }, {});
     } catch (error) {
       return { status: error.statusCode, message: error.message, code: error.code };
     }

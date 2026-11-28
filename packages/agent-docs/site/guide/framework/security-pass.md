@@ -132,8 +132,10 @@ a JSKIT app. The rules it applies are already in [Typed features](/guide/framewo
   workspace has), another workspace's record id
   and `workspaceId` in the body (refused, or answered in the caller's own
   workspace), a write without `csrf-token`, and one request past each
-  `rateLimit` (429). A body that does not validate, sent without a session,
-  must get the refusal, not field errors.
+  `rateLimit` (429). A query, path or body that does not validate, sent
+  without a session or by a member without the permission of the route's
+  action, must get the refusal, not field errors
+  ([Routes](/guide/framework/typed-features#routes)).
 - Staging and production settings: start the server with `APP_ENV=staging`, `NODE_ENV=production` and the
   test database, and check that it stops without `AUTH_LOCAL_SESSION_SECRET`,
   that registering asks for the setup code, and the response headers.

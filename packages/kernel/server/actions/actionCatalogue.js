@@ -145,6 +145,20 @@ function createActionCatalogue({ events = createEventRuntime(), logger = silentL
     return run("execute", payload);
   }
 
+  /**
+   * Refuses work the action would refuse before reading its input: its channel, surface and permission, checked in
+   * the context it would run in, with every context contributor's additions for this input. It validates no input and
+   * runs nothing, so a route checks its action this way before it validates what the request sends; the action
+   * checks the same again when it runs.
+   * @param {{ actionId: string, version?: number | null, input?: Record<string, unknown>, context?: Record<string, unknown> }} payload
+   */
+  async function authorize(payload) {
+    const version = payload.version == null ? null : payload.version;
+    const input = isRecord(payload.input) ? payload.input : {};
+    const context = await buildExecutionContext({ actionId: payload.actionId, version, input, context: payload.context });
+    currentRegistry().authorize({ actionId: payload.actionId, version, context });
+  }
+
   function executeStream(payload) {
     return run("executeStream", payload);
   }
@@ -162,6 +176,7 @@ function createActionCatalogue({ events = createEventRuntime(), logger = silentL
     registerContextContributor,
     execute,
     executeStream,
+    authorize,
     contextFor,
     listDefinitions,
     getDefinition

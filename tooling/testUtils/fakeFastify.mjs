@@ -6,14 +6,14 @@ function passCsrfProtection(_request, _reply, done) {
 /**
  * A Fastify stand-in for policy plugin tests. It records the plugins
  * registered (and the CSRF plugin's options), the request decorators and the
- * preHandler hook, and runs csrfProtection through `csrfHandler`.
+ * hooks by name, and runs csrfProtection through `csrfHandler`.
  * @param {object} [options]
  * @param {(request: unknown, reply: unknown, done: (error?: Error) => void) => void} [options.csrfHandler]
  */
 function createFakeFastifyPolicyRuntime({ csrfHandler = passCsrfProtection } = {}) {
   const state = {
     csrfOptions: null,
-    preHandler: null,
+    hooks: {},
     registeredPlugins: [],
     requestDecorators: new Set()
   };
@@ -34,9 +34,7 @@ function createFakeFastifyPolicyRuntime({ csrfHandler = passCsrfProtection } = {
       state.requestDecorators.add(name);
     },
     addHook(name, handler) {
-      if (name === "preHandler") {
-        state.preHandler = handler;
-      }
+      state.hooks[name] = handler;
     },
     csrfProtection(request, reply, done) {
       csrfHandler(request, reply, done);

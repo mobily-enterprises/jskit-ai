@@ -5,7 +5,7 @@ import { applyRoutePolicy } from "../../support/routePolicyConfig.js";
 import { normalizeSurfaceId } from "../../../shared/surface/registry.js";
 import { registerJsonApiContentTypeParser } from "../errorHandling.js";
 import { RouteRegistrationError } from "./errors.js";
-import { attachDirectRequestActionExecutor } from "../directRequestActionExecutor.js";
+import { attachDirectRequestActionExecutor, authorizeRouteAction } from "../directRequestActionExecutor.js";
 import { resolveRouteLabel } from "./routeSupport.js";
 import { JSON_API_CONTENT_TYPE } from "./routeTransport.js";
 import { rateLimitRouteConfig } from "./routeRateLimits.js";
@@ -255,6 +255,17 @@ function wrapReplySend({ reply, request, route, outputTransform, transport }) {
 }
 
 /**
+ * Whether the route's action is authorized before the route validates or reads anything the request sends: a route
+ * that names its action and whose caller the auth policy signs in before validation (`auth` "required" or "own"). A
+ * public route's caller is identified, if at all, by the application's own hooks or route handler wrapper, so its
+ * action is authorized where the handler runs it, as it always is.
+ * @param {{ actionId: string, auth?: unknown }} route
+ */
+function authorizesActionFirst(route) {
+  return Boolean(route.actionId) && (route.auth === "required" || route.auth === "own");
+}
+
+/**
  * @param {RuntimeFastify} fastify
  * @param {object} options
  * @param {ReadonlyArray<any>} options.routes The router's routes, each with its handler.
@@ -274,6 +285,15 @@ function registerRoutes(fastify, { routes, actions }) {
 
     fastify.route({
       ...routeOptions,
+      // A signed-in route that names its action (`actionId`) refuses a caller that action refuses before anything the
+      // request sends is validated or read: Fastify validates the query and path after the preValidation hooks, and
+      // the handler builds the body input. A route's own hooks run after the application's, so the auth policy's
+      // preValidation hook has signed the caller in.
+      ...(authorizesActionFirst(route) ? {
+        preValidation: async (request) => {
+          await authorizeRouteAction({ actions, request, actionId: route.actionId, defaultSurfaceId: routeActionDefaultSurface });
+        }
+      } : {}),
       handler: /** @param {any} request Decorated with input and executeAction(). */ async (request, reply) => {
         attachDirectRequestActionExecutor({
           actions,

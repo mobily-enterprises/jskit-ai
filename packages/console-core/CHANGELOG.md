@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The console settings routes name the action they run (`actionId`), so the action's checks come before the route validates its body (#497).
 - `console_core_generic_initial-collation`, a migration Knex runs just before `console_core_generic_initial` (run `npm run db:migrate`): on MySQL and MariaDB it creates `console_settings`, where it does not exist yet, in the collation of the existing tables (`console_settings`, then `users`, then `auth_local_users`) rather than the database's default, and converts it when recorded in another collation and no character can be lost. It changes nothing where it matches.
 - console_settings declares its foreign key, owner_user_id to users (`foreignKeys`), so json-rest-api 3.1.0 can skip the visibility query a system-context read makes for a record such a key guarantees exists. `jskit test --databases` checks each against an app's test database. `usersForeignKeyMigration.test.js` proves it matches the migrations.
 - `console.settings` reads and writes its record with only the caller's context and transaction (`passedOn(options)`) and its own settings: a caller's `format`, `lockVersion` or `returning` no longer reaches its `get` and `patch`.
