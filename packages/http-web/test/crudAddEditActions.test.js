@@ -11,14 +11,15 @@ import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/plac
 import { useCrudAddEditScreen } from "../src/client/composables/useCrudAddEditScreen.js";
 
 const componentUrl = new URL("../src/client/components/CrudAddEditScreen.vue", import.meta.url).href;
-// The shell's app bar actions render in place as buttons; to, disabled and the click handler fall through to them.
+// The shell's app bar actions render in place as buttons; to, disabled and the click handler fall through to them, and
+// `data-close` says whether the action is the page's way out (`close`).
 // The form's conflict notice renders nothing here: these forms read no record.
 const SHELL_PAGE_ACTION_STUBS = {
   "/EditConflictNotice.vue": "export default { render: () => null };",
   "/ShellPageActions.vue":
     'import { defineComponent, h } from "vue"; export default defineComponent({ setup: (_props, { slots }) => () => h("div", {}, slots.default?.()) });',
   "/ShellPageAction.vue":
-    'import { defineComponent, h } from "vue"; export default defineComponent({ props: { label: [String, Object], icon: String, primary: Boolean }, setup: (props) => () => h("button", {}, String(props.label)) });'
+    'import { defineComponent, h } from "vue"; export default defineComponent({ props: { label: [String, Object], icon: String, primary: Boolean, close: Boolean }, setup: (props) => () => h("button", { "data-close": props.close }, String(props.label)) });'
 };
 const hooks = registerHooks({
   load(url, context, nextLoad) {
@@ -199,6 +200,12 @@ test("default form actions retain Cancel, Save, validation feedback, and keyboar
   assert.equal(calls[0].method, "POST");
   assert.deepEqual(calls[0].body, { title: "A book", author: "An author" });
   assert.equal(reports.at(-1).severity, "success");
+});
+
+test("where the bar has no Up arrow, the form's Cancel is the page's way out (`close`), which the bar never folds", async (t) => {
+  const { button } = await fixture(t);
+  assert.equal(button("Cancel").props["data-close"], true);
+  assert.equal(button("Save book").props["data-close"], false);
 });
 
 test("on a page with an Up arrow, the arrow is the form's close, which cancels, and the bar has no Cancel beside it", async (t) => {

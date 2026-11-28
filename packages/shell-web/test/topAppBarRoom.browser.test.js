@@ -16,6 +16,11 @@ const REVIEW = "/home/review?topRight=3&drawerWidth=material&account=Ana%20Ferre
 const NAME = "Ana Ferreira Lopes da Silva";
 // A title a medium bar keeps whole only once two of its three items have moved into More actions.
 const LONG_TITLE = "Quarterly statements for every supplier by site";
+// whs2's New Record page beside its register (28 Nov, 900x700): the standard drawer, open at 304px, leaves the bar
+// 596px, with no Up arrow, "Close new Document" as the page's way out, the primary "Submit Record" and whs2's six items
+// (its assistant, notifications, invites, admin cog, live updates and the account).
+const NEW_RECORD = `/home/review?new=Document&title=New%20Document&topRight=6&drawerWidth=304&account=${encodeURIComponent(NAME)}`;
+const WHS2_ITEMS = ["Assistant", "Notifications", "Invites", "Admin", "Live updates", "Account"];
 
 async function startFixture(t) {
   const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
@@ -112,6 +117,50 @@ test("beside an open drawer in a 900px window, the bar gives up the account's na
   await expect(page.getByTestId("fixture-account-name")).toHaveCount(0);
   const again = await settledBar(page, "900px again");
   assert.deepEqual({ ...again, labelChanges: 0 }, { ...narrow, labelChanges: 0 }, "900px again");
+});
+
+test("a page's way out never folds: beside its register in a 596px bar, Close stays whole in the bar and the bar's own items move into More actions instead", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 900, height: 700 } });
+  t.after(() => page.close());
+  await page.goto(NEW_RECORD);
+  await expect(page.getByTestId("jskit-shell-app-bar")).toHaveAttribute("data-size-class", "expanded");
+  await expect(page.getByTestId("jskit-shell-drawer")).toHaveAttribute("data-presentation", "drawer");
+  await expect(page.getByTestId("jskit-shell-drawer")).toHaveAttribute("data-drawer-width", "304");
+  await expect(page.getByTestId("jskit-shell-back")).toHaveCount(0);
+  await expect(page.getByTestId("fixture-review-submit")).toBeVisible();
+  const barWidth = await page.getByTestId("jskit-shell-app-bar").evaluate((element) => element.getBoundingClientRect().width);
+  assert.equal(Math.round(barWidth), 596, "the bar beside the open drawer");
+
+  // 0.2.124 kept Submit Record and every item it had room for, and folded Close new Document, the page's only way out.
+  const bar = await settledBar(page, "596px bar");
+  const at = `596px bar: ${JSON.stringify(bar)}`;
+  assert.deepEqual({
+    overflows: bar.overflows,
+    name: bar.name,
+    actionsInBar: bar.actionsInBar,
+    actionsClipped: bar.actionsClipped,
+    titleKeepsItsFloor: bar.titleBox >= Math.min(bar.wholeTitle, WIDE_TITLE_FLOOR) - 1
+  }, {
+    overflows: false,
+    name: null,
+    actionsInBar: ["Close new Document", "Submit Record"],
+    actionsClipped: [],
+    titleKeepsItsFloor: true
+  }, at);
+  await expect(page.getByTestId("fixture-review-close")).toBeInViewport({ ratio: 1 });
+  assert.ok(bar.itemsInMenu.length > 0, `${at}: an item of the bar's own gives way to Close`);
+  assert.deepEqual([...bar.itemsInMenu, ...bar.itemsInBar], WHS2_ITEMS, `${at}: the items farthest from the corner move first`);
+
+  // More actions holds the items that moved, and never Close.
+  await page.getByTestId("jskit-shell-page-actions-overflow").click();
+  await expect(page.getByTestId("jskit-shell-page-actions-overflow-items").getByRole("button", { name: bar.itemsInMenu[0], exact: true }))
+    .toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Close new Document" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
 });
 
 test("a medium bar folds its page actions, then moves its own items into More actions, farthest from the corner first, to keep its whole title", {

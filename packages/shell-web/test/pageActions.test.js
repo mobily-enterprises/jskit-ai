@@ -5,8 +5,8 @@ import { compileScript, compileTemplate, parse } from "@vue/compiler-sfc";
 import { computed, ref } from "vue";
 import { createShellPageActionsRegistry, resolveFoldedPageActions } from "../src/client/support/pageActions.js";
 
-function action(label, { primary = false, overflow = false } = {}) {
-  return { id: label, state: computed(() => ({ label, primary, overflow })), attrs: {}, activate() {}, anchor: null };
+function action(label, { primary = false, close = false, overflow = false } = {}) {
+  return { id: label, state: computed(() => ({ label, primary, close, overflow })), attrs: {}, activate() {}, anchor: null };
 }
 
 function menuLabels(registry) {
@@ -78,6 +78,30 @@ test("a wider bar folds its last actions that don't fit into the menu, in bar or
   registry.fold(0);
   isCompact.value = true;
   assert.deepEqual(menuLabels(registry), ["Edit", "Share", "Duplicate", "Archive"], "a compact bar keeps its own rule");
+});
+
+test("a page's way out (`close`), such as whs2's Close beside its register, never folds, at any width", () => {
+  const isCompact = ref(false);
+  const registry = createShellPageActionsRegistry({ isCompact });
+  const [close, edit, submit] = [
+    action("Close new Document", { close: true }),
+    action("Edit"),
+    action("Submit Record", { primary: true })
+  ];
+  [close, edit, submit].forEach((entry) => registry.register(entry));
+  assert.deepEqual(registry.foldable.value.map((entry) => entry.state.value.label), ["Edit"],
+    "the bar's fold counts Close with the primary action, as room it keeps");
+
+  registry.fold(3);
+  assert.deepEqual(menuLabels(registry), ["Edit"], "a bar with too little room folds every other action");
+  assert.equal(registry.inMenu(close), false);
+  assert.equal(registry.inMenu(submit), false);
+
+  registry.fold(0);
+  isCompact.value = true;
+  assert.deepEqual(menuLabels(registry), ["Edit"], "a compact bar keeps it beside the primary action");
+  assert.equal(registry.inMenu(close), false);
+  assert.equal(registry.hasPrimary.value, true);
 });
 
 test("a wider bar folds as few of its last actions as leave the rest and the overflow button beside the whole title", () => {

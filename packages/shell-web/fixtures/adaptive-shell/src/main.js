@@ -265,12 +265,24 @@ if (barLabel === "short" || barLabel === "long") {
 }
 
 // `?topRight=3` gives the top app bar three items of its own, as an app's tools, status and avatar; the status draws a
-// surface of its own on the page too.
-const statusPlacements = [
-  ["$settings", "Tools"],
-  ["$notifications", "Status", true],
-  ["$accountCircle", "Account"]
-].slice(0, Number(new URLSearchParams(window.location.search).get("topRight")) || 0).map(([icon, label, surface], index) => ({
+// surface of its own on the page too. `?topRight=6` gives it whs2's six: its assistant, notifications, invites, admin
+// cog, live updates and avatar.
+const topRightCount = Number(new URLSearchParams(window.location.search).get("topRight")) || 0;
+const topRightItems = topRightCount === 6
+  ? [
+      ["$smartToy", "Assistant"],
+      ["$notifications", "Notifications"],
+      ["$mail", "Invites"],
+      ["$settings", "Admin"],
+      ["$sync", "Live updates"],
+      ["$accountCircle", "Account"]
+    ]
+  : [
+      ["$settings", "Tools"],
+      ["$notifications", "Status", true],
+      ["$accountCircle", "Account"]
+    ].slice(0, topRightCount);
+const statusPlacements = topRightItems.map(([icon, label, surface], index) => ({
   id: `fixture.status.${index}`,
   target: "shell.status",
   kind: "component",
@@ -279,10 +291,11 @@ const statusPlacements = [
   order: 10 + index,
   props: { icon, label, surface: Boolean(surface) }
 }));
-// `?account=<name>` makes the third item the account, its name beside its avatar where the bar has room for it.
+// `?account=<name>` makes the last of three or six items the account, its name beside its avatar where the bar has room
+// for it.
 const accountName = new URLSearchParams(window.location.search).get("account");
-if (accountName && statusPlacements[2]) {
-  Object.assign(statusPlacements[2], { componentToken: "fixture.account-button", props: { name: accountName } });
+if (accountName && statusPlacements.length >= 3) {
+  Object.assign(statusPlacements.at(-1), { componentToken: "fixture.account-button", props: { name: accountName } });
 }
 
 const menuRenderers = Object.freeze({ link: "fixture.surface-menu-link" });
