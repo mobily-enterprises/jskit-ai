@@ -247,6 +247,10 @@ Exports
 Local functions
 - `commitLayout()`
 
+### `src/client/composables/useShellTopRightLabels.js`
+Exports
+- `useShellTopRightLabels()`
+
 ### `src/client/composables/useShellTopRightOverflow.js`
 Exports
 - `useShellTopRightOverflow({ enabled, placements, pageActions, row, headline, items, menuId })`
@@ -369,6 +373,7 @@ Exports
 - `useShellLayoutState`
 - `useShellPageTitle`
 - `useShellPageClose`
+- `useShellTopRightLabels`
 - `useShellWindowSizeClass`
 - `vPending`
 - `useShellNavigation`

@@ -37,6 +37,7 @@
     "./client/composables/useShellLayoutState": "./src/client/composables/useShellLayoutState.js",
     "./client/composables/useShellPageTitle": "./src/client/composables/useShellPageTitle.js",
     "./client/composables/useShellPageClose": "./src/client/composables/useShellPageClose.js",
+    "./client/composables/useShellTopRightLabels": "./src/client/composables/useShellTopRightLabels.js",
     "./client/composables/useShellWindowSizeClass": "./src/client/composables/useShellWindowSizeClass.js",
     "./client/directives/vPending": "./src/client/directives/vPending.js",
     "./client/ui": "./src/client/ui/index.js",
@@ -101,6 +102,7 @@
             "@jskit-ai/shell-web/client/composables/useShellLayoutState",
             "@jskit-ai/shell-web/client/composables/useShellPageClose",
             "@jskit-ai/shell-web/client/composables/useShellPageTitle",
+            "@jskit-ai/shell-web/client/composables/useShellTopRightLabels",
             "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass",
             "@jskit-ai/shell-web/client/directives/vPending",
             "@jskit-ai/shell-web/client/types"

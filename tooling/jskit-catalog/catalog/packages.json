@@ -2880,6 +2880,7 @@
                 "@jskit-ai/shell-web/client/composables/useShellLayoutState",
                 "@jskit-ai/shell-web/client/composables/useShellPageClose",
                 "@jskit-ai/shell-web/client/composables/useShellPageTitle",
+                "@jskit-ai/shell-web/client/composables/useShellTopRightLabels",
                 "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass",
                 "@jskit-ai/shell-web/client/directives/vPending",
                 "@jskit-ai/shell-web/client/types"
